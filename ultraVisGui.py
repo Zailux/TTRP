@@ -88,6 +88,7 @@ class UltraVisView(tk.Frame):
         self.lmain = tk.Label(self.imageFrame, width=490, height=378)
         self.lmain.grid(row=0, column=0, sticky=tk.NSEW)
         self.lmain.pack_propagate(0)
+
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
 
@@ -369,7 +370,6 @@ class UltraVisController:
         self.ser.xonxoff = False
 
         self.ser.open()
-
         self.root = tk.Tk()
         self.root.geometry(self.centerWindow(self.root, 850, 460))
 

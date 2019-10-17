@@ -1,14 +1,27 @@
+# -*- coding: latin-1 -*-
+from __future__ import print_function
+# from visual import *
 import tkinter as tk
+import time
 from cv2 import cv2
 from PIL import Image
 from PIL import ImageTk
+
+import matplotlib
+matplotlib.use('Tkagg')
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
-#Global Configuration
+
+
+global BUTTON_WIDTH
 BUTTON_WIDTH = 25
 
 class UltraVisView(tk.Frame):
+
+
     def __init__(self, master):
         tk.Frame.__init__(self, master)
 
@@ -36,6 +49,11 @@ class UltraVisView(tk.Frame):
         self.mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
     def buildLeftFrame(self):
+        #------------------------------------------#
+        #Contains the Ultraschall Screen using the Framegrabber
+        #------------------------------------------#
+
+
         self.upperFrameLeft = tk.Frame(self.leftFrame)
         self.lowerFrameLeft = tk.Frame(self.leftFrame)
 
@@ -55,6 +73,7 @@ class UltraVisView(tk.Frame):
         self.lmain = tk.Label(self.imageFrame, width=490, height=378)
         self.lmain.grid(row=0, column=0, sticky=tk.NSEW)
         self.lmain.pack_propagate(0)
+
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
 
@@ -64,20 +83,7 @@ class UltraVisView(tk.Frame):
         self.screenshotmain.grid(row=0, column=0, sticky=tk.NSEW)
         self.screenshotmain.pack_propagate(0)
 
-    def Capture_FrameGrabber(self):
-        _, frame = self.cap.read()
-        self.frame = cv2.flip(frame, 1)
-        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        imgtk = ImageTk.PhotoImage(image=img)
-        self.lmain.imgtk = imgtk
-        self.lmain.configure(image=imgtk)
-        self.lmain.after(10, self.Capture_FrameGrabber)
-
-        # Slider window (slider controls stage position)
-        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
-        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
-
+   
     def buildRightFrame(self):
         # self.rightFrame.rowconfigure(0, weight=1)
         # self.rightFrame.rowconfigure(1, weight=1)
@@ -104,80 +110,19 @@ class UltraVisView(tk.Frame):
         self.buttonSaveRefPosition = tk.Button(self.upperFrameRightLeft, text="Save Ref. Position", width=BUTTON_WIDTH)
         self.buttonSaveRefPosition.grid(row=3, column=0, pady=8)
 
-        # Bilder f�r x-Achse
-        self.x_links_orange = Image.open("x-links-orange.jpg")
-        self.x_links_orange = ImageTk.PhotoImage(self.x_links_orange)
-        self.x_links_rot = Image.open("x-links-rot.jpg")
-        self.x_links_rot = ImageTk.PhotoImage(self.x_links_rot)
-        self.x_rechts_orange = Image.open("x-rechts-orange.jpg")
-        self.x_rechts_orange = ImageTk.PhotoImage(self.x_rechts_orange)
-        self.x_rechts_rot = Image.open("x-rechts-rot.jpg")
-        self.x_rechts_rot = ImageTk.PhotoImage(self.x_rechts_rot)
-    
 
-        #Bilder f�r Rotation auf x-Achse
-        self.x_achse_kippen_links_orange = Image.open("x-achse-kippen-links-orange.jpg")
-        self.x_achse_kippen_links_orange = ImageTk.PhotoImage(self.x_achse_kippen_links_orange)
-        self.x_achse_kippen_links_rot = Image.open("x-achse-kippen-links-rot.jpg")
-        self.x_achse_kippen_links_rot = ImageTk.PhotoImage(self.x_achse_kippen_links_rot)
-        self.x_achse_kippen_rechts_orange = Image.open("x-achse-kippen-rechts-orange.jpg")
-        self.x_achse_kippen_rechts_orange = ImageTk.PhotoImage(self.x_achse_kippen_rechts_orange)
-        self.x_achse_kippen_rechts_rot = Image.open("x-achse-kippen-rechts-rot.jpg")
-        self.x_achse_kippen_rechts_rot = ImageTk.PhotoImage(self.x_achse_kippen_rechts_rot)
+        
 
-        #Bilder f�r y-Achse
-        self.y_vorne_orange = Image.open("y-vorne-orange.jpg")
-        self.y_vorne_orange = ImageTk.PhotoImage(self.y_vorne_orange)
-        self.y_vorne_rot = Image.open("y-vorne-rot.jpg")
-        self.y_vorne_rot = ImageTk.PhotoImage(self.y_vorne_rot)
-        self.y_hinten_orange = Image.open("y-hinten-orange.jpg")
-        self.y_hinten_orange = ImageTk.PhotoImage(self.y_hinten_orange)
-        self.y_hinten_rot = Image.open("y-hinten-rot.jpg")
-        self.y_hinten_rot = ImageTk.PhotoImage(self.y_hinten_rot)
+        self.initImages()
+        
+        self.buildCoordinatesystem()
 
-        # Bilder f�r Rotation auf y-Achse
-        self.y_achse_kippen_links_orange = Image.open("y-achse-kippen-links-orange.jpg")
-        self.y_achse_kippen_links_orange = ImageTk.PhotoImage(self.y_achse_kippen_links_orange)
-        self.y_achse_kippen_links_rot = Image.open("y-achse-kippen-links-rot.jpg")
-        self.y_achse_kippen_links_rot = ImageTk.PhotoImage(self.y_achse_kippen_links_rot)
-        self.y_achse_kippen_rechts_orange = Image.open("y-achse-kippen-rechts-orange.jpg")
-        self.y_achse_kippen_rechts_orange = ImageTk.PhotoImage(self.y_achse_kippen_rechts_orange)
-        self.y_achse_kippen_rechts_rot = Image.open("y-achse-kippen-rechts-rot.jpg")
-        self.y_achse_kippen_rechts_rot = ImageTk.PhotoImage(self.y_achse_kippen_rechts_rot)
+        
 
-        #Bilder f�r z-Achse
-        self.z_oben_orange = Image.open("z-oben-orange.jpg")
-        self.z_oben_orange = ImageTk.PhotoImage(self.z_oben_orange)
-        self.z_oben_rot = Image.open("z-oben-rot.jpg")
-        self.z_oben_rot = ImageTk.PhotoImage(self.z_oben_rot)
-        self.z_unten_orange = Image.open("z-unten-orange.jpg")
-        self.z_unten_orange = ImageTk.PhotoImage(self.z_unten_orange)
-        self.z_unten_rot = Image.open("z-unten-rot.jpg")
-        self.z_unten_rot = ImageTk.PhotoImage(self.z_unten_rot)
+        
 
-        # Bilder f�r Rotation auf z-Achse
-        self.z_achse_kippen_links_orange = Image.open("z-achse-kippen-links-orange.jpg")
-        self.z_achse_kippen_links_orange = ImageTk.PhotoImage(self.z_achse_kippen_links_orange)
-        self.z_achse_kippen_links_rot = Image.open("z-achse-kippen-links-rot.jpg")
-        self.z_achse_kippen_links_rot = ImageTk.PhotoImage(self.z_achse_kippen_links_rot)
-        self.z_achse_kippen_rechts_orange = Image.open("z-achse-kippen-rechts-orange.jpg")
-        self.z_achse_kippen_rechts_orange = ImageTk.PhotoImage(self.z_achse_kippen_rechts_orange)
-        self.z_achse_kippen_rechts_rot = Image.open("z-achse-kippen-rechts-rot.jpg")
-        self.z_achse_kippen_rechts_rot = ImageTk.PhotoImage(self.z_achse_kippen_rechts_rot)
 
-        # Bilder f�r Eigen-Rotation
-        self.self_rot_links_orange = Image.open("self-rot-links-orange.jpg")
-        self.self_rot_links_orange = ImageTk.PhotoImage(self.self_rot_links_orange)
-        self.self_rot_links_rot = Image.open("self-rot-links-rot.jpg")
-        self.self_rot_links_rot = ImageTk.PhotoImage(self.self_rot_links_rot)
-        self.self_rot_rechts_orange = Image.open("self-rot-rechts-orange.jpg")
-        self.self_rot_rechts_orange = ImageTk.PhotoImage(self.self_rot_rechts_orange)
-        self.self_rot_rechts_rot = Image.open("self-rot-rechts-rot.jpg")
-        self.self_rot_rechts_rot = ImageTk.PhotoImage(self.self_rot_rechts_rot)
-
-        # Bild als Ziel
-        self.ziel = Image.open("ziel.jpg")
-        self.ziel = ImageTk.PhotoImage(self.ziel)
+    def buildCoordinatesystem(self):
 
         # Frame f�r X-Achse
         self.x_achse = tk.Frame(self.upperFrameRightRight, width=25, height=25)
@@ -256,3 +201,103 @@ class UltraVisView(tk.Frame):
         #self.navigationCanvas.show()
         self.navigationCanvas.draw()
         self.navigationCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
+
+    def getTKImage(self,filename):
+        #Opens Image and translates it to TK compatible file.
+        filename = self.imgdir+filename
+        
+        try:
+            tkimage = Image.open(filename)  
+
+        except FileNotFoundError as err:
+            print("File was no found, Err Img replace\n"+err)
+            tkimage = self.notfoundimg    
+
+        finally:
+            return ImageTk.PhotoImage(tkimage)
+    
+
+    def initImages(self):
+
+        self.imgdir = "D:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP\\img\\"
+        self.notfoundimg = self.imgdir+"not-found-image.jpg"
+
+        # Bilder f�r x-Achse
+        self.x_links_orange = self.getTKImage("x-links-orange.jpg")
+        
+        self.x_links_rot = self.getTKImage("x-links-rot.jpg")
+        self.x_rechts_orange = self.getTKImage("x-rechts-orange.jpg")
+        self.x_rechts_rot = self.getTKImage("x-rechts-rot.jpg")
+    
+
+        #Bilder f�r Rotation auf x-Achse
+        self.x_achse_kippen_links_orange = self.getTKImage("x-achse-kippen-links-orange.jpg")
+        self.x_achse_kippen_links_rot = self.getTKImage("x-achse-kippen-links-rot.jpg")
+        self.x_achse_kippen_rechts_orange = self.getTKImage("x-achse-kippen-rechts-orange.jpg")
+        self.x_achse_kippen_rechts_rot = self.getTKImage("x-achse-kippen-rechts-rot.jpg")
+
+        #Bilder f�r y-Achse
+        self.y_vorne_orange = self.getTKImage("y-vorne-orange.jpg")
+        self.y_vorne_rot = self.getTKImage("y-vorne-rot.jpg")
+        self.y_hinten_orange = self.getTKImage("y-hinten-orange.jpg")
+        self.y_hinten_rot = self.getTKImage("y-hinten-rot.jpg")
+
+        # Bilder f�r Rotation auf y-Achse
+        self.y_achse_kippen_links_orange = self.getTKImage("y-achse-kippen-links-orange.jpg")
+        self.y_achse_kippen_links_rot = self.getTKImage("y-achse-kippen-links-rot.jpg")
+        self.y_achse_kippen_rechts_orange = self.getTKImage("y-achse-kippen-rechts-orange.jpg")
+        self.y_achse_kippen_rechts_rot = self.getTKImage("y-achse-kippen-rechts-rot.jpg")
+
+        #Bilder f�r z-Achse
+        self.z_oben_orange = self.getTKImage("z-oben-orange.jpg")
+        self.z_oben_rot = self.getTKImage("z-oben-rot.jpg")
+        self.z_unten_orange = self.getTKImage("z-unten-orange.jpg")
+        self.z_unten_rot = self.getTKImage("z-unten-rot.jpg")
+
+        # Bilder f�r Rotation auf z-Achse
+        self.z_achse_kippen_links_orange = self.getTKImage("z-achse-kippen-links-orange.jpg")
+        self.z_achse_kippen_links_rot = self.getTKImage("z-achse-kippen-links-rot.jpg")
+        self.z_achse_kippen_rechts_orange = self.getTKImage("z-achse-kippen-rechts-orange.jpg")
+        self.z_achse_kippen_rechts_rot = self.getTKImage("z-achse-kippen-rechts-rot.jpg")
+
+        # Bilder f�r Eigen-Rotation
+        self.self_rot_links_orange = self.getTKImage("self-rot-links-orange.jpg")
+        self.self_rot_links_rot = self.getTKImage("self-rot-links-rot.jpg")
+        self.self_rot_rechts_orange = self.getTKImage("self-rot-rechts-orange.jpg")
+        self.self_rot_rechts_rot = self.getTKImage("self-rot-rechts-rot.jpg")
+
+        # Bild als Ziel
+        self.ziel = self.getTKImage("ziel.jpg")
+
+
+    def centerWindow(self, toplevel, width, height):
+
+        toplevel.update_idletasks()
+        w = toplevel.winfo_screenwidth()
+        h = toplevel.winfo_screenheight()
+        size = (width, height)
+        x = w / 2 - size[0] / 2
+        y = h / 2 - size[1] / 2
+        return ("%dx%d+%d+%d" % (size + (x, y)))
+
+
+
+    def Capture_FrameGrabber(self):
+        _isFirstCapture = True
+        _, frame = self.cap.read()
+        if frame is None and _isFirstCapture: 
+            print("Empty Frame - No Device was found")
+            self.lmain["text"] = "EMPTY FRAME \n No Device was found"
+            return
+
+        self.frame = cv2.flip(frame, 1)
+        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+        img = Image.fromarray(cv2image)
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.lmain.imgtk = imgtk
+        self.lmain.configure(image=imgtk)
+        self.lmain.after(10, self.Capture_FrameGrabber)
+
+        # Slider window (slider controls stage position)
+        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
+        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
