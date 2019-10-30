@@ -19,8 +19,7 @@ class UltraVisModel:
         self.ser.bytesize = serial.EIGHTBITS
         self.ser.stopbits = serial.STOPBITS_ONE
         self.ser.xonxoff = False
-        
-        #self.ser.timeout = serial.Timeout(1)
+        self.ser.timeout = 1
         return self.ser
 
 

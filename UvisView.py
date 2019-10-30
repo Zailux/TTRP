@@ -43,6 +43,7 @@ class UltraVisView(tk.Frame):
         self.leftFrame.grid(row=0, column=0, pady=8, padx=8, sticky=tk.NSEW)
         self.rightFrame.grid(row=0, column=1, pady=8, padx=8, sticky=tk.NSEW)
 
+        self.initImages()
         self.buildLeftFrame()
         self.buildRightFrame()
 
@@ -110,10 +111,8 @@ class UltraVisView(tk.Frame):
         self.buttonSaveRefPosition = tk.Button(self.upperFrameRightLeft, text="Save Ref. Position", width=BUTTON_WIDTH)
         self.buttonSaveRefPosition.grid(row=3, column=0, pady=8)
 
-
+    
         
-
-        self.initImages()
         
         self.buildCoordinatesystem()
 
@@ -202,19 +201,6 @@ class UltraVisView(tk.Frame):
         self.navigationCanvas.draw()
         self.navigationCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
 
-    def getTKImage(self,filename):
-        #Opens Image and translates it to TK compatible file.
-        filename = self.imgdir+filename
-        
-        try:
-            tkimage = Image.open(filename)  
-
-        except FileNotFoundError as err:
-            print("File was no found, Err Img replace\n"+err)
-            tkimage = self.notfoundimg    
-
-        finally:
-            return ImageTk.PhotoImage(tkimage)
     
 
     def initImages(self):
@@ -224,7 +210,6 @@ class UltraVisView(tk.Frame):
 
         # Bilder f�r x-Achse
         self.x_links_orange = self.getTKImage("x-links-orange.jpg")
-        
         self.x_links_rot = self.getTKImage("x-links-rot.jpg")
         self.x_rechts_orange = self.getTKImage("x-rechts-orange.jpg")
         self.x_rechts_rot = self.getTKImage("x-rechts-rot.jpg")
@@ -269,22 +254,24 @@ class UltraVisView(tk.Frame):
         # Bild als Ziel
         self.ziel = self.getTKImage("ziel.jpg")
 
+    def getTKImage(self,filename):
+        #Opens Image and translates it to TK compatible file.
+        filename = self.imgdir+filename
+        
+        try:
+            tkimage = Image.open(filename)  
 
-    def centerWindow(self, toplevel, width, height):
+        except FileNotFoundError as err:
+            print("File was no found, Err Img replace\n"+err)
+            tkimage = self.notfoundimg    
 
-        toplevel.update_idletasks()
-        w = toplevel.winfo_screenwidth()
-        h = toplevel.winfo_screenheight()
-        size = (width, height)
-        x = w / 2 - size[0] / 2
-        y = h / 2 - size[1] / 2
-        return ("%dx%d+%d+%d" % (size + (x, y)))
-
-
+        finally:
+            return ImageTk.PhotoImage(tkimage)
 
     def Capture_FrameGrabber(self):
         _isFirstCapture = True
         _, frame = self.cap.read()
+
         if frame is None and _isFirstCapture: 
             print("Empty Frame - No Device was found")
             self.lmain["text"] = "EMPTY FRAME \n No Device was found"
@@ -301,3 +288,14 @@ class UltraVisView(tk.Frame):
         # Slider window (slider controls stage position)
         # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
         # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
+
+    def centerWindow(self, toplevel, width, height):
+
+        toplevel.update_idletasks()
+        w = toplevel.winfo_screenwidth()
+        h = toplevel.winfo_screenheight()
+        size = (width, height)
+        x = w / 2 - size[0] / 2
+        y = h / 2 - size[1] / 2
+        return ("%dx%d+%d+%d" % (size + (x, y)))
+
