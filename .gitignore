@@ -2,5 +2,5 @@
 *.pyc
 *.ini
 test_*.py
-doc/Uvis_19+20/Treiber & Guides/Aurora/NDI_ToolBox_5-002-022(Windows_64-bit).exe
+*NDI_ToolBox_5-002-022(Windows_64-bit).exe
 __pycache__/
