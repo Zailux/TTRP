@@ -1,5 +1,5 @@
-from UvisModel import UltraVisModel
-from UvisView import UltraVisView
+#from UvisModel import UltraVisModel
+#from UvisView import UltraVisView
 from AuroraAPI import Aurora, Handle, HandleFactory
 import threading
 import tkinter as tk
@@ -62,15 +62,20 @@ class Uvisproto(tk.Frame):
 
         self.master.geometry("700x500")
 
-        self.model = UltraVisModel()
+       # self.model = UltraVisModel()
         
         
 
        
     def initAurora(self,ser):
-        self.aua = Aurora(ser)
-        self.aua.reset
-        self.aua.init
+        try:
+            self.aua = Aurora(ser)
+            self.aua.reset
+            self.aua.init
+        except serial.SerialException as e:
+            print(str(e))
+            return
+        
         
 
 
@@ -160,7 +165,8 @@ class Uvisproto(tk.Frame):
 
     def startstopTracking(self):
         if (self.aua.sysmode=='SETUP'):
-            thread.start_new(self.aua.tstart, ())
+            pass
+            #thread.start_new(self.aua.tstart, ())
         else:
             self.aua.tstop
 

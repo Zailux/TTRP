@@ -210,6 +210,7 @@ class Handle:
                 
         self.ID = ID
         self.state = state
+        self.refname = "Strenum bspw."
        
 
     def setVal(self):

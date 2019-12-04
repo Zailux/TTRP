@@ -1,0 +1,3 @@
+https://support.ndigital.com/downloads.php?filetypebrowse=software
+
+Die NDI Toolbox ist 200 MB groß und kann deswegen nicht in Github zur Verfügung gestellt werden.

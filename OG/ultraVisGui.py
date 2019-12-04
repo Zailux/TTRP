@@ -463,7 +463,7 @@ class UltraVisController:
         print("All allocated Ports")
         self.ser.write(b'PHSR 00\r')
         time.sleep(1)
-        reply = self.readSerial_Return()thread
+        reply = self.readSerial_Return()
         print("Reply is:")
         print(reply)
 
