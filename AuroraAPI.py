@@ -1,14 +1,19 @@
 import serial
 import time
-from functools import singledispatch
-#eventually checkout singledispatchmethod Python 3.8+
+import threading
 
 
 class Aurora:
 
-    def __init__(self, ser):
+    def __init__(self, ser, threaded=False, num_tries=3):
         #Aurora System relevant Attributes
-
+        if threaded:
+            self.lock = threading.Lock()
+        else:
+            self.lock = False
+        
+        self.readsleep = 0
+        
         self.sysmode =''
         #validate Serial Objecttype and open Serialport
         try: 
@@ -27,7 +32,8 @@ class Aurora:
 
 
     #Debug & Additional Methods
-    def writeCMD(self,cmd):
+    #Commands & Parameters are not case sensitive
+    def writeCMD(self,cmd,expect=False):
         #Validate input
         try: 
             if (type(cmd) is not str):
@@ -41,8 +47,8 @@ class Aurora:
             print(str(e))
             return
 
-        #Format input string and removes trailing Space
-        cmd = cmd.rstrip().upper()
+        #Removes trailing Space
+        cmd = cmd.rstrip()
 
         #adds SPACE if no parameter
         if (cmd.find(' ') == -1):
@@ -56,45 +62,49 @@ class Aurora:
         
         #Executes the given command and reads it
         self.ser.write(cmd)
-        time.sleep(1)
-        self.readSerial()
+        if (expect != False):        
+            self.readSerial(expected=expect)
+        else:
+            self.readSerial()
 
+    
 
 
     #NDI Aurora Methods  
 
     def apirev(self):
         self.ser.write( b'APIREV \r')
-        time.sleep(1)
         return self.readSerial()
 
     def beep(self, num):
-        try: 
+        try:
+            
             num = int(num)
             if (not (0 < num < 10)): 
                 raise ValueError("Invalid Parametervalue: Please choose a value between 1-9")  
             cmd ='BEEP '+str(num)+'\r'
             self.ser.write(cmd.encode())
-            time.sleep(1)
+            #time.sleep(1)
             self.readSerial()
+            
 
         except ValueError as e:
             print (str(e)) 
 
+        finally:
+            self.lock.release()
+
     
     def init(self):
-        try: 
-            self.reset()
-            self.ser.write( b'INIT \r')
-            time.sleep(1)
-            self.readSerial()
-        except Exception as e:
-            print("FATAL ERROR INIT: " + str(e))
-      
+        self.ser.write(b'INIT \r')
+        self.readSerial()
+        
+
+    def get(self, attr=None):
+        return
 
     def reset(self):
-        self.ser.write( b'RESET \r')
-        time.sleep(1)
+        self.ser.write(b'RESET \r')
         self.readSerial()
 
     def pinit(self,handle):
@@ -103,11 +113,11 @@ class Aurora:
                 raise TypeError('Invalid Object of type:'+ type(handle)+". Please use a correct Aurora.Handle Object.")
 
         cmd = 'PINIT '+handle.ID+'\r'
-        print("Initialisiere Handle " + handle.ID)
+        print("Initialize Handle " + handle.ID)
 
         #Könnte Fehler werfen??
         self.ser.write(cmd.encode())
-        time.sleep(2)
+        time.sleep(0.6)
         self.readSerial()
 
     def pena(self,handle,mode):
@@ -118,12 +128,14 @@ class Aurora:
             raise TypeError('Invalid Object of type:'+ type(handle)+". Please use a correct Handle Object.")
 
         cmd = 'PENA '+handle.ID+mode.upper()+'\r'
-        print("Activates Handle" + handle.ID+" using mode:"+mode+".")
+        print("Activates Handle " + handle.ID+" using mode:\""+mode+"\"")
 
         #Könnte Fehler werfen??
         self.ser.write(cmd.encode())
-        time.sleep(2)
         self.readSerial()
+
+    def pdis(self, option=None):
+        return
 
     def phsr(self, option=0):
         
@@ -134,13 +146,15 @@ class Aurora:
         cmd ='PHSR 0'+str(option)+'\r'
         
         self.ser.write(cmd.encode())
-        time.sleep(1)
         phsr_string = self.readSerial().decode()
 
+        if (phsr_string.startswith("ERROR")):
+            raise Warning("PHSR was unsuccessful. Please initialize the System properly.")
+        
         return phsr_string
 
 
-    def tstart(self, option=None):
+    def sflist(self, option=None):
         option = int(option)
 
         if (option!=None):
@@ -154,21 +168,118 @@ class Aurora:
         time.sleep(1)
         self.readSerial()
 
+
+    def tstart(self,option=None):
+
+        if (option==None):
+            cmd = b'TSTART \r'
+        else:
+            option = int(option)
+            if ((option!=40 or option!=80)): 
+                raise ValueError("Invalid Parameter: Please choose value 40 or 80")           
+            cmd = b'TSTART '+str(option)+'\r'
+
+        self.ser.write(cmd)
+        time.sleep(1.8)
+        self.readSerial()
+
     def tstop(self):
         self.ser.write( b'TSTOP \r')
-        time.sleep(1)
+        time.sleep(0.5)
+        self.readSerial()
+
+    def tx(self):
+        self.ser.write( b'TX \r')
         self.readSerial()
 
 
+    #NDI Aurora Ergänzungsmethoden
+    #essentially it calls reset() and INIT() method
+    def resetandinitSystem(self):
+        self.reset()
+        self.init()
+    
     #SerialMethods ------------------------
-    #Einbau der Validierung Möglich
-    def readSerial(self):
+    #Einbau der CRC etc. möglich
+    def readSerial(self,expected=b'\r'):
         out = ''
-        #out = self.ser.read(1)  
-        out = self.ser.read_until()
+        time.sleep(self.readsleep)
+        out = self.ser.read_until(expected)
+                
+        try:
+            self.checkAuroraError(out)
+        except Warning as w:
+            print(w)
+                
+        
         print(out)
-        #print(out.decode())
         return out
+
+    def checkAuroraError(self,msg):
+
+        if (not msg.startswith(b'ERROR')):
+            return
+        else:
+            #Strip Message Into the 
+            msg = msg.decode()
+            errcode = msg[5:7]
+
+        errmsg = self.getAuroraErrormessage(errcode)
+        exceptmsg = f'ERRCODE {errcode}: {errmsg}'
+        #Aurora Exception erstellen!
+        raise Warning(exceptmsg)
+
+
+    def getAuroraErrormessage(self,errorcode):
+
+        AuaErrorDict = {
+            '01': 'Invalid command.',
+            '02': 'Command too long.',
+            '03': 'Command too short.',
+            '04': 'Invalid CRC calculated for command; calculated CRC does not match the one sent.',
+            '05': 'Time-out on command execution.',
+            '06': 'Unable to set up new communication parameters. This occurs if one of the communication parameters is out of range.',
+            '07': 'Incorrect number of parameters.',
+            '08': 'Invalid port handle selected.',
+            '09': 'Invalid mode selected. Either the tool tracking priority is out of range, or the tool has sensor coils defined and ‘button box’ was selected',
+            '0A': 'Invalid LED selected. The LED selected is out of range.',
+            '0B': 'Invalid LED state selected. The LED state selected is out of range.',
+            '0C': 'Command is invalid while in the current operating mode.',
+            '0D': 'No tool is assigned to the selected port handle.',
+            '0E': 'Selected port handle not initialized. The port handle needs to be initialized before the command is sent.',
+            '0F': 'Selected port handle not enabled. The port handle needs to be enabled before the command is sent.',    
+            '10': 'System not initialized. The system must be initialized before the command is sent.',
+            '11': 'Unable to stop tracking. This occurs if there are hardware problems. Please contact NDI.',
+            '12': 'Unable to stop tracking. This occurs if there are hardware problems. Please contact NDI.',
+            '13': 'Unable to initialize the port handle.',
+            '14': 'Invalid Field Generator characterization parameters or incompatible hardware',
+            '15': 'Invalid command',
+            '16': 'Invalid command',
+            '17': 'Invalid command',
+            '18': 'Invalid command',
+            '19': 'Invalid command',
+            '1A': 'Invalid command'
+            #REST TBD !!!!
+            }
+
+        #Check for Reserved Error Codes 
+        #Reserved Error Codes are in hexadecimal, but for Coding purpose it is translated to integer. 
+        #18,1B,1C,26-28,2F-30,34-C1,C5-F3,F7-FF
+
+        int_errorcode = int(errorcode,16)
+    
+        reserved_codes =[24,27,28,range(38,41),range(47,49),range(52,194),range(197,244),range(247,256)]
+        for res_code in reserved_codes:
+            if type(res_code) is range:
+                if(int_errorcode in res_code): 
+                    return 'Reserved.'        
+            elif int_errorcode is res_code:
+                return 'Reserved.'
+
+        return AuaErrorDict.get(errorcode,'ERROR CODE NOT FOUND. PLEASE CONTACT MASTER SYLUX! Either not implemented or Unknown')
+
+        
+
 
     def getSerial(self):
         return self.ser

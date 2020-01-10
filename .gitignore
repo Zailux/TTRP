@@ -5,3 +5,4 @@ test_*.py
 *NDI_ToolBox_5-002-022(Windows_64-bit).exe
 __pycache__*
 __pycache__/*
+__pycache__/
