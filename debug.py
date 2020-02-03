@@ -1,6 +1,6 @@
 #from UvisModel import UltraVisModel
 #from UvisView import UltraVisView
-from AuroraAPI import Aurora, Handle, HandleFactory
+from AuroraAPI import Aurora, Handle, HandleManager
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -158,8 +158,8 @@ class Uvisproto(tk.Frame):
             
             phsr_string = self.aua.phsr()
 
-            factory = HandleFactory(phsr_string)
-            handles = factory.getHandles()
+            self.hm = HandleManager(phsr_string)
+            handles = self.hm.getHandles()
 
             # print("handles 02")
             # Occupied handles but not initialized or enabled
@@ -167,12 +167,12 @@ class Uvisproto(tk.Frame):
 
             # Alle Port-Handles Initialisieren
             # Alle Port-Hanldes aktivieren
-            print(str(factory.getNum_Handles())+" Handles identified")
+            print(str(self.hm.getNum_Handles())+" Handles identified")
             print("Initializing Port-Handles")
                     
-            for handle in handles :
-                self.aua.pinit(handle)
-                self.aua.pena(handle,'D')
+            for h_id in handles :
+                self.aua.pinit(handles[h_id])
+                self.aua.pena(handles[h_id],'D')
 
             # Pr�fen, ob noch Handles falsch belegt sind
             # self.aua.phsr(3)
@@ -219,13 +219,11 @@ class Uvisproto(tk.Frame):
 
             
     def testFunction(self):
-        
-        for i in range(4):
-            print("count-"+str(i))
-            self.aua.tstart()
-            for i in range(10):
-                self.aua.tx()
-            self.aua.tstop()
+        self.aua.tstart()
+        while True:
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+       
             
     
     

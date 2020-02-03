@@ -4,14 +4,15 @@ import threading
 
 
 class Aurora:
-
+    
+    
     def __init__(self, ser, threaded=False, num_tries=3):
         #Aurora System relevant Attributes
         if threaded:
             self.lock = threading.Lock()
         else:
             self.lock = False
-        
+      
         self.readsleep = 0
         
         self.sysmode =''
@@ -172,14 +173,14 @@ class Aurora:
     def tstart(self,option=None):
 
         if (option==None):
-            cmd = b'TSTART \r'
+            cmd = 'TSTART \r'
         else:
             option = int(option)
             if ((option!=40 or option!=80)): 
                 raise ValueError("Invalid Parameter: Please choose value 40 or 80")           
-            cmd = b'TSTART '+str(option)+'\r'
+            cmd = 'TSTART '+str(option)+'\r'
 
-        self.ser.write(cmd)
+        self.ser.write(cmd.encode())
         time.sleep(1.8)
         self.readSerial()
 
@@ -188,19 +189,30 @@ class Aurora:
         time.sleep(0.5)
         self.readSerial()
 
-    def tx(self):
-        self.ser.write( b'TX \r')
-        self.readSerial()
+
+    def tx(self, option=None):
+
+        if(option == None):
+            self.ser.write(b'TX \r')
+        else:
+            if ((option!='0001' or option!='0800')): 
+                raise ValueError("Invalid Parameter: Please choose value 0001 or 0800") 
+            cmd = 'TX '+str(option)+'\r'
+            self.ser.write(cmd.encode())
+
+        tx_str = self.readSerial().decode()
+
+        return tx_str
+
 
 
     #NDI Aurora Ergänzungsmethoden
-    #essentially it calls reset() and INIT() method
     def resetandinitSystem(self):
         self.reset()
         self.init()
     
     #SerialMethods ------------------------
-    #Einbau der CRC etc. möglich
+    #Optional Feature Einbau der CRC Message, Gen + Check sinnvoll.
     def readSerial(self,expected=b'\r'):
         out = ''
         time.sleep(self.readsleep)
@@ -214,6 +226,7 @@ class Aurora:
         
         print(out)
         return out
+
 
     def checkAuroraError(self,msg):
 
@@ -276,22 +289,22 @@ class Aurora:
             elif int_errorcode is res_code:
                 return 'Reserved.'
 
-        return AuaErrorDict.get(errorcode,'ERROR CODE NOT FOUND. PLEASE CONTACT MASTER SYLUX! Either not implemented or Unknown')
+        return AuaErrorDict.get(errorcode,'ERROR CODE NOT FOUND. PLEASE CONTACT YOUR ADMINISTRATOR! Either not implemented or Unknown')
 
-        
-
+    
 
     def getSerial(self):
         return self.ser
 
 
-class HandleFactory:
+
+class HandleManager:
    
     def __init__(self, phsr ):
         #01 0A 00D 2674\r als antwort
         #01 0A 00 001 74\r keine Handles 
 
-        self.handles = []
+        self.handles = {}
         self.num_handles = int(phsr[0:2])
         phsr = phsr[2:]
        
@@ -304,7 +317,7 @@ class HandleFactory:
 
             #Verwendete Daten from Inputstring entfernen 
             phsr = phsr[5:]
-            self.handles.append(h)
+            self.handles[h_id] = h
 
     def getNum_Handles(self):
         return self.num_handles
@@ -312,25 +325,102 @@ class HandleFactory:
     def getHandles(self):
         return self.handles
 
+    def updateHandles(self,tx_str):
+        #expects the outpout from tx decoded tx string. 
+        #SYSTEMSTATUS TO BE DONE!
+        #b'020A+06975+04593-00366-05486-007807-007185-015834+003950002003D000003E8\n0B+08324+03951+03881+00150+011264-001768-017704+006430002003F000003E8\n0000DA87\r'
+        #b'020A+06972+04598-00378-05486-007800-007179-015834+003950002003D00003048\n0BMISSING 0002003F 00003048\n0000C84C\r'
+        #b'01 0A +0.6391 +0.4357 -0.1303 -0.6201    -0071.88 -0076.86 -0160.67   +0.0326 0002003D 00000690 \n 
+        # 0000 9F29\r'
+        #id+  q0+qx+qy+qz    tx+ty+tz +error/indicatorvalue +       port status + framestatus     (systemstatus+crc)
+                #2+   6+6+6+6             +7+7+7+6                                    8+8
+
+
+        num = int(tx_str[0:2],16)
+        if (self.num_handles != num ):
+            print("Uneven nums OMFG")
+        self.num_handles = num
+        tx_str = tx_str[2:]
+        
+        #Split Message into Handles and System States
+        tx_str = tx_str.splitlines()
+
+        #extract Systeminfo and clean it afterwards
+        sys_status, crc = tx_str[-1][:4],tx_str[-1][4:]
+        tx_str.pop()
+        
+        for handle in tx_str:
+            h_id = handle[0:2]
+            new_handle = self.handles[h_id]
+
+            handle = handle[2:]
+
+            if (handle.startswith("MISSING")):
+                handle = handle[7:]
+                port_state = handle[0:8]
+                frame_id = handle[8:]
+                new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
+
+            else:
+                Q0 = float(self.insert_separator(handle[0:6],2))
+                Qx = float(self.insert_separator(handle[6:12],2))
+                Qy = float(self.insert_separator(handle[12:18],2))
+                Qz = float(self.insert_separator(handle[18:24],2))
+                Tx = float(self.insert_separator(handle[24:31],5))
+                Ty = float(self.insert_separator(handle[31:38],5))
+                Tz = float(self.insert_separator(handle[38:45],5))
+                calc_Err = float(self.insert_separator(handle[45:51],2))
+                port_state = handle[51:59]
+                frame_id = handle[59:67]
+
+                new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+            
+            self.handles[h_id] = new_handle
+        
+
+    def insert_separator(self, string, index):
+        return string[:index] + '.' + string[index:]
+
 
 
 class Handle:
 
-
     def __init__(self, ID, state):
-                
+        
+        #Handle Data
         self.ID = ID
-        self.state = state
+        self.handle_state = state
         self.refname = "Strenum bspw."
-       
 
-    def setVal(self):
-        '''self.Q0 = Q0
+        #Transformation Data
+        self.MISSING = False
+
+        self.Q0 = None
+        self.Qx = None
+        self.Qy = None
+        self.Qz = None
+        self.Tx = None
+        self.Ty = None
+        self.Tz = None
+        self.Err = None
+
+        self.port_state = None
+        self.frame_id = None
+
+
+        
+    def setTXData(self,MISSING = False, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
+        self.MISSING = MISSING
+        
+        self.Q0 = Q0
         self.Qx = Qx
         self.Qy = Qy
         self.Qz = Qz
         self.Tx = Tx
         self.Ty = Ty
         self.Tz = Tz
-        self.Err = Err'''
-        return
+        self.calc_Err = calc_Err
+
+        self.port_state = port_state
+        self.frame_id = frame_id
+
