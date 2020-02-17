@@ -27,6 +27,7 @@ class UltraVisView(tk.Frame):
 
         self.master = master
         self.master.title("TTR: Track To Reference")
+        self.master.minsize(700,1024)
         self.master.wm_state('zoomed')
 
         self.master.focus_force()
@@ -34,14 +35,18 @@ class UltraVisView(tk.Frame):
         self.mainFrame = tk.Frame(self.master)
         # Configure the tab - that the frames inside adjust dynamically
         self.mainFrame.rowconfigure(0, weight=1)
-        self.mainFrame.columnconfigure(0, weight=80)
-        self.mainFrame.columnconfigure(1, weight=1)
+        self.mainFrame.rowconfigure(1, weight=1)
+        #Two Column, Menu Column and App Column
+        self.mainFrame.columnconfigure(0, weight=20)
+        self.mainFrame.columnconfigure(1, weight=80)
 
         self.leftFrame = tk.Frame(self.mainFrame)
         self.rightFrame = tk.Frame(self.mainFrame)
+        self.bottomFrame = tk.Frame(self.mainFrame)
 
         self.leftFrame.grid(row=0, column=0, pady=8, padx=8, sticky=tk.NSEW)
         self.rightFrame.grid(row=0, column=1, pady=8, padx=8, sticky=tk.NSEW)
+        self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=8, padx=8, sticky=tk.NSEW)
 
         self.initImages()
         self.buildLeftFrame()

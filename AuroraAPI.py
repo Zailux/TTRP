@@ -410,8 +410,7 @@ class Handle:
 
         
     def setTXData(self,MISSING = False, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
-        self.MISSING = MISSING
-        
+        self.MISSING = MISSING       
         self.Q0 = Q0
         self.Qx = Qx
         self.Qy = Qy
@@ -420,7 +419,6 @@ class Handle:
         self.Ty = Ty
         self.Tz = Tz
         self.calc_Err = calc_Err
-
         self.port_state = port_state
         self.frame_id = frame_id
 
