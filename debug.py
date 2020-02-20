@@ -37,6 +37,7 @@ class Uvisproto(tk.Frame):
         #Define Tabroot Notebook
         self.tabControl = ttk.Notebook(self.master)
         
+        
         #Define Tab 1 Frames
         self.t1_debugFrame = tk.Frame(self.tabControl, bg="grey")
         self.t1_debugFrame.rowconfigure(0, weight=1)

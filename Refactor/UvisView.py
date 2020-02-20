@@ -2,10 +2,11 @@
 from __future__ import print_function
 # from visual import *
 import tkinter as tk
-import time
+from tkinter import ttk
 from cv2 import cv2
 from PIL import Image
 from PIL import ImageTk
+import time
 
 import matplotlib
 matplotlib.use('Tkagg')
@@ -23,73 +24,200 @@ class UltraVisView(tk.Frame):
 
 
     def __init__(self, master):
-        tk.Frame.__init__(self, master)
-
+        super().__init__(master)
+        self.start_time = time.time()
         self.master = master
         self.master.title("TTR: Track To Reference")
-        self.master.minsize(700,1024)
-        self.master.wm_state('zoomed')
-
+        self.master.minsize(600,350)
+        self.master.geometry(self.centerWindow(self.master, 1000, 600))
+        #self.master.wm_state('zoomed')
         self.master.focus_force()
 
-        self.mainFrame = tk.Frame(self.master)
-        # Configure the tab - that the frames inside adjust dynamically
-        self.mainFrame.rowconfigure(0, weight=1)
-        self.mainFrame.rowconfigure(1, weight=1)
-        #Two Column, Menu Column and App Column
-        self.mainFrame.columnconfigure(0, weight=20)
-        self.mainFrame.columnconfigure(1, weight=80)
 
-        self.leftFrame = tk.Frame(self.mainFrame)
-        self.rightFrame = tk.Frame(self.mainFrame)
-        self.bottomFrame = tk.Frame(self.mainFrame)
-
-        self.leftFrame.grid(row=0, column=0, pady=8, padx=8, sticky=tk.NSEW)
-        self.rightFrame.grid(row=0, column=1, pady=8, padx=8, sticky=tk.NSEW)
-        self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=8, padx=8, sticky=tk.NSEW)
-
+        self.tabControl = ttk.Notebook(self.master)
         self.initImages()
-        self.buildLeftFrame()
-        self.buildRightFrame()
+        self.buildTab1()
+        self.buildTab2()       
 
-        self.mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
+        self.tabControl.add(self.t1_mainFrame, text='Navigation')
+        self.tabControl.add(self.t2_debugFrame, text='Debugging')
+        
+        self.tabControl.pack(fill=tk.BOTH, expand=tk.TRUE)
 
-    def buildLeftFrame(self):
-        #------------------------------------------#
-        #Contains the Ultraschall Screen using the Framegrabber
-        #------------------------------------------#
+        #Selecting Tabs
+        #self.tabControl.select(self.t2_debugFrame)
+    
+    def centerWindow(self, toplevel, width, height):
 
+        toplevel.update_idletasks()
+        w = toplevel.winfo_screenwidth()
+        h = toplevel.winfo_screenheight()
+        size = (width, height)
+        x = w / 2 - size[0] / 2
+        y = h / 2 - size[1] / 2
+        return ("%dx%d+%d+%d" % (size + (x, y)))
 
-        self.upperFrameLeft = tk.Frame(self.leftFrame)
-        self.lowerFrameLeft = tk.Frame(self.leftFrame)
+    
+    def buildTab1(self):
+        #Tab 1 Two Column, Menu Column and App Column
+        self.t1_mainFrame = tk.Frame(self.tabControl)
+        self.t1_mainFrame.rowconfigure(0, weight=98)
+        self.t1_mainFrame.rowconfigure(1, weight=2, minsize=30)
+        self.t1_mainFrame.columnconfigure(0, weight=15, uniform=1)
+        self.t1_mainFrame.columnconfigure(1, weight=85, uniform=1)
 
-        # self.rightFrame.rowconfigure(0, weight=1)
-        # self.rightFrame.rowconfigure(1, weight=1)
-        # self.rightFrame.columnconfigure(1, weight=1)
+        self.leftFrame = tk.Frame(self.t1_mainFrame, bg="#196666")
+        self.rightFrame = tk.Frame(self.t1_mainFrame, bg = "#196666")
+        self.rightFrame.rowconfigure(0, weight=90, uniform=1)
+        self.rightFrame.rowconfigure(1, weight=10, uniform=1)
+        self.rightFrame.columnconfigure(0,weight=1)
+        self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
 
-        self.upperFrameLeft.grid(row=0, column=0, sticky=tk.NSEW)
-        self.upperFrameLeft.columnconfigure(0, weight=1)
-        self.lowerFrameLeft.grid(row=1, column=0, sticky=tk.NSEW)
-        self.lowerFrameLeft.columnconfigure(0, weight=1)
+        self.leftFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.NSEW)
+        self.rightFrame.grid(row=0, column=1, pady=4, padx=4, sticky=tk.NSEW)
+        self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=(0,0), padx=4, sticky=tk.NSEW)
 
-        # self.buttonReset = tk.Button(self.upperFrame, text="test", width=BUTTON_WIDTH)
-        # self.buttonReset.grid(row=0, column=0, pady=8)
-        self.imageFrame = tk.Frame(self.upperFrameLeft)
-        self.imageFrame.grid(row=0, column=0, padx=10, pady=2, sticky=tk.NSEW)
-        self.lmain = tk.Label(self.imageFrame, width=490, height=378)
-        self.lmain.grid(row=0, column=0, sticky=tk.NSEW)
-        self.lmain.pack_propagate(0)
+        self.buildMenuFrame(self.leftFrame)
+        self.buildAppFrame(self.rightFrame)
+        self.buildActionFrame(self.bottomFrame)
+        #
+        
+
+        self.t1_mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
+
+    def buildMenuFrame(self,lFrame):
+
+        self.MenuTitleLabel = tk.Label(lFrame, text="Menu")
+            
+        self.saveBut = tk.Button(lFrame)  
+        self.saveBut["text"] = "Aufnahme speichern"
+        #self.readBut["command"] = 
+        
+        self.cancelBut = tk.Button(lFrame)  
+        self.cancelBut["text"] = "Abbrechen"
+        #self.readBut["command"] = 
+
+        self.MenuTitleLabel.pack(side=tk.TOP, pady=(10,0),fill="both")
+        self.saveBut.pack(side=tk.TOP, pady=(2, 0),padx=(10),fill="both")
+        self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
+
+    def buildAppFrame(self,rFrame):
+
+        self.appFrame = tk.Frame(rFrame,bg="black")
+        
+        #2x2 Matrix of Application frame
+        self.appFrame.rowconfigure(0, weight=1, uniform=1)
+        self.appFrame.rowconfigure(1, weight=1, uniform=1)
+        self.appFrame.columnconfigure(0, weight=1, uniform=1)
+        self.appFrame.columnconfigure(1, weight=1, uniform=1)
+        
+        #Order of the US Frame, Saved Image and Navigationframe
+        self.USImgFrame = tk.Frame(self.appFrame,bg="green")
+        self.USImgFrame.rowconfigure(0, weight=1)
+        self.USImgFrame.columnconfigure(0, weight=1)
+        self.savedImgFrame = tk.Frame(self.appFrame,bg="green")
+        self.savedImgFrame.rowconfigure(0, weight=1)
+        self.savedImgFrame.columnconfigure(0, weight=1)
+        self.navFrame = tk.Frame(self.appFrame,bg="yellow")
+        self.navFrame.rowconfigure(0, weight=1)
+        self.navFrame.columnconfigure(0, weight=1)
+
+        self.USImgFrame.grid(row=0, column=0, padx=5, pady=2,sticky=tk.NSEW )
+        self.savedImgFrame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.navFrame.grid(row=0, column=1, rowspan=2, padx=5, pady=2, sticky=tk.NSEW)
+
+        #Ultrasoundimage Content
+        self.USImgLabel = tk.Label(self.USImgFrame)
+        self.USImgLabel["text"] = "INITIALIZING VIDEOINPUT"
+        self.USImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        self.USImgLabel.grid_propagate(0)
 
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
 
-        self.screenshot = tk.Frame(self.lowerFrameLeft)
-        self.screenshot.grid(row=0, column=0, padx=10, pady=2, sticky=tk.NSEW)
-        self.screenshotmain = tk.Label(self.screenshot, width=490, height=378)
-        self.screenshotmain.grid(row=0, column=0, sticky=tk.NSEW)
-        self.screenshotmain.pack_propagate(0)
+        #Saved Image Content
+        self.savedImgLabel = tk.Label(self.savedImgFrame)
+        self.savedImgLabel["text"] = "Saved Image"
+        self.savedImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        
+        #Navigation Frame Content
+        self.navLabel = tk.Label(self.navFrame)
+        self.navLabel["text"] = "Navigtion GUI"
+        self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
 
-   
+        self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+
+
+        self.galleryFrame = tk.Frame(rFrame, bg="#99ffcc")
+        self.galleryFrame.grid(row=1, pady=8, padx=8, sticky=tk.NSEW)
+
+        self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
+        self.galleryLb.pack()
+
+    def buildActionFrame(self,bFrame):
+            
+        self.backBut = tk.Button(bFrame)  
+        self.backBut["text"] = "Zurueck"
+        self.backBut["width"] = 20
+        #self.backBut["command"] = 
+        
+        self.nextBut = tk.Button(bFrame)  
+        self.nextBut["text"] = "Weiter"
+        self.nextBut["width"] = 20
+        #self.nextBut["command"] = 
+
+       
+        self.backBut.pack(side=tk.LEFT,padx=(0),pady=0,fill="both")
+        self.nextBut.pack(side=tk.RIGHT,padx=(0),pady=0, fill="both")
+
+    def Capture_FrameGrabber(self):
+        _isFirstCapture = True
+        _, frame = self.cap.read()
+
+        if frame is None and _isFirstCapture: 
+            print("Empty Frame - No Device was found")
+            self.USImgLabel["text"] = "EMPTY FRAME \n No Device was found"
+            self.USImgLabel.after(10000, self.Capture_FrameGrabber)
+            return
+
+        if ((time.time() - self.start_time) < 2):
+            self.USImgLabel.after(500, self.Capture_FrameGrabber)
+            return
+
+        self.frame = cv2.flip(frame, 1)
+        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+        img = Image.fromarray(cv2image)
+        width, height = img.size
+
+        #Normalize Ratio of Pictures, Resize appropriatly
+        img_ratio = height / width
+        frame_ratio = self.USImgFrame.winfo_height()/self.USImgFrame.winfo_width()
+        if (frame_ratio >= img_ratio):
+            new_width = (self.USImgFrame.winfo_width()-5) 
+            new_height = height / width * new_width
+        else:
+            new_height = (self.USImgFrame.winfo_height()-5)
+            new_width = width / height * new_height
+            
+        img = img.resize((int(new_width), int(new_height)), Image.ANTIALIAS)
+
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        self.USImgLabel.imgtk = imgtk
+        self.USImgLabel.configure(image=imgtk)
+        self.USImgLabel.after(10, self.Capture_FrameGrabber)
+
+        # Slider window (slider controls stage position)
+        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
+        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
+
+    def buildTab2(self):
+        #Tab2
+        self.t2_debugFrame = tk.Frame(self.tabControl, bg="grey")
+        self.t2_debugFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
+
+
+    '''
     def buildRightFrame(self):
         # self.rightFrame.rowconfigure(0, weight=1)
         # self.rightFrame.rowconfigure(1, weight=1)
@@ -120,11 +248,6 @@ class UltraVisView(tk.Frame):
         
         
         self.buildCoordinatesystem()
-
-        
-
-        
-
 
     def buildCoordinatesystem(self):
 
@@ -206,7 +329,7 @@ class UltraVisView(tk.Frame):
         self.navigationCanvas.draw()
         self.navigationCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
 
-    
+    '''
 
     def initImages(self):
 
@@ -273,34 +396,7 @@ class UltraVisView(tk.Frame):
         finally:
             return ImageTk.PhotoImage(tkimage)
 
-    def Capture_FrameGrabber(self):
-        _isFirstCapture = True
-        _, frame = self.cap.read()
+root = tk.Tk()
+app = UltraVisView(master=root)
 
-        if frame is None and _isFirstCapture: 
-            print("Empty Frame - No Device was found")
-            self.lmain["text"] = "EMPTY FRAME \n No Device was found"
-            return
-
-        self.frame = cv2.flip(frame, 1)
-        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        imgtk = ImageTk.PhotoImage(image=img)
-        self.lmain.imgtk = imgtk
-        self.lmain.configure(image=imgtk)
-        self.lmain.after(10, self.Capture_FrameGrabber)
-
-        # Slider window (slider controls stage position)
-        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
-        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
-
-    def centerWindow(self, toplevel, width, height):
-
-        toplevel.update_idletasks()
-        w = toplevel.winfo_screenwidth()
-        h = toplevel.winfo_screenheight()
-        size = (width, height)
-        x = w / 2 - size[0] / 2
-        y = h / 2 - size[1] / 2
-        return ("%dx%d+%d+%d" % (size + (x, y)))
-
+app.mainloop()  
