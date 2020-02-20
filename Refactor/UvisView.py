@@ -68,7 +68,7 @@ class UltraVisView(tk.Frame):
         self.leftFrame = tk.Frame(self.t1_mainFrame, bg="#196666")
         self.rightFrame = tk.Frame(self.t1_mainFrame, bg = "#196666")
         self.rightFrame.rowconfigure(0, weight=90, uniform=1)
-        self.rightFrame.rowconfigure(1, weight=10, uniform=1)
+        self.rightFrame.rowconfigure(1, weight=10,minsize=125,uniform=1)
         self.rightFrame.columnconfigure(0,weight=1)
         self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
 
@@ -79,8 +79,6 @@ class UltraVisView(tk.Frame):
         self.buildMenuFrame(self.leftFrame)
         self.buildAppFrame(self.rightFrame)
         self.buildActionFrame(self.bottomFrame)
-        #
-        
 
         self.t1_mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
@@ -101,15 +99,13 @@ class UltraVisView(tk.Frame):
         self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
 
     def buildAppFrame(self,rFrame):
-
-        self.appFrame = tk.Frame(rFrame,bg="black")
-        
         #2x2 Matrix of Application frame
+        self.appFrame = tk.Frame(rFrame,bg="black")     
         self.appFrame.rowconfigure(0, weight=1, uniform=1)
         self.appFrame.rowconfigure(1, weight=1, uniform=1)
         self.appFrame.columnconfigure(0, weight=1, uniform=1)
         self.appFrame.columnconfigure(1, weight=1, uniform=1)
-        
+
         #Order of the US Frame, Saved Image and Navigationframe
         self.USImgFrame = tk.Frame(self.appFrame,bg="green")
         self.USImgFrame.rowconfigure(0, weight=1)
@@ -130,7 +126,6 @@ class UltraVisView(tk.Frame):
         self.USImgLabel["text"] = "INITIALIZING VIDEOINPUT"
         self.USImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
         self.USImgLabel.grid_propagate(0)
-
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
 
@@ -138,7 +133,6 @@ class UltraVisView(tk.Frame):
         self.savedImgLabel = tk.Label(self.savedImgFrame)
         self.savedImgLabel["text"] = "Saved Image"
         self.savedImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
-        
         #Navigation Frame Content
         self.navLabel = tk.Label(self.navFrame)
         self.navLabel["text"] = "Navigtion GUI"
@@ -147,8 +141,9 @@ class UltraVisView(tk.Frame):
         self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
 
 
+        #Gallery Frame Content
         self.galleryFrame = tk.Frame(rFrame, bg="#99ffcc")
-        self.galleryFrame.grid(row=1, pady=8, padx=8, sticky=tk.NSEW)
+        self.galleryFrame.grid(row=1, pady=(0,8), padx=8, sticky=tk.NSEW)
 
         self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
         self.galleryLb.pack()
@@ -213,9 +208,85 @@ class UltraVisView(tk.Frame):
     def buildTab2(self):
         #Tab2
         self.t2_debugFrame = tk.Frame(self.tabControl, bg="grey")
+        self.t2_debugFrame.rowconfigure(0, weight=1)
+        self.t2_debugFrame.columnconfigure(0, weight=80)
+        self.t2_debugFrame.columnconfigure(1, weight=20)
+
+        self.t2_leftFrame = tk.Frame(self.t2_debugFrame, bg="green")
+        self.t2_leftFrame.columnconfigure(0, weight=1)
+        self.t2_rightFrame = tk.Frame(self.t2_debugFrame, bg="blue")
+        self.t2_rightFrame.columnconfigure(0, weight=1)
+        self.t2_rightFrame.columnconfigure(2, weight=1)
+        self.t2_rightFrame.rowconfigure(0, weight=1)
+        self.t2_rightFrame.rowconfigure(10, weight=1)
+
+        self.t2_leftFrame.grid(row=0, column=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.t2_rightFrame.grid(row=0, column=1, pady=8, padx=8, sticky=tk.NSEW)
+       
+        self.build_DebugMenu(self.t2_leftFrame)
+        self.build_DebugCMD(self.t2_rightFrame)
+
         self.t2_debugFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
+    def build_DebugMenu(self,lFrame):
+        self.debugMenuLabel = tk.Label( lFrame, text="Debug Menu Options")
+        self.initBut = tk.Button(lFrame)
+        self.initBut["text"] = "INIT"
+        
+        self.readBut = tk.Button(lFrame)  
+        self.readBut["text"] = "READ Serial"
+            
+        self.resetBut = tk.Button(lFrame)
+        self.resetBut["text"] = "Reinitialize System"
+                
+        self.testBut = tk.Button(lFrame)
+        self.testBut["text"] = "Test Something"
+        
+        self.handleBut = tk.Button(lFrame)
+        self.handleBut["text"] = "Activate Handles"
+                
+        self.restartBut = tk.Button(lFrame)
+        self.restartBut["text"] = "Restart Program"
+        
+        self.quitBut = tk.Button(lFrame, text="QUIT", fg="red")
+        
+        #Place-Geomanager for Leftframe
+        self.debugMenuLabel.grid(row=0,padx=(1,1),sticky=tk.NSEW)
+        self.initBut.grid(row=1,padx=(1,1))
+        self.readBut.grid(row=2,padx=(1,1),sticky=tk.NSEW)
+        self.resetBut.grid(row=3,padx=(1,1),sticky=tk.NSEW)
+        self.testBut.grid(row=4,padx=(1,1),sticky=tk.NSEW)
+        self.handleBut.grid(row=5,padx=(1,1),sticky=tk.NSEW)
+        # self.restartBut.pack()
+        self.quitBut.grid(row=6,padx=(1,1),sticky=tk.NSEW)
 
+        self.auaReInitBut = tk.Button(lFrame)
+        self.auaReInitBut["text"] = "Try Init Aurora"
+
+        for i,child in enumerate(lFrame.winfo_children(),start=0):   
+            lFrame.rowconfigure(i, weight=1)
+            if (child.winfo_class() == 'Button'):
+                child["width"]= 35
+                child["height"] = 2
+                child.grid_propagate(0)
+
+    def build_DebugCMD(self,rFrame):
+        self.cmdLabel = tk.Label( rFrame, text="CMD")
+        self.cmdEntry = tk.Entry(rFrame,bd =5)
+        self.expecLabel = tk.Label( rFrame, text="Expected read ending character")
+        self.expec = tk.Entry(rFrame,bd =5)
+        self.sleepLabel = tk.Label( rFrame, text="Read sleep time")
+        self.sleeptimeEntry = tk.Entry(rFrame,bd =5)
+        self.sleeptimeEntry.insert(0,0)
+        
+        self.cmdLabel.grid(row=1,column = 1, pady=(10, 2),sticky=tk.EW)
+        self.cmdEntry.grid(row=2,column = 1,sticky=tk.EW)
+        self.expecLabel.grid(row=3,column = 1, pady=(10, 2),sticky=tk.EW)
+        self.expec.grid(row=4,column = 1,sticky=tk.EW)
+        self.sleepLabel.grid(row=5,column = 1, pady=(10, 2),sticky=tk.EW)
+        self.sleeptimeEntry.grid(row=6,column = 1,sticky=tk.EW)
+        
+   
     '''
     def buildRightFrame(self):
         # self.rightFrame.rowconfigure(0, weight=1)

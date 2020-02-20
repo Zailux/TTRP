@@ -1,17 +1,23 @@
-# -*- coding: latin-1 -*-
+
 from __future__ import print_function
 
 #from UvisModel import UltraVisModel,
 from UvisView import UltraVisView
+
 
 import tkinter as tk
 
 import serial
 import threading
 #import os
-#import sys
+
 # import logging or threadsafe logging etc. 
 #from Observable import Observable
+import sys
+
+#TTRP.AuroraAPI is an temporary Solution. Should be same folder later
+sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
+from AuroraAPI import Aurora, Handle, HandleManager
 
 
 
@@ -24,7 +30,6 @@ firstTime = False
 BUTTON_WIDTH = 25
 
 
-
 class UltraVisController:
 
     def __init__(self):
@@ -33,34 +38,162 @@ class UltraVisController:
         self.root = tk.Tk()
        
         #model = UltraVisModel()
-        view = UltraVisView(self.root)
+        self.view = UltraVisView(self.root)
         
         #Init Aurorasystem + Serial COnfig
-        ser = serial.Serial()
-        ser.port = 'COM5'
-        ser.baudrate = 9600
-        ser.parity = serial.PARITY_NONE
-        ser.bytesize = serial.EIGHTBITS
-        ser.stopbits = serial.STOPBITS_ONE
-        ser.xonxoff = False
-        ser.timeout = 2
+        self.ser = serial.Serial()
+        self.ser.port = 'COM5'
+        self.ser.baudrate = 9600
+        self.ser.parity = serial.PARITY_NONE
+        self.ser.bytesize = serial.EIGHTBITS
+        self.ser.stopbits = serial.STOPBITS_ONE
+        self.ser.xonxoff = False
+        self.ser.timeout = 2
 
-        #self.ser.open()
-
-        #self.safe_handle = Handle("safe","none")
-        #handle_1, 2 3 and 0
+        #Tries to initalize Aurora and Adds Functionaly based on state
+        self.initAurora(self.ser,extended=True)
 
         
 
-        # Configure the buttons
-        '''
-        self.ultraVisView.buttonReset.config(command=self.onResetSystemClicked)
-        self.ultraVisView.buttonInitSystem.config(command=self.onInitSystemClicked)
-        self.ultraVisView.buttonStartStopTracking.config(command=self.onStartStopTrackingClicked)
-        self.ultraVisView.buttonSaveRefPosition.config(command=self.onSaveRefPosClicked)'''
 
     def run (self):
         self.root.mainloop()
+
+    
+    def initAurora(self,ser,extended=False):
+
+        widgets = self.view.t2_debugFrame.winfo_children()
+
+        try:
+            self.aua = Aurora(ser)
+
+        except serial.SerialException as e:
+            print(str(e))
+            self.aua_active = False
+            self.disableWidgets(widgets)
+            self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
+            self.view.auaReInitBut["state"] = 'normal'
+            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=True)
+            return
+
+        self.aua_active = True
+        self.enableWidgets(widgets)
+        self.view.auaReInitBut.grid_forget()
+
+        self.aua.resetandinitSystem()
+        
+        self.activate_DebugFunc()
+
+        if (extended):
+            self.activateHandles()
+        
+    
+    def enableWidgets(self,childList):
+        for child in childList:
+            if (child.winfo_class() == 'Frame'):
+                self.enableWidgets(child.winfo_children())
+                continue
+
+            if (child.winfo_class() in ['Button','Entry']):
+                child.configure(state='normal')
+
+    def disableWidgets(self,childList):
+        for child in childList:
+            if (child.winfo_class() == 'Frame'):
+                self.disableWidgets(child.winfo_children())
+                continue
+
+            if (child.winfo_class() in ['Button','Entry']):
+                child.configure(state='disabled')
+
+    def activate_DebugFunc(self):
+        #Menu
+        #self.view.initBut["command"] = self.beep
+        self.view.readBut["command"] = self.aua.readSerial
+        self.view.resetBut["command"] = self.aua.resetandinitSystem
+        self.view.testBut["command"] = self.testFunction
+        self.view.handleBut["command"] = self.activateHandles
+        #self.view.restartBut["command"] = self.restart
+        self.view.quitBut["command"] = self.root.destroy
+        
+
+        #DebugCMD
+        self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
+      
+
+
+        
+    def activateHandles(self):
+        # todo Gesamtprozess nach Guide (siehe Aurora API)
+
+        try: 
+            print("All allocated Ports")
+            
+            phsr_string = self.aua.phsr()
+
+            self.hm = HandleManager(phsr_string)
+            handles = self.hm.getHandles()
+
+            # print("handles 02")
+            # Occupied handles but not initialized or enabled
+            # self.aua.phsr(2)
+
+            # Alle Port-Handles Initialisieren
+            # Alle Port-Hanldes aktivieren
+            print(str(self.hm.getNum_Handles())+" Handles identified")
+            print("Initializing Port-Handles")
+                    
+            for h_id in handles :
+                self.aua.pinit(handles[h_id])
+                self.aua.pena(handles[h_id],'D')
+
+            # Pr�fen, ob noch Handles falsch belegt sind
+            # self.aua.phsr(3)
+            # print("handles 03")
+            # ser.write(b'PHSR 03\r')
+            # time.sleep(1)
+            # readSerial(ser)  
+            
+        except Warning as w:
+            print(str(w))
+
+    def startTracking(self):
+        self.aua.tstart(40)
+        
+        #self.transformationData()
+
+    def startstopTracking(self):
+        if (self.aua.sysmode=='SETUP'):
+            pass
+            #thread.start_new(self.aua.tstart, ())
+        else:
+            self.aua.tstop
+
+    def writeCmd2AUA(self,event):
+           
+        try:
+            command = self.view.cmdEntry.get()
+            self.aua.readsleep = float(self.view.sleeptimeEntry.get())
+            if (len(self.view.expec.get())==0):
+                a = False
+            else:
+                a = self.view.expec.get()
+
+            print("Execute command: "+command)
+            self.aua.writeCMD(command,expect=a)
+            self.view.cmdEntry.delete(0, 'end')
+
+        except Warning as e:
+            print("An FATAL occured: "+str(e))   
+            
+    def testFunction(self):
+        self.aua.tstart()
+        while True:
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+    
 
 '''        
     def onInitSystemClicked(self):

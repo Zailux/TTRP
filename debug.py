@@ -71,11 +71,11 @@ class Uvisproto(tk.Frame):
     def initAurora(self,ser):
         try:
             self.aua = Aurora(ser)
-            self.aua.resetandinitSystem()
+            
         except serial.SerialException as e:
             print(str(e))
             return
-        
+        self.aua.resetandinitSystem()
 
     def beep(self,num=1):
         
@@ -185,7 +185,6 @@ class Uvisproto(tk.Frame):
         except Warning as w:
             print(str(w))
 
-
     def startTracking(self):
         self.aua.tstart(40)
         
@@ -197,8 +196,6 @@ class Uvisproto(tk.Frame):
             #thread.start_new(self.aua.tstart, ())
         else:
             self.aua.tstop
-
-
 
     def writeCmd2AUA(self,event):
            
@@ -215,18 +212,14 @@ class Uvisproto(tk.Frame):
             self.cmdEntry.delete(0, 'end')
 
         except Warning as e:
-            print("An FATAL occured: "+str(e))
-        
-
+            print("An FATAL occured: "+str(e))   
             
     def testFunction(self):
         self.aua.tstart()
         while True:
             tx = self.aua.tx()
             self.hm.updateHandles(tx)
-       
-            
-    
+         
     
     '''
     def restart(self):
