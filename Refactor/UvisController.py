@@ -1,16 +1,17 @@
 # -*- coding: latin-1 -*-
 from __future__ import print_function
 
-from UvisModel import UltraVisModel, Handle
+#from UvisModel import UltraVisModel,
 from UvisView import UltraVisView
 
-
-# from visual import *
 import tkinter as tk
 
-import _thread as thread
-
-from Observable import Observable
+import serial
+import threading
+#import os
+#import sys
+# import logging or threadsafe logging etc. 
+#from Observable import Observable
 
 
 
@@ -27,33 +28,41 @@ BUTTON_WIDTH = 25
 class UltraVisController:
 
     def __init__(self):
-
-        self.root = tk.Tk()
-
+        
         #Create Model and View
-        model = UltraVisModel()
+        self.root = tk.Tk()
+       
+        #model = UltraVisModel()
         view = UltraVisView(self.root)
         
-        self.ser = model.getSerial()
+        #Init Aurorasystem + Serial COnfig
+        ser = serial.Serial()
+        ser.port = 'COM5'
+        ser.baudrate = 9600
+        ser.parity = serial.PARITY_NONE
+        ser.bytesize = serial.EIGHTBITS
+        ser.stopbits = serial.STOPBITS_ONE
+        ser.xonxoff = False
+        ser.timeout = 2
 
-        self.ser.open()
+        #self.ser.open()
 
-        self.safe_handle = Handle("safe","none")
+        #self.safe_handle = Handle("safe","none")
         #handle_1, 2 3 and 0
 
-        #Initialize Root Window
-        self.root = tk.Tk()
-        self.root.geometry(view.centerWindow(self.root, 850, 460))
-
+        
 
         # Configure the buttons
+        '''
         self.ultraVisView.buttonReset.config(command=self.onResetSystemClicked)
         self.ultraVisView.buttonInitSystem.config(command=self.onInitSystemClicked)
         self.ultraVisView.buttonStartStopTracking.config(command=self.onStartStopTrackingClicked)
-        self.ultraVisView.buttonSaveRefPosition.config(command=self.onSaveRefPosClicked)
+        self.ultraVisView.buttonSaveRefPosition.config(command=self.onSaveRefPosClicked)'''
 
+    def run (self):
+        self.root.mainloop()
 
-        
+'''        
     def onInitSystemClicked(self):
         print("Init")
         # ser.send_break()  # zwingend noetig
@@ -238,7 +247,8 @@ class UltraVisController:
         imgtk = ImageTk.PhotoImage(image=img)
         self.ultraVisView.screenshotmain.imgtk = imgtk
         self.ultraVisView.screenshotmain.configure(image=imgtk)
+'''
 
-   
-
-    
+#TEMPORÄR!!!
+controller = UltraVisController()
+controller.run()

@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
 
@@ -396,7 +395,3 @@ class UltraVisView(tk.Frame):
         finally:
             return ImageTk.PhotoImage(tkimage)
 
-root = tk.Tk()
-app = UltraVisView(master=root)
-
-app.mainloop()  
