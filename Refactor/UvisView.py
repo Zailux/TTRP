@@ -174,8 +174,9 @@ class UltraVisView(tk.Frame):
             self.USImgLabel.after(10000, self.Capture_FrameGrabber)
             return
 
-        if ((time.time() - self.start_time) < 2):
-            self.USImgLabel.after(500, self.Capture_FrameGrabber)
+        
+        if (self.USImgFrame.winfo_height()==1):
+            self.USImgLabel.after(1500, self.Capture_FrameGrabber)
             return
 
         self.frame = cv2.flip(frame, 1)
@@ -183,7 +184,7 @@ class UltraVisView(tk.Frame):
         img = Image.fromarray(cv2image)
         width, height = img.size
 
-        #Normalize Ratio of Pictures, Resize appropriatly
+        #Normalize Ratio of Pictures, Resize appropriatly - could be optimized.
         img_ratio = height / width
         frame_ratio = self.USImgFrame.winfo_height()/self.USImgFrame.winfo_width()
         if (frame_ratio >= img_ratio):

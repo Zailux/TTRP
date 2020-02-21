@@ -51,29 +51,36 @@ class UltraVisController:
         self.ser.timeout = 2
 
         #Tries to initalize Aurora and Adds Functionaly based on state
-        self.initAurora(self.ser,extended=True)
+        self.debug_start = True
+        self.initAurora(self.ser)
 
-        
-
-
+      
     def run (self):
         self.root.mainloop()
 
     
-    def initAurora(self,ser,extended=False):
-
+    def initAurora(self,ser,extended=None):
+        if (extended == None):
+            extended = self.debug_start
         widgets = self.view.t2_debugFrame.winfo_children()
 
         try:
             self.aua = Aurora(ser)
 
         except serial.SerialException as e:
-            print(str(e))
+            print("serial.SerialException: "+str(e))
             self.aua_active = False
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
             self.view.auaReInitBut["state"] = 'normal'
-            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=True)
+            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser)
+            return
+        except Warning as w:
+            print(str(w))
+            self.disableWidgets(widgets)
+            self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
+            self.view.auaReInitBut["state"] = 'normal'
+            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser)
             return
 
         self.aua_active = True
@@ -82,7 +89,7 @@ class UltraVisController:
 
         self.aua.resetandinitSystem()
         
-        self.activate_DebugFunc()
+        self.addFunc2Debug()
 
         if (extended):
             self.activateHandles()
@@ -106,7 +113,7 @@ class UltraVisController:
             if (child.winfo_class() in ['Button','Entry']):
                 child.configure(state='disabled')
 
-    def activate_DebugFunc(self):
+    def addFunc2Debug(self):
         #Menu
         #self.view.initBut["command"] = self.beep
         self.view.readBut["command"] = self.aua.readSerial
@@ -201,82 +208,6 @@ class UltraVisController:
         # ser.send_break()  # zwingend noetig
         thread.start_new_thread(self.InitSystem, ())
 
-    def InitSystem(self):
-        self.ser.write(b'RESET \r')
-        time.sleep(1)
-        self.ser.write(b'INIT \r')
-        time.sleep(1)
-        self.readSerial()
-        self.activateHandles()
-        thread.exit()
-
-    def activateHandles(self):
-        # todo
-        print("All allocated Ports")
-        self.ser.write(b'PHSR 00\r')
-        time.sleep(1)
-        reply = self.readSerial_Return()
-        print("Reply is:")
-        print(reply)
-
-        # Anzahl der Handles aus der Antwort ermitteln
-        number_handles = 0
-        handles = []
-        number_handles = int(reply[0:2])
-
-        # Nur noch den interessanten Teil des Replys beachten (nach den ersten zwei Zeichen)
-        reply = reply[2:]
-
-        i = 0
-        while i < number_handles:
-            # String zu einem Handle auslesen
-            h = reply[0:5]
-            # ID und status von einander trennen
-            h_id = h[0:2]
-            h_state = h[2:3]
-            # Liste mit ID und Status des Handle erstellen
-            hx = [h_id, h_state]
-            # Das Handle (als kleine Liste) an die gro�e HandlesListe anf�gen
-            handles.append(hx)
-            # Den Teil der Antwort l�schen, der uninteressant geworden ist
-            reply = reply[5:]
-            i += 1
-
-        # print("handles 02")
-        # ser.write(b'PHSR 02\r')
-        # time.sleep(1)
-        # readSerial(ser)
-
-        # Alle Port-Handles Initialisieren
-        # Alle Port-Hanldes aktivieren
-        print("Initializing Port-Handles")
-        ii = 0
-        while ii < len(handles):
-            h_id_b = bytes(handles[ii][0].encode('utf-8'))
-            b = b'PINIT ' + h_id_b + b'\r'
-            print("Initialisiere " + str(b))
-            self.ser.write(b)
-            time.sleep(2)
-            self.readSerial()
-
-            c = b'PENA ' + h_id_b + b'D\r'
-            print("Activating " + str(b))
-            self.ser.write(c)
-            time.sleep(2)
-            self.readSerial()
-
-            ii += 1
-
-        # Pr�fen, ob noch Handles falsch belegt sind
-        # print("handles 03")
-        # ser.write(b'PHSR 03\r')
-        # time.sleep(1)
-        # readSerial(ser)
-
-
-    def readSerial(self):
-        print(self.readSerial_Return())
-
     def readSerial_Return(self):
         out = ''
         r = "\r"
@@ -361,7 +292,6 @@ class UltraVisController:
                 self.koordinatenSystem()
                 test_out = test_out[70:]
                 iii += 1
-
 
     def onSaveRefPosClicked(self):
         # print("Clicked save ref")

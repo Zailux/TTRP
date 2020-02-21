@@ -17,18 +17,20 @@ class Aurora:
         
         self.sysmode =''
         #validate Serial Objecttype and open Serialport
-        try: 
-            if (type(ser) is not serial.serialwin32.Serial):
-                raise TypeError('Invalid Object type of: '+ type(ser)+" was used. Please use pySerial Object")
-            
-            self.ser = ser
-
+     
+        if (type(ser) is not serial.serialwin32.Serial):
+            raise TypeError('Invalid Object type of: '+ type(ser)+" was used. Please use pySerial Object")
+        self.ser = ser
+        if(self.ser.isOpen() == False):
             self.ser.open()
             print("Sucessfully opened: "+self.ser.name)
 
-        except serial.SerialException as e:
-            raise serial.SerialException(e)
-            #print("Serialexception: "+ str(e))
+        print("Try Reading Aurora System")
+        if (len(self.readSerial())==0):
+            raise Warning("Empty Return Message during Initilization. Please ensure that the system is properly connected at "+self.ser.name+" and turned on.")
+
+
+        
         
 
 
@@ -338,7 +340,7 @@ class HandleManager:
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
-            print("Uneven nums OMFG")
+            print("Uneven Handles OMFG - Critical Issue")
         self.num_handles = num
         tx_str = tx_str[2:]
         
@@ -352,7 +354,6 @@ class HandleManager:
         for handle in tx_str:
             h_id = handle[0:2]
             new_handle = self.handles[h_id]
-
             handle = handle[2:]
 
             if (handle.startswith("MISSING")):
