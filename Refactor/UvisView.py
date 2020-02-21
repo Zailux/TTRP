@@ -10,11 +10,11 @@ import time
 
 import matplotlib
 matplotlib.use('Tkagg')
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
-
+import numpy as np
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
@@ -137,6 +137,7 @@ class UltraVisView(tk.Frame):
         self.navLabel = tk.Label(self.navFrame)
         self.navLabel["text"] = "Navigtion GUI"
         self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        self.buildCoordinatesystem()
 
         self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
 
@@ -147,22 +148,6 @@ class UltraVisView(tk.Frame):
 
         self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
         self.galleryLb.pack()
-
-    def buildActionFrame(self,bFrame):
-            
-        self.backBut = tk.Button(bFrame)  
-        self.backBut["text"] = "Zurueck"
-        self.backBut["width"] = 20
-        #self.backBut["command"] = 
-        
-        self.nextBut = tk.Button(bFrame)  
-        self.nextBut["text"] = "Weiter"
-        self.nextBut["width"] = 20
-        #self.nextBut["command"] = 
-
-       
-        self.backBut.pack(side=tk.LEFT,padx=(0),pady=0,fill="both")
-        self.nextBut.pack(side=tk.RIGHT,padx=(0),pady=0, fill="both")
 
     def Capture_FrameGrabber(self):
         _isFirstCapture = True
@@ -205,6 +190,61 @@ class UltraVisView(tk.Frame):
         # Slider window (slider controls stage position)
         # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
         # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
+
+    def buildCoordinatesystem(self):
+        self.fig = plt.figure()
+        
+        self.ax = self.fig.add_subplot(111, projection='3d')
+
+        x = [50,-34,-88,-200]
+        y = [100,50,-25,-280]
+        z = [-200,-400,-10,-50]
+
+
+        def animate(sc):
+            self.ax.clear()
+            self.ax.set_xlabel('X')
+            self.ax.set_xlim(-230, 230)
+            self.ax.set_ylabel('Y')
+            self.ax.set_ylim(-320, 320)
+            self.ax.set_zlabel('Z')
+            self.ax.set_zlim(0, -600)
+            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=['green','red','blue','yellow'])
+            
+            for i in range(4):
+                step = np.random.randint(-5,5)
+                x[i] += step
+                y[i] += step
+                z[i] += step
+    
+
+
+
+        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)
+
+        ani = matplotlib.animation.FuncAnimation(self.fig, animate, frames=2, interval=100, repeat=True) 
+
+        self.navCanvas.draw()
+        self.navCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
+
+    
+    def buildActionFrame(self,bFrame):
+            
+        self.backBut = tk.Button(bFrame)  
+        self.backBut["text"] = "Zurueck"
+        self.backBut["width"] = 20
+        #self.backBut["command"] = 
+        
+        self.nextBut = tk.Button(bFrame)  
+        self.nextBut["text"] = "Weiter"
+        self.nextBut["width"] = 20
+        #self.nextBut["command"] = 
+
+       
+        self.backBut.pack(side=tk.LEFT,padx=(0),pady=0,fill="both")
+        self.nextBut.pack(side=tk.RIGHT,padx=(0),pady=0, fill="both")
+
+
 
     def buildTab2(self):
         #Tab2
@@ -286,7 +326,9 @@ class UltraVisView(tk.Frame):
         self.expec.grid(row=4,column = 1,sticky=tk.EW)
         self.sleepLabel.grid(row=5,column = 1, pady=(10, 2),sticky=tk.EW)
         self.sleeptimeEntry.grid(row=6,column = 1,sticky=tk.EW)
-        
+
+    
+    
    
     '''
     def buildRightFrame(self):
