@@ -114,8 +114,9 @@ class UltraVisView(tk.Frame):
         self.savedImgFrame.rowconfigure(0, weight=1)
         self.savedImgFrame.columnconfigure(0, weight=1)
         self.navFrame = tk.Frame(self.appFrame,bg="yellow")
-        self.navFrame.rowconfigure(0, weight=1)
-        self.navFrame.columnconfigure(0, weight=1)
+        self.navFrame.rowconfigure(1, weight=1)
+        self.navFrame.columnconfigure(0, weight=80)
+        self.navFrame.columnconfigure(1, weight=20)
 
         self.USImgFrame.grid(row=0, column=0, padx=5, pady=2,sticky=tk.NSEW )
         self.savedImgFrame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
@@ -133,10 +134,14 @@ class UltraVisView(tk.Frame):
         self.savedImgLabel = tk.Label(self.savedImgFrame)
         self.savedImgLabel["text"] = "Saved Image"
         self.savedImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        
         #Navigation Frame Content
         self.navLabel = tk.Label(self.navFrame)
         self.navLabel["text"] = "Navigtion GUI"
         self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        self.sysmodeLabel = tk.Label(self.navFrame)
+        self.sysmodeLabel["text"] = "Operating Mode: - "
+        self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
         self.buildCoordinatesystem()
 
         self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
@@ -195,7 +200,12 @@ class UltraVisView(tk.Frame):
         self.fig = plt.figure()
         
         self.ax = self.fig.add_subplot(111, projection='3d')
-
+        self.ax.set_xlabel('X')
+        self.ax.set_xlim(-230, 230)
+        self.ax.set_ylabel('Y')
+        self.ax.set_ylim(-320, 320)
+        self.ax.set_zlabel('Z')
+        self.ax.set_zlim(0, -600)
         x = [50,-34,-88,-200]
         y = [100,50,-25,-280]
         z = [-200,-400,-10,-50]
@@ -217,7 +227,7 @@ class UltraVisView(tk.Frame):
                 y[i] += step
                 z[i] += step
     
-
+        #https://stackoverflow.com/questions/16732379/stop-start-pause-in-python-matplotlib-animation
 
 
         self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)
@@ -225,7 +235,7 @@ class UltraVisView(tk.Frame):
         ani = matplotlib.animation.FuncAnimation(self.fig, animate, frames=2, interval=100, repeat=True) 
 
         self.navCanvas.draw()
-        self.navCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
+        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
 
     
     def buildActionFrame(self,bFrame):
@@ -362,86 +372,7 @@ class UltraVisView(tk.Frame):
         
         self.buildCoordinatesystem()
 
-    def buildCoordinatesystem(self):
-
-        # Frame f�r X-Achse
-        self.x_achse = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.x_achse.grid(row=0, column=0, pady=8)
-        self.x_achse_label = tk.Label(self.x_achse)
-        self.x_achse_label.pack()
-        self.x_links_orange_label = tk.Label(self.x_achse, image=self.x_links_orange)
-        self.x_links_rot_label = tk.Label(self.x_achse, image=self.x_links_rot)
-        self.x_rechts_orange_label = tk.Label(self.x_achse, image=self.x_rechts_orange)
-        self.x_rechts_rot_label = tk.Label(self.x_achse, image=self.x_rechts_rot)
-        self.x_ziel_label = tk.Label(self.x_achse, image=self.ziel)
-
-        # self.x_achseImage = tk.Label(self.x_achse)
-        # self.x_achseImage.grid(row=0, column=0)
-
-        # Frame f�r X-Rotation
-        self.x_rotation = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.x_rotation.grid(row=1, column=0, pady=8)
-        self.x_rotationImage = tk.Label(self.x_rotation)
-        self.x_rotationImage.grid(row=0, column=0)
-
-        # Frame f�r Y-Achse
-        self.y_achse = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.y_achse.grid(row=0, column=1, pady=8)
-        self.y_achseImage = tk.Label(self.y_achse)
-        self.y_achseImage.grid(row=0, column=0)
-
-        # Frame f�r Y-Rotation
-        self.y_rotation = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.y_rotation.grid(row=1, column=1, pady=8)
-        self.y_rotationImage = tk.Label(self.y_rotation)
-        self.y_rotationImage.grid(row=0, column=0)
-
-        # Frame f�r Z-Achse
-        self.z_achse = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.z_achse.grid(row=0, column=2, pady=8)
-        self.z_achseImage = tk.Label(self.z_achse)
-        self.z_achseImage.grid(row=0, column=0)
-
-        # Frame f�r Z-Rotation
-        self.z_rotation = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.z_rotation.grid(row=1, column=2, pady=8)
-        self.z_rotationImage = tk.Label(self.z_rotation)
-        self.z_rotationImage.grid(row=0, column=0)
-
-        # Frame f�r Eigen-Rotation
-        self.self_rotation = tk.Frame(self.upperFrameRightRight, width=25, height=25)
-        self.self_rotation.grid(row=0, column=3, pady=8)
-        self.self_rotationImage = tk.Label(self.self_rotation)
-        self.self_rotationImage.grid(row=0, column=0)
-
-        # Koordinatensystem erstellen
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_xlim(-200, 200)
-        self.ax.set_xlabel("X")
-        self.ax.set_ylim(-300, 300)
-        self.ax.set_ylabel("Y")
-        self.ax.set_zlim(100, 600)
-        self.ax.set_zlabel("Z")
-
-        self.handle_0 = self.ax.quiver(1, 1, 1, 0.2, 0.3, 0.4, length=0.0, color="red", pivot="tip")
-        self.handle_0_text = self.ax.text3D(0, 0, 0, "")
-        self.handle_1 = self.ax.quiver(0, 0, 0, 0, 0, 0, length=0.0, color="blue", pivot="tip")
-        self.handle_1_text = self.ax.text3D(0, 0, 0, "")
-        self.handle_2 = self.ax.quiver(0, 0, 0, 0, 0, 0, length=0.0, color="green", pivot="tip")
-        self.handle_2_text = self.ax.text3D(0, 0, 0, "")
-        self.handle_3 = self.ax.quiver(0, 0, 0, 0, 0, 0, length=0.0, color="black", pivot="tip")
-        self.handle_3_text = self.ax.text3D(0, 0, 0, "")
-        self.safe_handle = self.ax.quiver(0, 0, 0, 0, 0, 0, length=0.0, pivot="tip")
-        self.safe_handle_text = self.ax.text3D(0, 0, 0, "")
-        self.scatty = self.ax.scatter(0, 0, 0, s=0)
-
-        # Frame erstellen + Koordinatensystem anzeigen
-        self.navigationCanvas = FigureCanvasTkAgg(self.fig, self.lowerFrameRight)
-        #self.navigationCanvas.show()
-        self.navigationCanvas.draw()
-        self.navigationCanvas.get_tk_widget().grid(row=0, column=0, pady=8, sticky=tk.NSEW)
-
+   
     '''
 
     def initImages(self):

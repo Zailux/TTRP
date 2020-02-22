@@ -1,9 +1,6 @@
 
-from __future__ import print_function
-
 #from UvisModel import UltraVisModel,
 from UvisView import UltraVisView
-
 
 import tkinter as tk
 
@@ -62,6 +59,7 @@ class UltraVisController:
     def initAurora(self,ser,extended=None):
         if (extended == None):
             extended = self.debug_start
+
         widgets = self.view.t2_debugFrame.winfo_children()
 
         try:
@@ -73,17 +71,18 @@ class UltraVisController:
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
             self.view.auaReInitBut["state"] = 'normal'
-            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser)
+            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=self.debug_start)
             return
         except Warning as w:
             print(str(w))
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
             self.view.auaReInitBut["state"] = 'normal'
-            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser)
+            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=self.debug_start)
             return
 
         self.aua_active = True
+        self.aua.register("Sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
         self.view.auaReInitBut.grid_forget()
 
@@ -92,8 +91,7 @@ class UltraVisController:
         self.addFunc2Debug()
 
         if (extended):
-            self.activateHandles()
-        
+            self.activateHandles()    
     
     def enableWidgets(self,childList):
         for child in childList:
@@ -112,26 +110,10 @@ class UltraVisController:
 
             if (child.winfo_class() in ['Button','Entry']):
                 child.configure(state='disabled')
+    
 
-    def addFunc2Debug(self):
-        #Menu
-        #self.view.initBut["command"] = self.beep
-        self.view.readBut["command"] = self.aua.readSerial
-        self.view.resetBut["command"] = self.aua.resetandinitSystem
-        self.view.testBut["command"] = self.testFunction
-        self.view.handleBut["command"] = self.activateHandles
-        #self.view.restartBut["command"] = self.restart
-        self.view.quitBut["command"] = self.root.destroy
-        
+    #   -----Aurora Functionality  ------#
 
-        #DebugCMD
-        self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
-        self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
-        self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
-      
-
-
-        
     def activateHandles(self):
         # todo Gesamtprozess nach Guide (siehe Aurora API)
 
@@ -166,17 +148,17 @@ class UltraVisController:
         except Warning as w:
             print(str(w))
 
-    def startTracking(self):
-        self.aua.tstart(40)
-        
-        #self.transformationData()
-
     def startstopTracking(self):
-        if (self.aua.sysmode=='SETUP'):
-            pass
+        if (self.aua.getSysmode()=='SETUP'):
+            self.aua.tstart(40)
+            #Thread starte Thread und gebe den AppFrame GUI die Daten
             #thread.start_new(self.aua.tstart, ())
-        else:
-            self.aua.tstop
+        elif(self.aua.getSysmode()=='TRACKING'):
+            self.aua.tstop()
+            #Kill Stop die GUI, Kill den Thread für die Daten
+
+   
+       
 
     def writeCmd2AUA(self,event):
            
@@ -200,7 +182,26 @@ class UltraVisController:
         while True:
             tx = self.aua.tx()
             self.hm.updateHandles(tx)
-    
+
+    #----GUI Related ----#
+    def addFunc2Debug(self):
+        #Menu
+        #self.view.initBut["command"] = self.beep
+        self.view.readBut["command"] = self.aua.readSerial
+        self.view.resetBut["command"] = self.aua.resetandinitSystem
+        self.view.testBut["command"] = self.testFunction
+        self.view.handleBut["command"] = self.activateHandles
+        #self.view.restartBut["command"] = self.restart
+        self.view.quitBut["command"] = self.root.destroy
+        
+
+        #DebugCMD
+        self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
+
+    def refreshSysmode(self):
+        self.view.sysmodeLabel.update("Operating Mode: "+self.aua.getSysmode())
 
 '''        
     def onInitSystemClicked(self):

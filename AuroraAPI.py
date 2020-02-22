@@ -14,12 +14,14 @@ class Aurora:
             self.lock = False
       
         self.readsleep = 0
-        
-        self.sysmode =''
-        #validate Serial Objecttype and open Serialport
-     
+        self.sysmode = None
+        #registered Methods !
+        self._observers = {}
+
+        #validate Serial Objecttype and open Serialport   
         if (type(ser) is not serial.serialwin32.Serial):
             raise TypeError('Invalid Object type of: '+ type(ser)+" was used. Please use pySerial Object")
+
         self.ser = ser
         if(self.ser.isOpen() == False):
             self.ser.open()
@@ -28,9 +30,29 @@ class Aurora:
         print("Try Reading Aurora System")
         if (len(self.readSerial())==0):
             raise Warning("Empty Return Message during Initilization. Please ensure that the system is properly connected at "+self.ser.name+" and turned on.")
-
-
+    
+    #Observer Pattern - Add Observer Method / Callback Method
+    def register(self,key,observer):
+        if ("key" not in self._observers):
+            self._observers[key] = observer
+        else:
+            raise Warning("Key: "+str(key)+" already exists")
+    
+    def getSysmode(self):
+        return self.sysmode
+    
+    def setSysmode(self,value):
+        modes = ['SETUP','TRACKING']
+        if (value not in modes):
+            raise ValueError("Invalid Value. Value must be in "+str(modes))
         
+        self.sysmode=value
+
+        for callback in self._observers:
+            print('announcing change')
+            callback(self.sysmode)
+
+
         
 
 
@@ -100,7 +122,8 @@ class Aurora:
     
     def init(self):
         self.ser.write(b'INIT \r')
-        self.readSerial()
+        if (self.readSerial().startswith(b'OKAY')):
+            self.setSysmode('SETUP')
         
 
     def get(self, attr=None):
@@ -108,7 +131,9 @@ class Aurora:
 
     def reset(self):
         self.ser.write(b'RESET \r')
-        self.readSerial()
+        msg = self.readSerial()
+        if (msg.startswith(b'RESET') or msg.startswith(b'OKAY')):
+            self.setSysmode('SETUP')
 
     def pinit(self,handle):
         
@@ -184,12 +209,15 @@ class Aurora:
 
         self.ser.write(cmd.encode())
         time.sleep(1.8)
-        self.readSerial()
+        if (self.readSerial().startswith(b'OKAY')):
+            self.setSysmode('TRACKING')
+            
 
     def tstop(self):
         self.ser.write( b'TSTOP \r')
         time.sleep(0.5)
-        self.readSerial()
+        if (self.readSerial().startswith(b'OKAY')):
+            self.setSysmode('SETUP')
 
 
     def tx(self, option=None):
