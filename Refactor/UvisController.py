@@ -1,4 +1,3 @@
-
 #from UvisModel import UltraVisModel,
 from UvisView import UltraVisView
 
@@ -16,6 +15,9 @@ import sys
 sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
 from AuroraAPI import Aurora, Handle, HandleManager
 
+
+import matplotlib.animation
+from mpl_toolkits.mplot3d import Axes3D
 
 
 #GlobaleVariablen Definition
@@ -37,6 +39,10 @@ class UltraVisController:
         #model = UltraVisModel()
         self.view = UltraVisView(self.root)
         
+        #Controller Attributes
+        self.navAnim = None
+        self.hm = None
+
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
         self.ser.port = 'COM5'
@@ -149,16 +155,77 @@ class UltraVisController:
             print(str(w))
 
     def startstopTracking(self):
+        #Bug self.aua can't deal with concurrent calls !
         if (self.aua.getSysmode()=='SETUP'):
             self.aua.tstart(40)
             #Thread starte Thread und gebe den AppFrame GUI die Daten
+            if (self.navAnim==None):
+                self.navAnim = self.getNavAnimation()
+            else:
+                self.navAnim.start()
+
             #thread.start_new(self.aua.tstart, ())
         elif(self.aua.getSysmode()=='TRACKING'):
+            self.navAnim.event_source.stop()
             self.aua.tstop()
-            #Kill Stop die GUI, Kill den Thread für die Daten
+ 
 
-   
-       
+    def getNavAnimation(self):
+        def animate(frame):
+                tx = self.aua.tx()
+                self.hm.updateHandles(tx)
+                x,y,z = [],[],[]
+                color = ['green','red','blue','yellow']
+                
+                color = color[:(self.hm.getNum_Handles()-1)]
+                for i,handle in enumerate(self.hm.getHandles()):
+                    if (not handle.MISSING):
+                        x.append(handle.Tx)
+                        y.append(handle.Ty)
+                        z.append(handle.Tz)
+                    else:
+                        color.pop(i)
+                
+                self.view.buildCoordinatesystem()
+                
+                Axes3D.scatter(self.view.ax,xs=x,ys=y,zs=z,c=color)
+
+        return matplotlib.animation.FuncAnimation(self.view.fig, animate, frames=2, interval=100, repeat=True) 
+
+    def savePosition(self):
+        if (not self.aua.getSysmode()=='TRACKING'):
+            print("This functionality is only available during tracking. Please Start Tracking")
+            return
+        
+        #Stops the current refresh and changing of Positional data 
+        self.navAnim.event_source.stop()
+        handles = self.hm.getHandles()
+
+        #Validate Handles for saving
+        validSave = True
+        missID = []
+        for handle in handles:
+            if(handle.MISSING):
+                validSave = False
+                missID.append(handle.ID)
+
+        if (validSave):
+            pass
+            #saveandgetFrame Method
+            
+
+
+
+            
+        else:    
+            print("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
+
+            
+                
+               
+
+
+
 
     def writeCmd2AUA(self,event):
            

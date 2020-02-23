@@ -88,7 +88,7 @@ class UltraVisView(tk.Frame):
             
         self.saveBut = tk.Button(lFrame)  
         self.saveBut["text"] = "Aufnahme speichern"
-        #self.readBut["command"] = 
+        self.saveBut["command"] = self.saveUSImg
         
         self.cancelBut = tk.Button(lFrame)  
         self.cancelBut["text"] = "Abbrechen"
@@ -99,12 +99,16 @@ class UltraVisView(tk.Frame):
         self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
 
     def buildAppFrame(self,rFrame):
+        self.img_size = None
+        self.savedImg = None
+
         #2x2 Matrix of Application frame
         self.appFrame = tk.Frame(rFrame,bg="black")     
         self.appFrame.rowconfigure(0, weight=1, uniform=1)
         self.appFrame.rowconfigure(1, weight=1, uniform=1)
         self.appFrame.columnconfigure(0, weight=1, uniform=1)
         self.appFrame.columnconfigure(1, weight=1, uniform=1)
+        self.appFrame.bind('<Configure>', self.refreshImgSize)
 
         #Order of the US Frame, Saved Image and Navigationframe
         self.USImgFrame = tk.Frame(self.appFrame,bg="green")
@@ -142,9 +146,16 @@ class UltraVisView(tk.Frame):
         self.sysmodeLabel = tk.Label(self.navFrame)
         self.sysmodeLabel["text"] = "Operating Mode: - "
         self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
+
+        self.fig = plt.figure()
         self.buildCoordinatesystem()
+        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)    
+
+        self.navCanvas.draw()
+        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
 
         self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.appFrame.after_idle(self.calcUSImgSize)
 
 
         #Gallery Frame Content
@@ -154,22 +165,42 @@ class UltraVisView(tk.Frame):
         self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
         self.galleryLb.pack()
 
+    def refreshImgSize(self,event):
+        self.appFrame.after_idle(self.calcUSImgSize)  
+
     def Capture_FrameGrabber(self):
         _isFirstCapture = True
         _, frame = self.cap.read()
+        self.frame = cv2.flip(frame, 1)
 
         if frame is None and _isFirstCapture: 
             print("Empty Frame - No Device was found")
             self.USImgLabel["text"] = "EMPTY FRAME \n No Device was found"
             self.USImgLabel.after(10000, self.Capture_FrameGrabber)
             return
-
         
         if (self.USImgFrame.winfo_height()==1):
             self.USImgLabel.after(1500, self.Capture_FrameGrabber)
             return
 
-        self.frame = cv2.flip(frame, 1)
+        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+        img = Image.fromarray(cv2image)
+        
+        if (self.img_size is not None):
+            img = img.resize(self.img_size, Image.ANTIALIAS)
+
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        self.USImgLabel.imgtk = imgtk
+        self.USImgLabel.configure(image=imgtk)
+        self.USImgLabel.after(10, self.Capture_FrameGrabber)
+
+        # Slider window (slider controls stage position)
+        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
+        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
+
+    def calcUSImgSize(self):
+        #Get current Frame
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         img = Image.fromarray(cv2image)
         width, height = img.size
@@ -183,59 +214,32 @@ class UltraVisView(tk.Frame):
         else:
             new_height = (self.USImgFrame.winfo_height()-5)
             new_width = width / height * new_height
-            
-        img = img.resize((int(new_width), int(new_height)), Image.ANTIALIAS)
+        
+        self.img_size = ((int(new_width), int(new_height)))   
 
-        imgtk = ImageTk.PhotoImage(image=img)
-
-        self.USImgLabel.imgtk = imgtk
-        self.USImgLabel.configure(image=imgtk)
-        self.USImgLabel.after(10, self.Capture_FrameGrabber)
-
-        # Slider window (slider controls stage position)
-        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
-        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
+    def refreshImages(self):
+        #Refresh Saved IMG more Image possible
+        if (self.savedImg is not None):
+            self.savedImg = self.savedImg.resize(self.img_size, Image.ANTIALIAS)
+            imgtk = ImageTk.PhotoImage(image=self.savedImg)      
+            self.savedImgLabel.imgtk = imgtk
+            self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
 
     def buildCoordinatesystem(self):
-        self.fig = plt.figure()
         
         self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax.clear()
         self.ax.set_xlabel('X')
         self.ax.set_xlim(-230, 230)
         self.ax.set_ylabel('Y')
         self.ax.set_ylim(-320, 320)
         self.ax.set_zlabel('Z')
         self.ax.set_zlim(0, -600)
-        x = [50,-34,-88,-200]
-        y = [100,50,-25,-280]
-        z = [-200,-400,-10,-50]
 
-
-        def animate(sc):
-            self.ax.clear()
-            self.ax.set_xlabel('X')
-            self.ax.set_xlim(-230, 230)
-            self.ax.set_ylabel('Y')
-            self.ax.set_ylim(-320, 320)
-            self.ax.set_zlabel('Z')
-            self.ax.set_zlim(0, -600)
-            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=['green','red','blue','yellow'])
-            
-            for i in range(4):
-                step = np.random.randint(-5,5)
-                x[i] += step
-                y[i] += step
-                z[i] += step
-    
-        #https://stackoverflow.com/questions/16732379/stop-start-pause-in-python-matplotlib-animation
-
-
-        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)
-
-        ani = matplotlib.animation.FuncAnimation(self.fig, animate, frames=2, interval=100, repeat=True) 
-
-        self.navCanvas.draw()
-        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
+    def saveUSImg(self):
+        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+        self.savedImg = Image.fromarray(cv2image)
+        self.refreshImages()
 
     
     def buildActionFrame(self,bFrame):
@@ -337,43 +341,6 @@ class UltraVisView(tk.Frame):
         self.sleepLabel.grid(row=5,column = 1, pady=(10, 2),sticky=tk.EW)
         self.sleeptimeEntry.grid(row=6,column = 1,sticky=tk.EW)
 
-    
-    
-   
-    '''
-    def buildRightFrame(self):
-        # self.rightFrame.rowconfigure(0, weight=1)
-        # self.rightFrame.rowconfigure(1, weight=1)
-        # self.rightFrame.columnconfigure(1, weight=1)
-        self.upperFrameRight = tk.Frame(self.rightFrame)
-        self.lowerFrameRight = tk.Frame(self.rightFrame)
-        self.upperFrameRightLeft = tk.Frame(self.upperFrameRight)
-        self.upperFrameRightRight = tk.Frame(self.upperFrameRight)
-
-        self.upperFrameRight.grid(row=0, column=0, sticky=tk.NSEW)
-        self.upperFrameRightLeft.grid(row=0, column=0, sticky=tk.NSEW)
-        self.upperFrameRightRight.grid(row=0, column=1, sticky=tk.NSEW)
-        self.lowerFrameRight.grid(row=2, column=0, sticky=tk.NSEW)
-
-        self.buttonReset = tk.Button(self.upperFrameRightLeft, text="Reset System", width=BUTTON_WIDTH)
-        self.buttonReset.grid(row=0, column=0, pady=8, sticky=tk.EW)
-
-        self.buttonInitSystem = tk.Button(self.upperFrameRightLeft, text="Initalize System", width=BUTTON_WIDTH)
-        self.buttonInitSystem.grid(row=1, column=0, pady=8, sticky=tk.EW)
-
-        self.buttonStartStopTracking = tk.Button(self.upperFrameRightLeft, text="Start/Stop Tracking", width=BUTTON_WIDTH)
-        self.buttonStartStopTracking.grid(row=2, column=0, pady=8)
-
-        self.buttonSaveRefPosition = tk.Button(self.upperFrameRightLeft, text="Save Ref. Position", width=BUTTON_WIDTH)
-        self.buttonSaveRefPosition.grid(row=3, column=0, pady=8)
-
-    
-        
-        
-        self.buildCoordinatesystem()
-
-   
-    '''
 
     def initImages(self):
 
