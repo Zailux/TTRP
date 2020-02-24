@@ -67,7 +67,7 @@ class UltraVisController:
             if(self.aua is not None):
                 if(self.aua.getSysmode()=='TRACKING'):
                     self.navAnim.event_source.stop()
-                self.aua.tstop()
+                    self.aua.tstop()
             
             self.ser.close()
             #Bug that plt.close also closes the TKinter Windows!
@@ -83,7 +83,6 @@ class UltraVisController:
     def run (self):
         self.root.mainloop()
 
-    
     def initAurora(self,ser,extended=None):
         if (extended == None):
             extended = self.debug_start
@@ -116,11 +115,13 @@ class UltraVisController:
 
         self.aua.resetandinitSystem()
         
-        self.addFunc2Debug()
+        self.addFuncDebug()
 
         if (extended):
             self.activateHandles()    
-    
+            self.addFuncTracking()
+
+
     def enableWidgets(self,childList):
         for child in childList:
             if (child.winfo_class() == 'Frame'):
@@ -183,8 +184,9 @@ class UltraVisController:
             #Thread starte Thread und gebe den AppFrame GUI die Daten
             if (self.navAnim==None):
                 self.navAnim = self.getNavAnimation()
+                self.view.navCanvas.draw()
             else:
-                self.navAnim.start()
+                self.navAnim.event_source.start()
 
             #thread.start_new(self.aua.tstart, ())
         elif(self.aua.getSysmode()=='TRACKING'):
@@ -193,26 +195,31 @@ class UltraVisController:
  
 
     def getNavAnimation(self):
+        
         def animate(frame):
-                tx = self.aua.tx()
-                self.hm.updateHandles(tx)
-                x,y,z = [],[],[]
-                color = ['green','red','blue','yellow']
-                
-                color = color[:(self.hm.getNum_Handles()-1)]
-                for i,handle in enumerate(self.hm.getHandles()):
-                    if (not handle.MISSING):
-                        x.append(handle.Tx)
-                        y.append(handle.Ty)
-                        z.append(handle.Tz)
-                    else:
-                        color.pop(i)
-                
-                self.view.buildCoordinatesystem()
-                
-                Axes3D.scatter(self.view.ax,xs=x,ys=y,zs=z,c=color)
+            
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+            x,y,z = [],[],[]
+            color = ['green','red','blue','yellow']
+            
+            color = color[:(self.hm.getNum_Handles())]
+            handles = self.hm.getHandles()
+            #Might change for Items, if the specific request of handle object is neccessary.
+            for i,handle in enumerate(handles.values()):
+                if (not handle.MISSING):
+                    x.append(handle.Tx)
+                    y.append(handle.Ty)
+                    z.append(handle.Tz)
+                else:
+                    color.pop()
+            
+            self.view.buildCoordinatesystem()
+            
+            Axes3D.scatter(self.view.ax,xs=x,ys=y,zs=z,c=color)
 
-        return matplotlib.animation.FuncAnimation(self.view.fig, animate, frames=2, interval=100, repeat=True) 
+        anim = matplotlib.animation.FuncAnimation(self.view.fig, animate, frames=2, interval=100, repeat=True) 
+        return anim
 
     def savePosition(self):
         if (not self.aua.getSysmode()=='TRACKING'):
@@ -226,10 +233,10 @@ class UltraVisController:
         #Validate Handles for saving
         validSave = True
         missID = []
-        for handle in handles:
-            if(handle.MISSING):
+        for h_id in handles:
+            if(handles[h_id].MISSING):
                 validSave = False
-                missID.append(handle.ID)
+                missID.append(h_id)
 
         if (validSave):
             pass
@@ -273,7 +280,7 @@ class UltraVisController:
             self.hm.updateHandles(tx)
 
     #----GUI Related ----#
-    def addFunc2Debug(self):
+    def addFuncDebug(self):
         #Menu
         #self.view.initBut["command"] = self.beep
         self.view.readBut["command"] = self.aua.readSerial
@@ -289,8 +296,14 @@ class UltraVisController:
         self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
+
+    def addFuncTracking(self):
+        self.view.trackBut["command"] = self.startstopTracking
+
+
     def refreshSysmode(self):
-        self.view.sysmodeLabel.update("Operating Mode: "+self.aua.getSysmode())
+        self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        self.view.sysmodeLabel.update()
 
 '''        
     def onInitSystemClicked(self):

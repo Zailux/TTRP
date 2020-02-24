@@ -85,7 +85,11 @@ class UltraVisView(tk.Frame):
     def buildMenuFrame(self,lFrame):
 
         self.MenuTitleLabel = tk.Label(lFrame, text="Menu")
-            
+
+        self.trackBut = tk.Button(lFrame)  
+        self.trackBut["text"] = "Start/Stop Tracking"
+        
+ 
         self.saveBut = tk.Button(lFrame)  
         self.saveBut["text"] = "Aufnahme speichern"
         self.saveBut["command"] = self.saveUSImg
@@ -94,8 +98,9 @@ class UltraVisView(tk.Frame):
         self.cancelBut["text"] = "Abbrechen"
         #self.readBut["command"] = 
 
-        self.MenuTitleLabel.pack(side=tk.TOP, pady=(10,0),fill="both")
-        self.saveBut.pack(side=tk.TOP, pady=(2, 0),padx=(10),fill="both")
+        self.MenuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+        self.trackBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")  
+        self.saveBut.pack(side=tk.TOP, pady=(0, 0),padx=(10),fill="both")
         self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
 
     def buildAppFrame(self,rFrame):

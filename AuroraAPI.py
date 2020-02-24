@@ -23,12 +23,13 @@ class Aurora:
             raise TypeError('Invalid Object type of: '+ type(ser)+" was used. Please use pySerial Object")
 
         self.ser = ser
-        if(self.ser.isOpen() == False):
-            self.ser.open()
-            print("Sucessfully opened: "+self.ser.name)
+        if(self.ser.isOpen()):
+            self.ser.close()
+        self.ser.open()
+        print("Sucessfully opened Port: "+self.ser.name)
 
-        print("Try Reading Aurora System")
-        if (len(self.readSerial())==0):
+        print("Try Reading APIREV Aurora System")
+        if (len(self.apirev())==0):
             raise Warning("Empty Return Message during Initilization. Please ensure that the system is properly connected at "+self.ser.name+" and turned on.")
     
     #Observer Pattern - Add Observer Method / Callback Method
@@ -48,9 +49,9 @@ class Aurora:
         
         self.sysmode=value
 
-        for callback in self._observers:
-            print('announcing change')
-            callback(self.sysmode)
+        #Callback the observers with the data change
+        for methodkey in self._observers:
+            self._observers[methodkey]()
 
 
         
@@ -203,9 +204,11 @@ class Aurora:
             cmd = 'TSTART \r'
         else:
             option = int(option)
-            if ((option!=40 or option!=80)): 
+            if ((option is 40 or option is 80)): 
+                cmd = 'TSTART '+str(option)+'\r'
+            else:
                 raise ValueError("Invalid Parameter: Please choose value 40 or 80")           
-            cmd = 'TSTART '+str(option)+'\r'
+            
 
         self.ser.write(cmd.encode())
         time.sleep(1.8)
@@ -355,6 +358,13 @@ class HandleManager:
     def getHandles(self):
         return self.handles
 
+    def getMissingHandles(self):
+        misshandles = []
+        for h_id,handle in self.handles.items():
+            if (handle.MISSING):
+                misshandles.append(h_id)
+        return misshandles
+
     def updateHandles(self,tx_str):
         #expects the outpout from tx decoded tx string. 
         #SYSTEMSTATUS TO BE DONE!
@@ -364,7 +374,7 @@ class HandleManager:
         # 0000 9F29\r'
         #id+  q0+qx+qy+qz    tx+ty+tz +error/indicatorvalue +       port status + framestatus     (systemstatus+crc)
                 #2+   6+6+6+6             +7+7+7+6                                    8+8
-
+        
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
@@ -378,6 +388,7 @@ class HandleManager:
         #extract Systeminfo and clean it afterwards
         sys_status, crc = tx_str[-1][:4],tx_str[-1][4:]
         tx_str.pop()
+        
         
         for handle in tx_str:
             h_id = handle[0:2]
@@ -406,6 +417,7 @@ class HandleManager:
             
             self.handles[h_id] = new_handle
         
+        
 
     def insert_separator(self, string, index):
         return string[:index] + '.' + string[index:]
@@ -433,10 +445,15 @@ class Handle:
         self.Tz = None
         self.Err = None
 
+        self.calc_Err = None
         self.port_state = None
         self.frame_id = None
 
-
+    def setReferenceName(self,refname):
+        if (type(refname) == str):
+            self.refname = refname
+        else:
+            raise TypeError("The parameter type must be String")
         
     def setTXData(self,MISSING = False, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
         self.MISSING = MISSING       
