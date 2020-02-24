@@ -193,7 +193,7 @@ class UltraVisView(tk.Frame):
 
         self.USImgLabel.imgtk = imgtk
         self.USImgLabel.configure(image=imgtk)
-        self.USImgLabel.after(10, self.Capture_FrameGrabber)
+        self._FrameGrabberJob = self.USImgLabel.after(10, self.Capture_FrameGrabber)
 
         # Slider window (slider controls stage position)
         # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
@@ -216,6 +216,8 @@ class UltraVisView(tk.Frame):
             new_width = width / height * new_height
         
         self.img_size = ((int(new_width), int(new_height)))   
+
+        self.refreshImages()
 
     def refreshImages(self):
         #Refresh Saved IMG more Image possible

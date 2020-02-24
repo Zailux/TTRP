@@ -1,6 +1,6 @@
 #from UvisModel import UltraVisModel,
 from UvisView import UltraVisView
-
+import time
 import tkinter as tk
 
 import serial
@@ -15,7 +15,7 @@ import sys
 sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
 from AuroraAPI import Aurora, Handle, HandleManager
 
-
+import matplotlib.pyplot as plt
 import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -42,6 +42,7 @@ class UltraVisController:
         #Controller Attributes
         self.navAnim = None
         self.hm = None
+        self.aua = None
 
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
@@ -56,6 +57,27 @@ class UltraVisController:
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.debug_start = True
         self.initAurora(self.ser)
+
+        def on_closing():
+            #Close FrameGrabber
+            self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
+            self.view.cap.release()
+            
+            #Close Tracking + Matplotanimation
+            if(self.aua is not None):
+                if(self.aua.getSysmode()=='TRACKING'):
+                    self.navAnim.event_source.stop()
+                self.aua.tstop()
+            
+            self.ser.close()
+            #Bug that plt.close also closes the TKinter Windows!
+            plt.close(fig=self.view.fig)
+            print("Good Night Cruel World :D")
+            self.root.quit()
+            self.root.destroy()
+
+        # Connect the closing method with the root window
+        self.root.protocol("WM_DELETE_WINDOW", on_closing)
 
       
     def run (self):
