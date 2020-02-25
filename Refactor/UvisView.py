@@ -16,11 +16,12 @@ import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
+import threading
+
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
 
 class UltraVisView(tk.Frame):
-
 
     def __init__(self, master):
         super().__init__(master)
@@ -104,8 +105,13 @@ class UltraVisView(tk.Frame):
         self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
 
     def buildAppFrame(self,rFrame):
+        #Init of AppFrame Attributes
+        
+        self.cap = None
+        self.navCanvasData = ()
         self.img_size = None
         self.savedImg = None
+
 
         #2x2 Matrix of Application frame
         self.appFrame = tk.Frame(rFrame,bg="black")     
@@ -114,6 +120,7 @@ class UltraVisView(tk.Frame):
         self.appFrame.columnconfigure(0, weight=1, uniform=1)
         self.appFrame.columnconfigure(1, weight=1, uniform=1)
         self.appFrame.bind('<Configure>', self.refreshImgSize)
+        
 
         #Order of the US Frame, Saved Image and Navigationframe
         self.USImgFrame = tk.Frame(self.appFrame,bg="green")
@@ -136,8 +143,11 @@ class UltraVisView(tk.Frame):
         self.USImgLabel["text"] = "INITIALIZING VIDEOINPUT"
         self.USImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
         self.USImgLabel.grid_propagate(0)
+
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
+        #a = threading.Thread(target=self.Capture_FrameGrabber,daemon=True)
+        #a.start()
 
         #Saved Image Content
         self.savedImgLabel = tk.Label(self.savedImgFrame)
@@ -153,10 +163,11 @@ class UltraVisView(tk.Frame):
         self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
 
         self.fig = plt.figure()
-        self.buildCoordinatesystem()
-        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)    
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
 
-        self.navCanvas.draw()
+        self.buildCoordinatesystem()
+        
         self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
 
         self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
@@ -183,21 +194,20 @@ class UltraVisView(tk.Frame):
             self.USImgLabel["text"] = "EMPTY FRAME \n No Device was found"
             self.USImgLabel.after(10000, self.Capture_FrameGrabber)
             return
-        
         if (self.USImgFrame.winfo_height()==1):
             self.USImgLabel.after(1500, self.Capture_FrameGrabber)
             return
 
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         img = Image.fromarray(cv2image)
-        
         if (self.img_size is not None):
             img = img.resize(self.img_size, Image.ANTIALIAS)
-
         imgtk = ImageTk.PhotoImage(image=img)
 
         self.USImgLabel.imgtk = imgtk
         self.USImgLabel.configure(image=imgtk)
+        #self.navCanvas.draw()
+        
         self._FrameGrabberJob = self.USImgLabel.after(10, self.Capture_FrameGrabber)
 
         # Slider window (slider controls stage position)
@@ -220,11 +230,11 @@ class UltraVisView(tk.Frame):
             new_height = (self.USImgFrame.winfo_height()-5)
             new_width = width / height * new_height
         
+
         self.img_size = ((int(new_width), int(new_height)))   
+        self.refresh_savedImg()
 
-        self.refreshImages()
-
-    def refreshImages(self):
+    def refresh_savedImg(self):
         #Refresh Saved IMG more Image possible
         if (self.savedImg is not None):
             self.savedImg = self.savedImg.resize(self.img_size, Image.ANTIALIAS)
@@ -232,9 +242,8 @@ class UltraVisView(tk.Frame):
             self.savedImgLabel.imgtk = imgtk
             self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
 
+
     def buildCoordinatesystem(self):
-        
-        self.ax = self.fig.add_subplot(111, projection='3d')
         self.ax.clear()
         self.ax.set_xlabel('X')
         self.ax.set_xlim(-230, 230)
@@ -243,10 +252,19 @@ class UltraVisView(tk.Frame):
         self.ax.set_zlabel('Z')
         self.ax.set_zlim(0, -600)
 
+        if (len(self.navCanvasData) is not 0):
+            x,y,z,color = self.navCanvasData
+            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color)
+            self.canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
+        
+        self.navCanvas.draw()
+
+        
+
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         self.savedImg = Image.fromarray(cv2image)
-        self.refreshImages()
+        self.refresh_savedImg()
 
     
     def buildActionFrame(self,bFrame):

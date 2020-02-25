@@ -21,11 +21,6 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 #GlobaleVariablen Definition
-global firstClick 
-global firstTime
-firstClick = False
-firstTime = False
-
 BUTTON_WIDTH = 25
 
 
@@ -40,6 +35,7 @@ class UltraVisController:
         self.view = UltraVisView(self.root)
         
         #Controller Attributes
+        self.debug_start = True
         self.navAnim = None
         self.hm = None
         self.aua = None
@@ -55,9 +51,9 @@ class UltraVisController:
         self.ser.timeout = 2
 
         #Tries to initalize Aurora and Adds Functionaly based on state
-        self.debug_start = True
         self.initAurora(self.ser)
-
+        
+        #Closing Method and bind to root Window
         def on_closing():
             #Close FrameGrabber
             self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
@@ -76,10 +72,8 @@ class UltraVisController:
             self.root.quit()
             self.root.destroy()
 
-        # Connect the closing method with the root window
         self.root.protocol("WM_DELETE_WINDOW", on_closing)
-
-      
+  
     def run (self):
         self.root.mainloop()
 
@@ -181,46 +175,55 @@ class UltraVisController:
         #Bug self.aua can't deal with concurrent calls !
         if (self.aua.getSysmode()=='SETUP'):
             self.aua.tstart(40)
-            #Thread starte Thread und gebe den AppFrame GUI die Daten
-            if (self.navAnim==None):
-                self.navAnim = self.getNavAnimation()
-                self.view.navCanvas.draw()
-            else:
-                self.navAnim.event_source.start()
 
-            #thread.start_new(self.aua.tstart, ())
+            #Thread starte Thread und gebe den AppFrame GUI die Daten
+            self.stopTrackFlag = False
+            tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True)
+            tracking_Thread.start()
+   
+            
         elif(self.aua.getSysmode()=='TRACKING'):
-            self.navAnim.event_source.stop()
+            self.stopTrackFlag = True
+            self.view.navCanvas._tkcanvas.after_cancel(self.view.canvasjob)
             self.aua.tstop()
  
+    def trackHandles(self):
+        #Stop as soon the event is set
+        #Verringern der Update Data frequenz
+        print(threading.current_thread().name+" has started tracking")
+        freq = 1
+        while(not self.stopTrackFlag):
+            with self.aua._lock:
+                tx = self.aua.tx()
+                self.hm.updateHandles(tx)
+                self.setNavCanvasData()
+            time.sleep(freq)
 
-    def getNavAnimation(self):
+        print(threading.current_thread().name+" has stopped!")
+
+    def setNavCanvasData(self):
+        x,y,z = [],[],[]
+        color = ['green','red','blue','yellow']        
+        color = color[:(self.hm.getNum_Handles())]
+        handles = self.hm.getHandles()
+        #Might change for Items, if the specific request of handle object is neccessary.
         
-        def animate(frame):
-            
-            tx = self.aua.tx()
-            self.hm.updateHandles(tx)
-            x,y,z = [],[],[]
-            color = ['green','red','blue','yellow']
-            
-            color = color[:(self.hm.getNum_Handles())]
-            handles = self.hm.getHandles()
-            #Might change for Items, if the specific request of handle object is neccessary.
-            for i,handle in enumerate(handles.values()):
-                if (not handle.MISSING):
-                    x.append(handle.Tx)
-                    y.append(handle.Ty)
-                    z.append(handle.Tz)
-                else:
-                    color.pop()
-            
-            self.view.buildCoordinatesystem()
-            
-            Axes3D.scatter(self.view.ax,xs=x,ys=y,zs=z,c=color)
+        for i,handle in enumerate(handles.values()):
+            if (not handle.MISSING and handle.MISSING is not None):
+                x.append(handle.Tx)
+                y.append(handle.Ty)
+                z.append(handle.Tz)
+            else:
+                color.pop()
 
-        anim = matplotlib.animation.FuncAnimation(self.view.fig, animate, frames=2, interval=100, repeat=True) 
-        return anim
+        self.view.navCanvasData = (x,y,z,color)
+        
 
+
+        
+
+
+    
     def savePosition(self):
         if (not self.aua.getSysmode()=='TRACKING'):
             print("This functionality is only available during tracking. Please Start Tracking")
@@ -274,10 +277,8 @@ class UltraVisController:
             print("An FATAL occured: "+str(e))   
             
     def testFunction(self):
-        self.aua.tstart()
-        while True:
-            tx = self.aua.tx()
-            self.hm.updateHandles(tx)
+        with self.aua._lock:
+            self.aua.beep(2)
 
     #----GUI Related ----#
     def addFuncDebug(self):
@@ -306,25 +307,7 @@ class UltraVisController:
         self.view.sysmodeLabel.update()
 
 '''        
-    def onInitSystemClicked(self):
-        print("Init")
-        # ser.send_break()  # zwingend noetig
-        thread.start_new_thread(self.InitSystem, ())
-
-    def readSerial_Return(self):
-        out = ''
-        r = "\r"
-        found = False
-
-        while not found:
-            try:
-                while self.ser.in_waiting > 0:
-                    out += self.ser.read_all().decode()
-            except Exception as e:
-                print(str(e))
-            if len(out) > 0 and out.find(r, 0, len(out)) != -1:
-                found = True
-        return out
+   
 
     def safe_met_handle_string(self, test_out):
         Anz_Sensoren = int(test_out[0:2])
