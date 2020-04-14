@@ -7,6 +7,7 @@ from cv2 import cv2
 from PIL import Image
 from PIL import ImageTk
 import time
+import logging
 
 import matplotlib
 matplotlib.use('Tkagg')
@@ -146,8 +147,7 @@ class UltraVisView(tk.Frame):
 
         self.cap = cv2.VideoCapture(0)
         self.Capture_FrameGrabber()
-        #a = threading.Thread(target=self.Capture_FrameGrabber,daemon=True)
-        #a.start()
+        
 
         #Saved Image Content
         self.savedImgLabel = tk.Label(self.savedImgFrame)
@@ -165,6 +165,7 @@ class UltraVisView(tk.Frame):
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
         self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
+        self._FirstBuildCoord = True
 
         self.buildCoordinatesystem()
         
@@ -190,11 +191,14 @@ class UltraVisView(tk.Frame):
         self.frame = cv2.flip(frame, 1)
 
         if frame is None and _isFirstCapture: 
-            print("Empty Frame - No Device was found")
+            logging.warning("Empty Frame - No Device was found")
             self.USImgLabel["text"] = "EMPTY FRAME \n No Device was found"
             self.USImgLabel.after(10000, self.Capture_FrameGrabber)
             return
         if (self.USImgFrame.winfo_height()==1):
+            cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+            img = Image.fromarray(cv2image)
+            self.og_imgsize = img.size
             self.USImgLabel.after(1500, self.Capture_FrameGrabber)
             return
 
@@ -206,7 +210,6 @@ class UltraVisView(tk.Frame):
 
         self.USImgLabel.imgtk = imgtk
         self.USImgLabel.configure(image=imgtk)
-        #self.navCanvas.draw()
         
         self._FrameGrabberJob = self.USImgLabel.after(10, self.Capture_FrameGrabber)
 
@@ -244,22 +247,25 @@ class UltraVisView(tk.Frame):
 
 
     def buildCoordinatesystem(self):
-        self.ax.clear()
-        self.ax.set_xlabel('X')
-        self.ax.set_xlim(-230, 230)
-        self.ax.set_ylabel('Y')
-        self.ax.set_ylim(-320, 320)
-        self.ax.set_zlabel('Z')
-        self.ax.set_zlim(0, -600)
+        
+        if (self._FirstBuildCoord):
+            self.ax.set_xlabel('X')
+            self.ax.set_xlim(-230, 230)
+            self.ax.set_ylabel('Y')
+            self.ax.set_ylim(-320, 320)
+            self.ax.set_zlabel('Z')
+            self.ax.set_zlim(0, -600)
+            self._firstCoord = False
 
         if (len(self.navCanvasData) is not 0):
+            plt.cla()
             x,y,z,color = self.navCanvasData
             Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color)
-            self.canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
+            
+            self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
         
         self.navCanvas.draw()
 
-        
 
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
@@ -426,7 +432,7 @@ class UltraVisView(tk.Frame):
             tkimage = Image.open(filename)  
 
         except FileNotFoundError as err:
-            print("File was no found, Err Img replace\n"+err)
+            logging.exception("File was no found, Err Img replace\n"+err)
             tkimage = self.notfoundimg    
 
         finally:
