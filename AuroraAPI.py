@@ -1,23 +1,23 @@
 import serial
 import time
+import logging
 import threading
+import functools
+
 
 
 class Aurora:
     
-    
-    def __init__(self, ser, threaded=False, num_tries=3):
+    def __init__(self, ser, activateThreading=False, num_tries=3):
         #Aurora System relevant Attributes
-        if threaded:
-            self.lock = threading.Lock()
-        else:
-            self.lock = False
-      
+        self.threading = activateThreading
+        self._lock = threading.Lock()
+        self._observers = {}
+     
         self.readsleep = 0
         self.sysmode = None
         #registered Methods !
-        self._observers = {}
-
+        
         #validate Serial Objecttype and open Serialport   
         if (type(ser) is not serial.serialwin32.Serial):
             raise TypeError('Invalid Object type of: '+ type(ser)+" was used. Please use pySerial Object")
@@ -26,12 +26,14 @@ class Aurora:
         if(self.ser.isOpen()):
             self.ser.close()
         self.ser.open()
-        print("Sucessfully opened Port: "+self.ser.name)
+        logging.info("Sucessfully opened Port: "+self.ser.name)
 
-        print("Try Reading APIREV Aurora System")
-        if (len(self.apirev())==0):
-            raise Warning("Empty Return Message during Initilization. Please ensure that the system is properly connected at "+self.ser.name+" and turned on.")
+        logging.info("Try Reading APIREV Aurora System")
+        with self._lock:
+            if (len(self.apirev())==0):
+                raise Warning("Empty Return Message during Initilization. Please ensure that the system is properly connected at "+self.ser.name+" and turned on.")
     
+
     #Observer Pattern - Add Observer Method / Callback Method
     def register(self,key,observer):
         if ("key" not in self._observers):
@@ -46,16 +48,11 @@ class Aurora:
         modes = ['SETUP','TRACKING']
         if (value not in modes):
             raise ValueError("Invalid Value. Value must be in "+str(modes))
-        
         self.sysmode=value
 
-        #Callback the observers with the data change
+        #Callback the observers with the data change ggf. logik anpassen notwendig
         for methodkey in self._observers:
             self._observers[methodkey]()
-
-
-        
-
 
     #Debug & Additional Methods
     #Commands & Parameters are not case sensitive
@@ -67,10 +64,10 @@ class Aurora:
             if (cmd.rstrip() == ""):
                 raise ValueError("The command is empty. Please type a valid commandstring.")
         except ValueError as e:
-            print(str(e))
+            logging.exception(str(e))
             return
         except TypeError as e:
-            print(str(e))
+            logging.exception(str(e))
             return
 
         #Removes trailing Space
@@ -81,19 +78,21 @@ class Aurora:
             cmd = cmd+' \r'
 
         else:
-            if(cmd.find(' ') != cmd.rfind(' ')): print("The command contains two spaces. Is the command correct?")
+            if(cmd.find(' ') != cmd.rfind(' ')): logging.warning("The command contains two spaces. Is the command correct?")
             cmd = cmd+'\r'
         
         cmd = cmd.encode()
-        
+
         #Executes the given command and reads it
-        self.ser.write(cmd)
-        if (expect != False):        
-            self.readSerial(expected=expect)
-        else:
-            self.readSerial()
+        with self._lock:
+            self.ser.write(cmd)
+            if (expect != False):        
+                self.readSerial(expected=expect)
+            else:
+                self.readSerial()
 
     
+
 
 
     #NDI Aurora Methods  
@@ -102,9 +101,9 @@ class Aurora:
         self.ser.write( b'APIREV \r')
         return self.readSerial()
 
+  
     def beep(self, num):
         try:
-            
             num = int(num)
             if (not (0 < num < 10)): 
                 raise ValueError("Invalid Parametervalue: Please choose a value between 1-9")  
@@ -113,12 +112,10 @@ class Aurora:
             #time.sleep(1)
             self.readSerial()
             
-
         except ValueError as e:
-            print (str(e)) 
+            logging.exception(str(e)) 
 
-        finally:
-            self.lock.release()
+        
 
     
     def init(self):
@@ -142,7 +139,7 @@ class Aurora:
                 raise TypeError('Invalid Object of type:'+ type(handle)+". Please use a correct Aurora.Handle Object.")
 
         cmd = 'PINIT '+handle.ID+'\r'
-        print("Initialize Handle " + handle.ID)
+        logging.info("Initialize Handle " + handle.ID)
 
         #Könnte Fehler werfen??
         self.ser.write(cmd.encode())
@@ -157,7 +154,7 @@ class Aurora:
             raise TypeError('Invalid Object of type:'+ type(handle)+". Please use a correct Handle Object.")
 
         cmd = 'PENA '+handle.ID+mode.upper()+'\r'
-        print("Activates Handle " + handle.ID+" using mode:\""+mode+"\"")
+        logging.info("Activates Handle " + handle.ID+" using mode:\""+mode+"\"")
 
         #Könnte Fehler werfen??
         self.ser.write(cmd.encode())
@@ -254,10 +251,10 @@ class Aurora:
         try:
             self.checkAuroraError(out)
         except Warning as w:
-            print(w)
+            logging.warning(w)
                 
         
-        print(out)
+        logging.info(out)
         return out
 
 
@@ -324,10 +321,9 @@ class Aurora:
 
         return AuaErrorDict.get(errorcode,'ERROR CODE NOT FOUND. PLEASE CONTACT YOUR ADMINISTRATOR! Either not implemented or Unknown')
 
-    
 
-    def getSerial(self):
-        return self.ser
+
+
 
 
 
@@ -378,7 +374,7 @@ class HandleManager:
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
-            print("Uneven Handles OMFG - Critical Issue")
+            logging.critical("Uneven Handles OMFG - Critical Issue")
         self.num_handles = num
         tx_str = tx_str[2:]
         
@@ -434,7 +430,7 @@ class Handle:
         self.refname = "Strenum bspw."
 
         #Transformation Data
-        self.MISSING = False
+        self.MISSING = None
 
         self.Q0 = None
         self.Qx = None
@@ -467,4 +463,26 @@ class Handle:
         self.calc_Err = calc_Err
         self.port_state = port_state
         self.frame_id = frame_id
+
+    def to_dict(self):
+
+        h_dict = {
+            'ID' : self.ID,
+            'handle_state' : self.handle_state,
+            'refname' : self.refname,
+            'MISSING' : self.MISSING,
+            'Q0' : self.Q0,
+            'Qx' : self.Qx,
+            'Qy' : self.Qy,
+            'Qz' : self.Qz,
+            'Tx' : self.Tx,
+            'Ty' : self.Ty,
+            'Tz' : self.Tz,
+            'Err' : self.Err,
+            'calc_Err' : self.calc_Err,
+            'port_state' : self.port_state,
+            'frame_id' : self.frame_id
+        }
+       
+        return h_dict
 
