@@ -1,10 +1,16 @@
-#from UvisModel import UltraVisModel,
+from UvisModel import UltraVisModel,Aufzeichnung
 from UvisView import UltraVisView
+import logging
 import time
+import pandas as pd
+from datetime import datetime
+import random
 import tkinter as tk
 
 import serial
+import functools
 import threading
+import queue
 #import os
 
 # import logging or threadsafe logging etc. 
@@ -15,34 +21,99 @@ import sys
 sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
 from AuroraAPI import Aurora, Handle, HandleManager
 
+from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
+
 
 
 #GlobaleVariablen Definition
 BUTTON_WIDTH = 25
 
 
+def threaded(func):
+
+    @functools.wraps(func)
+    def thread_wrapper(*args, **kwargs):
+        output = None        
+        #args[0] is the Instance of Aurora()
+
+        if (not args[0].threading):
+            return func(*args, **kwargs)
+        else:
+            args[0]._apilock.aquire()
+            output = func(*args, **kwargs)
+            args[0]._apilock.release()     
+            return output      
+       
+    return thread_wrapper
+
+def qqueued(func):
+
+    @functools.wraps(func)
+    def q_wrapper(*args, **kwargs):
+        output = None        
+        #args[0] is the Instance of UvisController() with q attribute
+
+        if (not args[0].threading):
+            return func(*args, **kwargs)
+        else:
+            args[0].q.put(func)
+     
+    return q_wrapper
+
+
 class UltraVisController:
 
     def __init__(self):
         
+        #Logging Configuration
+        format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
+        logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
+        #logging.getLogger().setLevel(logging.DEBUG)
+
         #Create Model and View
         self.root = tk.Tk()
        
-        #model = UltraVisModel()
+        self.model = UltraVisModel()
         self.view = UltraVisView(self.root)
         
         #Controller Attributes
         self.debug_start = True
-        self.navAnim = None
         self.hm = None
         self.aua = None
 
+        self.q = queue.Queue(maxsize=8)
+        self.quitEvent = threading.Event()
+        def workonQueue(self):
+            logging.info("Initialize Queue")
+
+            while (not self.quitEvent.is_set() or not self.q.empty()):
+                if (self.q.empty()):
+                    logging.debug("Wait for Event")
+                    time.sleep(1.5)
+                    continue
+
+                func = self.q.get()
+                thread = threading.Thread(target=func,daemon=True,name=func.__name__+str('()-thread'))
+                
+                logging.info("Start thread: "+thread.getName())
+                thread.start()
+                thread.join()
+                self.q.task_done()
+                logging.info(thread.getName()+" is finished - Alive: "+str(thread.is_alive()))
+
+            logging.info("Queue is closed")
+
+        q_consumerThread = threading.Thread(target=workonQueue,daemon=True,args=(self,),name="Q-Thread")
+        q_consumerThread.start()
+        
+
+
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM5'
+        self.ser.port = 'COM8'
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
@@ -60,15 +131,19 @@ class UltraVisController:
             self.view.cap.release()
             
             #Close Tracking + Matplotanimation
-            if(self.aua is not None):
+            if (self.aua_active):
                 if(self.aua.getSysmode()=='TRACKING'):
-                    self.navAnim.event_source.stop()
+                    self.stopTracking = True
+                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
                     self.aua.tstop()
             
+            self.quitEvent.set()
+            #logging.debug("TRACKING THREAD ALIVE?: "+str(self.tracking_Thread.is_alive))
             self.ser.close()
+
             #Bug that plt.close also closes the TKinter Windows!
             plt.close(fig=self.view.fig)
-            print("Good Night Cruel World :D")
+            logging.info("Good Night Cruel World :D")
             self.root.quit()
             self.root.destroy()
 
@@ -87,7 +162,7 @@ class UltraVisController:
             self.aua = Aurora(ser)
 
         except serial.SerialException as e:
-            print("serial.SerialException: "+str(e))
+            logging.warning("serial.SerialException: "+str(e))
             self.aua_active = False
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
@@ -95,7 +170,7 @@ class UltraVisController:
             self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=self.debug_start)
             return
         except Warning as w:
-            print(str(w))
+            logging.exception(str(w))
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
             self.view.auaReInitBut["state"] = 'normal'
@@ -106,13 +181,13 @@ class UltraVisController:
         self.aua.register("Sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
         self.view.auaReInitBut.grid_forget()
-
+       
         self.aua.resetandinitSystem()
         
         self.addFuncDebug()
 
         if (extended):
-            self.activateHandles()    
+            self.q.put(self.activateHandles)
             self.addFuncTracking()
 
 
@@ -139,67 +214,89 @@ class UltraVisController:
 
     def activateHandles(self):
         # todo Gesamtprozess nach Guide (siehe Aurora API)
+        logging.info("Activate Handles - Acquiring Lock")
 
-        try: 
-            print("All allocated Ports")
+        with self.aua._lock:
+            try: 
+                #print("All allocated Ports")
+                logging.info("All allocated Ports")
+                phsr_string = self.aua.phsr()
+
+                self.hm = HandleManager(phsr_string)
+                handles = self.hm.getHandles()
+
+                # print("handles 02")
+                # Occupied handles but not initialized or enabled
+                # self.aua.phsr(2)
+
+                # Alle Port-Handles Initialisieren
+                # Alle Port-Hanldes aktivieren
+                logging.info(str(self.hm.getNum_Handles())+" Handles identified")
+                logging.info("Initializing Port-Handles")
+           
+                        
+                for h_id in handles :
+                    self.aua.pinit(handles[h_id])
+                    self.aua.pena(handles[h_id],'D')
+
+                # Pr�fen, ob noch Handles falsch belegt sind
+                # self.aua.phsr(3)
+                # print("handles 03")
+                # ser.write(b'PHSR 03\r')
+                # time.sleep(1)
+                # readSerial(ser)  
+
+                time.sleep(0.5)
             
-            phsr_string = self.aua.phsr()
+            except Warning as w:
+                logging.warning(str(w))
 
-            self.hm = HandleManager(phsr_string)
-            handles = self.hm.getHandles()
+        
+        logging.info("Activate Handles done")
 
-            # print("handles 02")
-            # Occupied handles but not initialized or enabled
-            # self.aua.phsr(2)
-
-            # Alle Port-Handles Initialisieren
-            # Alle Port-Hanldes aktivieren
-            print(str(self.hm.getNum_Handles())+" Handles identified")
-            print("Initializing Port-Handles")
-                    
-            for h_id in handles :
-                self.aua.pinit(handles[h_id])
-                self.aua.pena(handles[h_id],'D')
-
-            # Pr�fen, ob noch Handles falsch belegt sind
-            # self.aua.phsr(3)
-            # print("handles 03")
-            # ser.write(b'PHSR 03\r')
-            # time.sleep(1)
-            # readSerial(ser)  
-            
-        except Warning as w:
-            print(str(w))
+        
 
     def startstopTracking(self):
         #Bug self.aua can't deal with concurrent calls !
+       
+        
         if (self.aua.getSysmode()=='SETUP'):
-            self.aua.tstart(40)
+            with self.aua._lock:
+                self.aua.tstart(40)
 
             #Thread starte Thread und gebe den AppFrame GUI die Daten
-            self.stopTrackFlag = False
-            tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True)
-            tracking_Thread.start()
-   
+            self.stopTracking = False
+            self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
+            self.tracking_Thread.start()
+            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.buildCoordinatesystem)
             
+
         elif(self.aua.getSysmode()=='TRACKING'):
-            self.stopTrackFlag = True
-            self.view.navCanvas._tkcanvas.after_cancel(self.view.canvasjob)
-            self.aua.tstop()
+            self.stopTracking = True
+            self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+            self.tracking_Thread.join()
+            
+            with self.aua._lock:
+                self.aua.tstop()
  
+
     def trackHandles(self):
+
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
-        print(threading.current_thread().name+" has started tracking")
-        freq = 1
-        while(not self.stopTrackFlag):
+        logging.debug(threading.current_thread().name+" has started tracking")
+       
+        freq = 0.5
+        while(not self.stopTracking):
+
             with self.aua._lock:
                 tx = self.aua.tx()
                 self.hm.updateHandles(tx)
                 self.setNavCanvasData()
             time.sleep(freq)
 
-        print(threading.current_thread().name+" has stopped!")
+        self.stopTracking = False
+        logging.debug(threading.current_thread().name+" has stopped!")
 
     def setNavCanvasData(self):
         x,y,z = [],[],[]
@@ -213,47 +310,96 @@ class UltraVisController:
                 x.append(handle.Tx)
                 y.append(handle.Ty)
                 z.append(handle.Tz)
+
+    
             else:
                 color.pop()
 
+        
         self.view.navCanvasData = (x,y,z,color)
         
-
-
-        
-
 
     
     def savePosition(self):
         if (not self.aua.getSysmode()=='TRACKING'):
-            print("This functionality is only available during tracking. Please Start Tracking")
+            logging.info("This functionality is only available during tracking. Please Start Tracking")
             return
-        
+
+        self.view.saveUSImg()
+
+        dt = datetime.now()
+        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")        
+        #to do: description auf gui ziehen 
+
+        aufz = Aufzeichnung(date=tmpstamp)
+
         #Stops the current refresh and changing of Positional data 
-        self.navAnim.event_source.stop()
+        #self.navAnim.event_source.stop()
         handles = self.hm.getHandles()
 
+        if (self.validatePosition(handles)):
+            #saving position Frame and Handles 
+
+            #Save Image to Filesystem and prepare Imagepath image
+            img = self.view.savedImg.copy()
+            img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
+            filename = f'{aufz.A_ID[4:]}_img'
+            imgpath = 'TTRP/data/img/'+filename+'.png'
+            
+            try:
+                img.save(imgpath)
+                aufz.US_img=imgpath
+                self.model.saveAufzeichnung(aufzeichnung=aufz)
+            except IOError as e:
+                raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
+            except ValueError as e:
+                #Konnte Aufzeichnung nicht speichern. Please try again with SAME DATA!
+                pass
+            
+            try:
+                self.model.savePosition(A_ID=aufz.A_ID, handles=handles)
+            except ValueError as e:
+                #Konnte handles nicht speichern. Please try again with SAME DATA?!
+                pass
+           
+            
+
+
+    def cleanSavingProcess(self, aufzeichnung):
+        pass
+
+
+           
+ 
+            
+    def validatePosition(self, handles):
         #Validate Handles for saving
+        #Check for Missing Handles, check for correct frameID
+        handles = handles
+
         validSave = True
         missID = []
+        frameID = []
+
         for h_id in handles:
-            if(handles[h_id].MISSING):
+            h = handles[h_id]       
+
+            if(h.MISSING):
                 validSave = False
                 missID.append(h_id)
+            
+            if (h.frame_id not in frameID and frameID):
+                validSave = False
 
-        if (validSave):
-            pass
-            #saveandgetFrame Method
+            frameID.append(h.frame_id)
+
+
+        if (not validSave):
+            logging.error("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
+
+        return validSave
             
 
-
-
-            
-        else:    
-            print("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
-
-            
-                
                
 
 
@@ -269,12 +415,12 @@ class UltraVisController:
             else:
                 a = self.view.expec.get()
 
-            print("Execute command: "+command)
+            logging.debug("Execute command: "+command)
             self.aua.writeCMD(command,expect=a)
             self.view.cmdEntry.delete(0, 'end')
 
         except Warning as e:
-            print("An FATAL occured: "+str(e))   
+            logging.exception("An FATAL occured: "+str(e))   
             
     def testFunction(self):
         with self.aua._lock:
@@ -299,7 +445,9 @@ class UltraVisController:
 
 
     def addFuncTracking(self):
-        self.view.trackBut["command"] = self.startstopTracking
+        self.view.saveBut["command"] = lambda: self.q.put(self.savePosition)
+        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+        
 
 
     def refreshSysmode(self):

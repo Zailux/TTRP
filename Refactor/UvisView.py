@@ -94,7 +94,7 @@ class UltraVisView(tk.Frame):
  
         self.saveBut = tk.Button(lFrame)  
         self.saveBut["text"] = "Aufnahme speichern"
-        self.saveBut["command"] = self.saveUSImg
+        #self.saveBut["command"] = self.saveUSImg
         
         self.cancelBut = tk.Button(lFrame)  
         self.cancelBut["text"] = "Abbrechen"
