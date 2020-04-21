@@ -143,7 +143,7 @@ class Aurora:
 
         #Könnte Fehler werfen??
         self.ser.write(cmd.encode())
-        time.sleep(0.6)
+        time.sleep(0.7)
         self.readSerial()
 
     def pena(self,handle,mode):
@@ -215,10 +215,11 @@ class Aurora:
 
     def tstop(self):
         self.ser.write( b'TSTOP \r')
-        time.sleep(0.5)
+        time.sleep(0.7)
+        
         if (self.readSerial().startswith(b'OKAY')):
             self.setSysmode('SETUP')
-
+     
 
     def tx(self, option=None):
 
@@ -230,7 +231,7 @@ class Aurora:
             cmd = 'TX '+str(option)+'\r'
             self.ser.write(cmd.encode())
 
-        tx_str = self.readSerial().decode()
+        tx_str = self.readSerial(to_log=False).decode()
 
         return tx_str
 
@@ -243,7 +244,7 @@ class Aurora:
     
     #SerialMethods ------------------------
     #Optional Feature Einbau der CRC Message, Gen + Check sinnvoll.
-    def readSerial(self,expected=b'\r'):
+    def readSerial(self,expected=b'\r',to_log=True):
         out = ''
         time.sleep(self.readsleep)
         out = self.ser.read_until(expected)
@@ -253,8 +254,8 @@ class Aurora:
         except Warning as w:
             logging.warning(w)
                 
-        
-        logging.info(out)
+        if (to_log):
+            logging.info(out)
         return out
 
 
@@ -371,6 +372,8 @@ class HandleManager:
         #id+  q0+qx+qy+qz    tx+ty+tz +error/indicatorvalue +       port status + framestatus     (systemstatus+crc)
                 #2+   6+6+6+6             +7+7+7+6                                    8+8
         
+        # STILL BUGGY TX_STR can contain disabled handles !!!
+        # wee need to validate handles or rather the tx_str
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
@@ -398,14 +401,14 @@ class HandleManager:
                 new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
 
             else:
-                Q0 = float(self.insert_separator(handle[0:6],2))
-                Qx = float(self.insert_separator(handle[6:12],2))
-                Qy = float(self.insert_separator(handle[12:18],2))
-                Qz = float(self.insert_separator(handle[18:24],2))
-                Tx = float(self.insert_separator(handle[24:31],5))
-                Ty = float(self.insert_separator(handle[31:38],5))
-                Tz = float(self.insert_separator(handle[38:45],5))
-                calc_Err = float(self.insert_separator(handle[45:51],2))
+                Q0 = self.string2float(handle[0:6],2)
+                Qx = self.string2float(handle[6:12],2)
+                Qy = self.string2float(handle[12:18],2)
+                Qz = self.string2float(handle[18:24],2)
+                Tx = self.string2float(handle[24:31],5)
+                Ty = self.string2float(handle[31:38],5)
+                Tz = self.string2float(handle[38:45],5)
+                calc_Err = self.string2float(handle[45:51],2)
                 port_state = handle[51:59]
                 frame_id = handle[59:67]
 
@@ -415,8 +418,10 @@ class HandleManager:
         
         
 
-    def insert_separator(self, string, index):
-        return string[:index] + '.' + string[index:]
+    def string2float(self, string, separator_index,round_to=4):
+        s = string[:separator_index] + '.' + string[separator_index:]
+        f = round(float(s),round_to)
+        return f
 
 
 
@@ -439,7 +444,7 @@ class Handle:
         self.Tx = None
         self.Ty = None
         self.Tz = None
-        self.Err = None
+        #self.Err = None
 
         self.calc_Err = None
         self.port_state = None
@@ -478,7 +483,7 @@ class Handle:
             'Tx' : self.Tx,
             'Ty' : self.Ty,
             'Tz' : self.Tz,
-            'Err' : self.Err,
+            #'Err' : self.Err,
             'calc_Err' : self.calc_Err,
             'port_state' : self.port_state,
             'frame_id' : self.frame_id

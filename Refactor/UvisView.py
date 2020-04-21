@@ -63,47 +63,66 @@ class UltraVisView(tk.Frame):
         #Tab 1 Two Column, Menu Column and App Column
         self.t1_mainFrame = tk.Frame(self.tabControl)
         self.t1_mainFrame.rowconfigure(0, weight=98)
-        self.t1_mainFrame.rowconfigure(1, weight=2, minsize=30)
-        self.t1_mainFrame.columnconfigure(0, weight=15, uniform=1)
-        self.t1_mainFrame.columnconfigure(1, weight=85, uniform=1)
+        #self.t1_mainFrame.rowconfigure(1, weight=2, minsize=30)
+        self.t1_mainFrame.columnconfigure(0, weight=20, uniform=1)
+        self.t1_mainFrame.columnconfigure(1, weight=80, uniform=1)
 
         self.leftFrame = tk.Frame(self.t1_mainFrame, bg="#196666")
+        self.leftFrame.rowconfigure(0, weight=1, uniform=1)
+        self.leftFrame.rowconfigure(1, weight=1, uniform=1)
+        self.leftFrame.columnconfigure(0,weight=1)
         self.rightFrame = tk.Frame(self.t1_mainFrame, bg = "#196666")
         self.rightFrame.rowconfigure(0, weight=90, uniform=1)
         self.rightFrame.rowconfigure(1, weight=10,minsize=125,uniform=1)
         self.rightFrame.columnconfigure(0,weight=1)
-        self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
+       # self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
 
         self.leftFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.NSEW)
         self.rightFrame.grid(row=0, column=1, pady=4, padx=4, sticky=tk.NSEW)
-        self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=(0,0), padx=4, sticky=tk.NSEW)
+        #self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=(0,0), padx=4, sticky=tk.NSEW)
 
         self.buildMenuFrame(self.leftFrame)
+        self.buildDetailsFrame(self.leftFrame)
         self.buildAppFrame(self.rightFrame)
-        self.buildActionFrame(self.bottomFrame)
+        #self.buildActionFrame(self.bottomFrame)
 
         self.t1_mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
     def buildMenuFrame(self,lFrame):
+        
+        self.MenuFrame = tk.Frame(lFrame)
+        self.MenuTitleLabel = tk.Label(self.MenuFrame, text="Menu")
 
-        self.MenuTitleLabel = tk.Label(lFrame, text="Menu")
-
-        self.trackBut = tk.Button(lFrame)  
+        self.trackBut = tk.Button(self.MenuFrame)  
         self.trackBut["text"] = "Start/Stop Tracking"
         
  
-        self.saveBut = tk.Button(lFrame)  
+        self.saveBut = tk.Button(self.MenuFrame)  
         self.saveBut["text"] = "Aufnahme speichern"
         #self.saveBut["command"] = self.saveUSImg
         
-        self.cancelBut = tk.Button(lFrame)  
+        self.cancelBut = tk.Button(self.MenuFrame)  
         self.cancelBut["text"] = "Abbrechen"
         #self.readBut["command"] = 
 
         self.MenuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
         self.trackBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")  
         self.saveBut.pack(side=tk.TOP, pady=(0, 0),padx=(10),fill="both")
-        self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")   
+        self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")  
+
+        self.MenuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+
+    def buildDetailsFrame(self,lFrame):
+        
+        self.DetailsFrame = tk.Frame(lFrame)
+        self.DetailsTitleLabel = tk.Label(self.DetailsFrame, text="Details")
+
+        self.adsfBut = tk.Button(self.DetailsFrame)  
+        self.adsfBut["text"] = "Start/Stop Tracking"
+
+        self.DetailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+
+        self.DetailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
 
     def buildAppFrame(self,rFrame):
         #Init of AppFrame Attributes
@@ -164,8 +183,9 @@ class UltraVisView(tk.Frame):
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax.set_autoscale_on(False)
         self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
-        self._FirstBuildCoord = True
+        
 
         self.buildCoordinatesystem()
         
@@ -247,20 +267,18 @@ class UltraVisView(tk.Frame):
 
 
     def buildCoordinatesystem(self):
+        plt.cla()
+        self.ax.set_xlabel('X')
+        self.ax.set_xlim(-230, 230)
+        self.ax.set_ylabel('Y')
+        self.ax.set_ylim(-320, 320)
+        self.ax.set_zlabel('Z')
+        self.ax.set_zlim(0, -600)
         
-        if (self._FirstBuildCoord):
-            self.ax.set_xlabel('X')
-            self.ax.set_xlim(-230, 230)
-            self.ax.set_ylabel('Y')
-            self.ax.set_ylim(-320, 320)
-            self.ax.set_zlabel('Z')
-            self.ax.set_zlim(0, -600)
-            self._firstCoord = False
 
         if (len(self.navCanvasData) is not 0):
-            plt.cla()
             x,y,z,color = self.navCanvasData
-            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color)
+            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
             
             self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
         
@@ -288,6 +306,9 @@ class UltraVisView(tk.Frame):
        
         self.backBut.pack(side=tk.LEFT,padx=(0),pady=0,fill="both")
         self.nextBut.pack(side=tk.RIGHT,padx=(0),pady=0, fill="both")
+
+
+
 
 
 
