@@ -32,34 +32,15 @@ from mpl_toolkits.mplot3d import Axes3D
 BUTTON_WIDTH = 25
 
 
-def threaded(func):
 
-    @functools.wraps(func)
-    def thread_wrapper(*args, **kwargs):
-        output = None        
-        #args[0] is the Instance of Aurora()
-
-        if (not args[0].threading):
-            return func(*args, **kwargs)
-        else:
-            args[0]._apilock.aquire()
-            output = func(*args, **kwargs)
-            args[0]._apilock.release()     
-            return output      
-       
-    return thread_wrapper
-
-def qqueued(func):
+# Idee anstatt beim jeweiligen Methoden aufruf self.q.put methoden name rein zuschreiben,
+# über einen Wrapper beim Funktionsaufruf dies zu tun. 
+def toQueue(func):
 
     @functools.wraps(func)
     def q_wrapper(*args, **kwargs):
-        output = None        
-        #args[0] is the Instance of UvisController() with q attribute
-
-        if (not args[0].threading):
-            return func(*args, **kwargs)
-        else:
-            args[0].q.put(func)
+        #args[0].q.put( [func,*args,**kwargs] )
+        pass
      
     return q_wrapper
 
@@ -71,7 +52,8 @@ class UltraVisController:
         #Logging Configuration
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
-        #logging.getLogger().setLevel(logging.DEBUG)
+        self._Logger = logging.getLogger()
+        #self._Logger.setLevel(logging.DEBUG)
 
         #Create Model and View
         self.root = tk.Tk()
@@ -84,33 +66,8 @@ class UltraVisController:
         self.hm = None
         self.aua = None
 
-        self.q = queue.Queue(maxsize=8)
-        self.quitEvent = threading.Event()
-        def workonQueue(self):
-            logging.info("Initialize Queue")
-
-            while (not self.quitEvent.is_set() or not self.q.empty()):
-                if (self.q.empty()):
-                    logging.debug("Wait for Event")
-                    time.sleep(1.5)
-                    continue
-
-                func = self.q.get()
-                thread = threading.Thread(target=func,daemon=True,name=func.__name__+str('()-thread'))
-                
-                logging.info("Start thread: "+thread.getName())
-                thread.start()
-                thread.join()
-                self.q.task_done()
-                logging.info(thread.getName()+" is finished - Alive: "+str(thread.is_alive()))
-
-            logging.info("Queue is closed")
-
-        q_consumerThread = threading.Thread(target=workonQueue,daemon=True,args=(self,),name="Q-Thread")
-        q_consumerThread.start()
+        self.initBackgroundQueue()
         
-
-
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
         self.ser.port = 'COM8'
@@ -123,47 +80,77 @@ class UltraVisController:
 
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.initAurora(self.ser)
+    
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+
+    #Closing Method and bind to root Window
+    def on_closing(self):
+        #Close FrameGrabber
+        self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
+        self.view.cap.release()
         
-        #Closing Method and bind to root Window
-        def on_closing():
-            #Close FrameGrabber
-            self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
-            self.view.cap.release()
-            
-            #Close Tracking + Matplotanimation
-            if (self.aua_active):
-                if(self.aua.getSysmode()=='TRACKING'):
-                    self.stopTracking = True
-                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+        #Close Tracking + Matplotanimation
+        if (self.aua_active):
+            if(self.aua.getSysmode()=='TRACKING'):
+                self.stopTracking = True
+                self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+                with self.aua._lock:
                     self.aua.tstop()
-            
-            self.quitEvent.set()
-            #logging.debug("TRACKING THREAD ALIVE?: "+str(self.tracking_Thread.is_alive))
-            self.ser.close()
+        
+        self.quitEvent.set()
+        #logging.debug("TRACKING THREAD ALIVE?: "+str(self.tracking_Thread.is_alive))
+        self.ser.close()
 
-            #Bug that plt.close also closes the TKinter Windows!
-            plt.close(fig=self.view.fig)
-            logging.info("Good Night Cruel World :D")
-            self.root.quit()
-            self.root.destroy()
+        #Bug that plt.close also closes the TKinter Windows!
+        plt.close(fig=self.view.fig)
+        logging.info("Good Night Cruel World :D")
+        self.root.quit()
+        self.root.destroy()
 
-        self.root.protocol("WM_DELETE_WINDOW", on_closing)
-  
     def run (self):
         self.root.mainloop()
+
+    def initBackgroundQueue(self):
+        self.q = queue.Queue(maxsize=8)
+        self.quitEvent = threading.Event()
+        def processQueue(self):
+            logging.info("Initialize Queue")
+
+            while (not self.quitEvent.is_set() or not self.q.empty()):
+                if (self.q.empty()):
+                    logging.debug("Waiting for Event")
+                    time.sleep(1.5)
+                    continue
+
+                func = self.q.get()
+                thread = threading.Thread(target=func)
+                
+                logging.info(f"Start {thread.getName()}: process {func.__name__}()")
+                time.sleep(0.25)
+                thread.start()
+                thread.join()
+                self.q.task_done()
+                logging.info(thread.getName()+" is finished - Alive: "+str(thread.is_alive()))
+                logging.debug(f'Current pipeline: {self.q.qsize()} items')
+
+            logging.info("Queue is closed")
+
+        q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
+        q_Thread.start()
 
     def initAurora(self,ser,extended=None):
         if (extended == None):
             extended = self.debug_start
 
+        
         widgets = self.view.t2_debugFrame.winfo_children()
-
+        self.aua_active = False
         try:
             self.aua = Aurora(ser)
 
         except serial.SerialException as e:
             logging.warning("serial.SerialException: "+str(e))
-            self.aua_active = False
             self.disableWidgets(widgets)
             self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
             self.view.auaReInitBut["state"] = 'normal'
@@ -190,25 +177,6 @@ class UltraVisController:
             self.q.put(self.activateHandles)
             self.addFuncTracking()
 
-
-    def enableWidgets(self,childList):
-        for child in childList:
-            if (child.winfo_class() == 'Frame'):
-                self.enableWidgets(child.winfo_children())
-                continue
-
-            if (child.winfo_class() in ['Button','Entry']):
-                child.configure(state='normal')
-
-    def disableWidgets(self,childList):
-        for child in childList:
-            if (child.winfo_class() == 'Frame'):
-                self.disableWidgets(child.winfo_children())
-                continue
-
-            if (child.winfo_class() in ['Button','Entry']):
-                child.configure(state='disabled')
-    
 
     #   -----Aurora Functionality  ------#
 
@@ -254,7 +222,6 @@ class UltraVisController:
         
         logging.info("Activate Handles done")
 
-        
 
     def startstopTracking(self):
         #Bug self.aua can't deal with concurrent calls !
@@ -275,16 +242,18 @@ class UltraVisController:
             self.stopTracking = True
             self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
-            
+
             with self.aua._lock:
                 self.aua.tstop()
+                
  
 
     def trackHandles(self):
 
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
-        logging.debug(threading.current_thread().name+" has started tracking")
+        
+        logging.info(threading.current_thread().name+" has started tracking")
        
         freq = 0.5
         while(not self.stopTracking):
@@ -296,25 +265,34 @@ class UltraVisController:
             time.sleep(freq)
 
         self.stopTracking = False
-        logging.debug(threading.current_thread().name+" has stopped!")
+        logging.info(threading.current_thread().name+" has stopped!")
 
     def setNavCanvasData(self):
         x,y,z = [],[],[]
-        color = ['green','red','blue','yellow']        
-        color = color[:(self.hm.getNum_Handles())]
+        av_color = ['yellow','red','green','blue']
+        color = []
+        num_handle = self.hm.getNum_Handles()
+        if (num_handle is not 4):
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
+            color = color[:num_handle]
+        
         handles = self.hm.getHandles()
         #Might change for Items, if the specific request of handle object is neccessary.
         
         for i,handle in enumerate(handles.values()):
-            if (not handle.MISSING and handle.MISSING is not None):
+            if (handle.MISSING is None):
+                break
+
+            if (handle.MISSING is False):
                 x.append(handle.Tx)
                 y.append(handle.Ty)
                 z.append(handle.Tz)
-
+                color.append(av_color[i])
+            
+                
     
-            else:
-                color.pop()
-
+            
+        logging.debug(f'x values: {x}')
         
         self.view.navCanvasData = (x,y,z,color)
         
@@ -443,16 +421,37 @@ class UltraVisController:
         self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
-
     def addFuncTracking(self):
         self.view.saveBut["command"] = lambda: self.q.put(self.savePosition)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-        
+    
+
+
+    def enableWidgets(self,childList):
+        for child in childList:
+            if (child.winfo_class() == 'Frame'):
+                self.enableWidgets(child.winfo_children())
+                continue
+
+            if (child.winfo_class() in ['Button','Entry']):
+                child.configure(state='normal')
+
+    def disableWidgets(self,childList):
+        for child in childList:
+            if (child.winfo_class() == 'Frame'):
+                self.disableWidgets(child.winfo_children())
+                continue
+
+            if (child.winfo_class() in ['Button','Entry']):
+                child.configure(state='disabled')
+    
+
+            
 
 
     def refreshSysmode(self):
         self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
-        self.view.sysmodeLabel.update()
+        
 
 '''        
    
