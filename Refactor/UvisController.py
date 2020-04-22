@@ -47,7 +47,7 @@ def toQueue(func):
 
 class UltraVisController:
 
-    def __init__(self):
+    def __init__(self,debug_mode=False):
         
         #Logging Configuration
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
@@ -59,10 +59,10 @@ class UltraVisController:
         self.root = tk.Tk()
        
         self.model = UltraVisModel()
-        self.view = UltraVisView(self.root)
+        self.view = UltraVisView(self.root,debug_mode=debug_mode)
         
         #Controller Attributes
-        self.debug_start = True
+        self._debug = debug_mode
         self.hm = None
         self.aua = None
 
@@ -80,30 +80,33 @@ class UltraVisController:
 
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.initAurora(self.ser)
-    
+        self.initFunctionality()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
 
     #Closing Method and bind to root Window
     def on_closing(self):
-        #Close FrameGrabber
-        self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
-        self.view.cap.release()
+       
+        if (hasattr(self.view,'appFrame')):
+             #Close FrameGrabber
+            self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
+            self.view.cap.release()
         
-        #Close Tracking + Matplotanimation
-        if (self.aua_active):
-            if(self.aua.getSysmode()=='TRACKING'):
-                self.stopTracking = True
-                self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
-                with self.aua._lock:
-                    self.aua.tstop()
+            #Close Tracking + Matplotanimation
+            if (self.aua_active):
+                if(self.aua.getSysmode()=='TRACKING'):
+                    self.stopTracking = True
+                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+                    with self.aua._lock:
+                        self.aua.tstop()
         
+
         self.quitEvent.set()
-        #logging.debug("TRACKING THREAD ALIVE?: "+str(self.tracking_Thread.is_alive))
         self.ser.close()
 
         #Bug that plt.close also closes the TKinter Windows!
-        plt.close(fig=self.view.fig)
+        if (hasattr(self.view,'fig')):
+            plt.close(fig=self.view.fig)
         logging.info("Good Night Cruel World :D")
         self.root.quit()
         self.root.destroy()
@@ -140,35 +143,39 @@ class UltraVisController:
         q_Thread.start()
 
     def initAurora(self,ser,extended=None):
+
+        logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
         if (extended == None):
-            extended = self.debug_start
+            extended = self._debug
 
         
-        widgets = self.view.t2_debugFrame.winfo_children()
+        widgets = self.view.menuFrame.winfo_children()
         self.aua_active = False
         try:
             self.aua = Aurora(ser)
 
         except serial.SerialException as e:
             logging.warning("serial.SerialException: "+str(e))
-            self.disableWidgets(widgets)
-            self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
-            self.view.auaReInitBut["state"] = 'normal'
-            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=self.debug_start)
+            #self.disableWidgets(widgets)
+            self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            self.view.reinitAuaBut["state"] = 'normal'
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
             return
         except Warning as w:
             logging.exception(str(w))
-            self.disableWidgets(widgets)
-            self.view.auaReInitBut.grid(row=7,padx=(1,1),sticky=tk.NSEW)
-            self.view.auaReInitBut["state"] = 'normal'
-            self.view.auaReInitBut["command"] = lambda: self.initAurora(self.ser,extended=self.debug_start)
+            #self.disableWidgets(widgets)
+            self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            self.view.reinitAuaBut["state"] = 'normal'
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
             return
 
         self.aua_active = True
+        logging.info("Connection success")
         self.aua.register("Sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
         self.view.auaReInitBut.grid_forget()
-       
+
+        logging.info("Reset Aurorasystem")
         self.aua.resetandinitSystem()
         
         self.addFuncDebug()
@@ -176,9 +183,13 @@ class UltraVisController:
         if (extended):
             self.q.put(self.activateHandles)
             self.addFuncTracking()
+        
+        logging.info("Initialize Aurorasystem - done")
 
 
-    #   -----Aurora Functionality  ------#
+
+
+    #   -----Aurora Setup Functionality  ------#
 
     def activateHandles(self):
         # todo Gesamtprozess nach Guide (siehe Aurora API)
@@ -220,8 +231,13 @@ class UltraVisController:
                 logging.warning(str(w))
 
         
-        logging.info("Activate Handles done")
+        logging.info("Activate Handles - done")
 
+    
+
+
+
+    #---- App Frame functionality tracking and saving----#
 
     def startstopTracking(self):
         #Bug self.aua can't deal with concurrent calls !
@@ -247,7 +263,6 @@ class UltraVisController:
                 self.aua.tstop()
                 
  
-
     def trackHandles(self):
 
         #Stop as soon the event is set
@@ -383,6 +398,8 @@ class UltraVisController:
 
 
 
+
+    #----Debugging Related ----#
     def writeCmd2AUA(self,event):
            
         try:
@@ -405,6 +422,43 @@ class UltraVisController:
             self.aua.beep(2)
 
     #----GUI Related ----#
+
+
+
+
+    def newExamination(self):
+        self.view.buildNewExamFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='new_examination')
+        self.view.continueBut["command"] = self.setupUvis
+       #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
+
+    #wip
+    def setupUvis(self):
+        self.view.buildSetupFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='setup')
+        #load Menu but still disabled. 
+        #self.q.put(self.activateHandles)
+        #wenn sucessfull dann enable button. 
+        #Else zeige zurückbutton und läd den Basescreen again. 
+
+    def startExamination(self):
+        self.view.buildAppFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='app')
+
+    def initFunctionality(self):
+        
+        self.view.newExamiBut["command"] = self.newExamination
+        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
+        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+
+        self.view.NOBUTTONSYET["command"] = self.startExamination
+
+    def addFuncTracking(self):
+        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
+        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+
+
+
     def addFuncDebug(self):
         #Menu
         #self.view.initBut["command"] = self.beep
@@ -421,9 +475,7 @@ class UltraVisController:
         self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
-    def addFuncTracking(self):
-        self.view.saveBut["command"] = lambda: self.q.put(self.savePosition)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+    
     
 
 
@@ -546,5 +598,5 @@ class UltraVisController:
 '''
 
 #TEMPORÄR!!!
-controller = UltraVisController()
+controller = UltraVisController(debug_mode=True)
 controller.run()

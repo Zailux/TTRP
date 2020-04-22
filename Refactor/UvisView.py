@@ -8,6 +8,8 @@ from PIL import Image
 from PIL import ImageTk
 import time
 import logging
+import functools
+from datetime import datetime
 
 import matplotlib
 matplotlib.use('Tkagg')
@@ -22,11 +24,32 @@ import threading
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
 
+#   --- Decorators  --- #
+
+#application frames will clear the self.rightframe first before displaying their gui
+def clearFrame(func):
+    @functools.wraps(func)
+    def buildFrame_wrapper(*args, **kwargs):
+        master = kwargs['master']
+        if (type(master) is not tk.Frame):
+            logging.critical(f"Misusage of clearFrame Decorator. Objecttype {type(master)} is incorrect.\nDebuginfo {args, kwargs}")
+            return func(*args, **kwargs)
+        else:
+            frame = master.winfo_children()
+            if (len(frame) is not 0):
+                frame[0].destroy()
+        return func(*args, **kwargs)
+     
+    return buildFrame_wrapper
+
+
 class UltraVisView(tk.Frame):
 
-    def __init__(self, master):
+    def __init__(self, master,debug_mode=False):
         super().__init__(master)
+        
         self.start_time = time.time()
+        self._debug = debug_mode
         self.master = master
         self.master.title("TTR: Track To Reference")
         self.master.minsize(600,350)
@@ -72,8 +95,7 @@ class UltraVisView(tk.Frame):
         self.leftFrame.rowconfigure(1, weight=1, uniform=1)
         self.leftFrame.columnconfigure(0,weight=1)
         self.rightFrame = tk.Frame(self.t1_mainFrame, bg = "#196666")
-        self.rightFrame.rowconfigure(0, weight=90, uniform=1)
-        self.rightFrame.rowconfigure(1, weight=10,minsize=125,uniform=1)
+        self.rightFrame.rowconfigure(0, weight=1, uniform=1)
         self.rightFrame.columnconfigure(0,weight=1)
        # self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
 
@@ -83,73 +105,249 @@ class UltraVisView(tk.Frame):
 
         self.buildMenuFrame(self.leftFrame)
         self.buildDetailsFrame(self.leftFrame)
-        self.buildAppFrame(self.rightFrame)
-        #self.buildActionFrame(self.bottomFrame)
+        self.buildMainScreenFrame(master=self.rightFrame)
+        self.showMenu()
 
         self.t1_mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
     def buildMenuFrame(self,lFrame):
         
-        self.MenuFrame = tk.Frame(lFrame)
-        self.MenuTitleLabel = tk.Label(self.MenuFrame, text="Menu")
+        self.menuFrame = tk.Frame(lFrame)
+        self.menuTitleLabel = tk.Label(self.menuFrame, text="Menu")
 
-        self.trackBut = tk.Button(self.MenuFrame)  
+        #Main Menu
+        self.newExamiBut = tk.Button(self.menuFrame)  
+        self.newExamiBut["text"] = "Neue Untersuchung"
+        
+        self.openExamiBut = tk.Button(self.menuFrame)  
+        self.openExamiBut["text"] = "Untersuchung \u00F6ffnen"
+        self.openExamiBut["state"] = 'disabled'
+
+        #Setup Menu
+        self.activateHandleBut = tk.Button(self.menuFrame)  
+        self.activateHandleBut["text"] = "Try Activate Handles"
+
+        #Tracking / Recording Menu
+        self.trackBut = tk.Button(self.menuFrame)  
         self.trackBut["text"] = "Start/Stop Tracking"
+
+        self.saveRecordBut = tk.Button(self.menuFrame)  
+        self.saveRecordBut["text"] = "Aufzeichnung speichern"
         
- 
-        self.saveBut = tk.Button(self.MenuFrame)  
-        self.saveBut["text"] = "Aufnahme speichern"
-        #self.saveBut["command"] = self.saveUSImg
-        
-        self.cancelBut = tk.Button(self.MenuFrame)  
+        self.cancelBut = tk.Button(self.menuFrame)  
         self.cancelBut["text"] = "Abbrechen"
-        #self.readBut["command"] = 
 
-        self.MenuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
-        self.trackBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")  
-        self.saveBut.pack(side=tk.TOP, pady=(0, 0),padx=(10),fill="both")
-        self.cancelBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")  
+        #Misc Buttons
+        self.continueBut = tk.Button(self.menuFrame)  
+        self.continueBut["text"] = "Fortfahren"
 
-        self.MenuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+        self.backBut = tk.Button(self.menuFrame)  
+        self.backBut["text"] = "Zur\u00FCck"
+
+        self.mainMenuBut = tk.Button(self.menuFrame)
+        self.mainMenuBut["text"] = "Zum Hauptmenu"
+        #Command, you wanna cancel and go to main menu
+
+        self.reinitAuaBut = tk.Button(self.menuFrame)
+        self.reinitAuaBut["text"] = "Reinitialize Aurora"
+        self.NOBUTTONSYET = tk.Button(self.menuFrame,text="Secret Blowup Button")
+
+        self.menuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+
+        self.menuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+    
+
+    def showMenu(self,menu='main'):
+        MENUES = ['main','new_examination','setup','app','navigation','all_debug']
+
+        if menu not in MENUES:
+            raise ValueError(f'Try showing Menu "{menu}" which was not in {MENUES}')
+
+        children = self.menuFrame.winfo_children()
+        self.cleanMenu(children)
+
+        menu_buttons = {
+            'main': [self.newExamiBut,self.openExamiBut],
+            'new_examination': [self.continueBut,self.cancelBut],
+            'setup': [self.NOBUTTONSYET],
+            'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
+            'navigation':[self.NOBUTTONSYET]
+        }
+
+        for button in menu_buttons[menu]:
+            button.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both") 
+
+        
+
+
+
+    def cleanMenu(self,childList):
+        for child in childList:
+            if (child.winfo_class() == 'Frame'):
+                self.cleanMenu(child.winfo_children())
+                continue
+
+            if (child.winfo_class() in ['Button'] and child.winfo_ismapped()):
+                child.pack_forget()
+
 
     def buildDetailsFrame(self,lFrame):
         
-        self.DetailsFrame = tk.Frame(lFrame)
-        self.DetailsTitleLabel = tk.Label(self.DetailsFrame, text="Details")
+        self.detailsFrame = tk.Frame(lFrame)
+        #Details soll scrollbar bekommen und deswegen soll es sich nicht anhand der slaves orientieren. 
+        self.detailsFrame.grid_propagate(0)
 
-        self.adsfBut = tk.Button(self.DetailsFrame)  
+        self.detailsTitleLabel = tk.Label(self.detailsFrame, text="Details")
+        self.detailsInfoLabel = tk.Label(self.detailsFrame, text=" - ")
+
+
+        self.adsfBut = tk.Button(self.detailsFrame)  
         self.adsfBut["text"] = "Start/Stop Tracking"
 
-        self.DetailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+        self.detailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+        self.detailsInfoLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
 
-        self.DetailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
+        self.detailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
 
-    def buildAppFrame(self,rFrame):
+    @clearFrame
+    def buildMainScreenFrame(self,master):
+        self.mainscreenFrame = tk.Frame(master)
+        self.mainscreenFrame.rowconfigure(0, weight=1, uniform=1)
+        self.mainscreenFrame.columnconfigure(0,weight=1,uniform=1)
+        self.logoLabel = tk.Label(self.mainscreenFrame,text="Track to Reference Navigation\nMainscreen")
+        self.logoLabel.grid(row=0,column=0,sticky=tk.NSEW)
+
+        self.mainscreenFrame.grid(row=0, column=0,sticky=tk.NSEW) 
+    
+    
+    @clearFrame
+    def buildNewExamFrame(self,master):
+        self.newExamFrame = tk.Frame(master,bg="grey", padx = 20,pady=10)
+        self.newExamFrame.rowconfigure(0, weight=10, uniform=1)
+        self.newExamFrame.rowconfigure(1, weight=90, uniform=1)
+        self.newExamFrame.columnconfigure(0, weight=1, uniform=1)
+        self.newExamFrame.columnconfigure(1, weight=1, uniform=1)
+
+        titlelabel = tk.Label(self.newExamFrame,text="Untersuchungsdaten")
+        titlelabel.grid(row=0,column=0,columnspan=2,sticky=tk.NSEW)
+
+        dataFrame = tk.Frame(self.newExamFrame,padx=20)
+        dataFrame.columnconfigure(0, weight=35,minsize=180, uniform=1)
+        dataFrame.columnconfigure(1, weight=65,uniform=1)
+        
+        #Reihenfolge der deklaration der Widgets bestimmt Darstellungsposition
+        self.doctorLabel = tk.Label(dataFrame,text="Untersuchender Arzt")
+        self.doctorEntry = tk.Entry(dataFrame,bd=5)
+        self.doctorEntry.insert(0,"Dr. med. vet. Baader")
+        self.patientLabel = tk.Label(dataFrame,text="Patient")
+        self.patientEntry = tk.Entry(dataFrame,bd=5)
+        self.patientEntry.insert(0,"Herr Bach")
+        self.examItemLabel = tk.Label(dataFrame,text="Untersuchungsgegenstand")
+        self.examItemTextbox = tk.Text(dataFrame, bd=5)
+        self.examItemTextbox.insert('1.0',"US Untersuchung am linken Lungenfl\u00FCgel\nGutartiger Tumor")
+        self.createdLabel = tk.Label(dataFrame,text="Erstellt am")
+        self.createdEntry = tk.Entry(dataFrame,bd=5)
+        dateTimeObj = datetime.now()
+        timestampStr = dateTimeObj.strftime("%a, %d-%b-%Y (%H:%M:%S)")
+        self.createdEntry.insert(0,timestampStr)
+        self.createdEntry["state"] = 'readonly'
+        
+        children = dataFrame.winfo_children()
+
+        #Alle 2 Einträge wird eine neue Reihe angefangen
+        row_i=0
+        for i, widget in enumerate(children):
+            col_i = i%2
+            dataFrame.rowconfigure(row_i,weight=1,uniform=1)
+            widget.grid(row=row_i,column=col_i,sticky=tk.EW)
+            row_i = row_i+(i%2)
+
+        dataFrame.grid(row=1, column=0,columnspan=2,sticky=tk.NSEW)
+
+        self.newExamFrame.grid(row=0, column=0,sticky=tk.NSEW) 
+
+    
+    @clearFrame
+    def buildSetupFrame(self,master):
+        padx = 10
+        
+        #2x2 Matrix of Application frame
+        self.setupFrame = tk.Frame(master,bg="grey",padx=10,pady=10)  
+
+        self.setupFrame.rowconfigure(0, weight=20, uniform=1)
+        self.setupFrame.rowconfigure(1, weight=5, uniform=1,minsize=15)
+        self.setupFrame.rowconfigure(2, weight=10, uniform=1)
+        self.setupFrame.rowconfigure(3, weight=65, uniform=1)
+        self.setupFrame.columnconfigure(0, weight=1, uniform=1)
+        self.setupFrame.columnconfigure(1, weight=1, uniform=1)
+        self.setupFrame.columnconfigure(2, weight=1, uniform=1)
+        self.setupFrame.columnconfigure(3, weight=1, uniform=1)
+
+        self.setuptitleLabel = tk.Label(self.setupFrame, text="Einrichtung des Aurorasystems")
+        self.setuptitleLabel.grid(row=0,column=0,columnspan=4, pady=(10,8),sticky=tk.NSEW)
+        
+        instruc_title = tk.Label(self.setupFrame, text=" - Instruction - ", font='Helvetica 11 italic')
+        instruc_title.grid(row=1,column=0,columnspan=4,pady=(10,0), sticky=tk.NSEW)
+        self.instructionLabel = tk.Label(self.setupFrame, text="Some Instruction", font='Helvetica 9 italic')
+        self.instructionLabel.grid(row=2,column=0,columnspan=4,pady=(0,10),sticky=tk.NSEW)
+
+
+        for i in range(4):
+            handle_Frame = tk.Frame(self.setupFrame,bg="white",padx=10,pady=10)
+            lb = tk.Label(handle_Frame, text="Spulenname")
+            lb2 = tk.Label(handle_Frame, text="Referenzname")
+            entry = tk.Entry(handle_Frame,bd=5)
+            But = tk.Button(handle_Frame ) 
+            But["text"] = "Done"
+            children = handle_Frame.winfo_children()
+            
+            self.packChildren(children,side=tk.TOP,fill=tk.BOTH,padx=5,pady=5)
+            
+            handle_Frame.grid(row=3,column=i,sticky=tk.NSEW,padx=2,pady=2)
+            
+
+
+
+        
+        #Anwendungslogik!
+        
+        handle_index = 0
+
+        self.setupFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+        
+
+    @clearFrame
+    def buildAppFrame(self,master):
+
         #Init of AppFrame Attributes
         
         self.cap = None
         self.navCanvasData = ()
         self.img_size = None
         self.savedImg = None
-
-
-        #2x2 Matrix of Application frame
-        self.appFrame = tk.Frame(rFrame,bg="black")     
-        self.appFrame.rowconfigure(0, weight=1, uniform=1)
-        self.appFrame.rowconfigure(1, weight=1, uniform=1)
-        self.appFrame.columnconfigure(0, weight=1, uniform=1)
-        self.appFrame.columnconfigure(1, weight=1, uniform=1)
-        self.appFrame.bind('<Configure>', self.refreshImgSize)
+       
+        self.appFrame = tk.Frame(master,bg="black")     
+        self.appFrame.rowconfigure(0, weight=90, uniform=1)
+        self.appFrame.rowconfigure(1, weight=10,minsize=125,uniform=1)  
+        self.appFrame.columnconfigure(0,weight=1)
         
+        
+        #2x2 Matrix of Application frame
+        self.gridFrame = tk.Frame(self.appFrame) 
+        self.gridFrame.rowconfigure(0, weight=1, uniform=1)
+        self.gridFrame.rowconfigure(1, weight=1, uniform=1)
+        self.gridFrame.columnconfigure(0, weight=1, uniform=1)
+        self.gridFrame.columnconfigure(1, weight=1, uniform=1)
+        self.gridFrame.bind('<Configure>', self.refreshImgSize)
 
         #Order of the US Frame, Saved Image and Navigationframe
-        self.USImgFrame = tk.Frame(self.appFrame,bg="green")
+        self.USImgFrame = tk.Frame(self.gridFrame,bg="green")
         self.USImgFrame.rowconfigure(0, weight=1)
         self.USImgFrame.columnconfigure(0, weight=1)
-        self.savedImgFrame = tk.Frame(self.appFrame,bg="green")
+        self.savedImgFrame = tk.Frame(self.gridFrame,bg="green")
         self.savedImgFrame.rowconfigure(0, weight=1)
         self.savedImgFrame.columnconfigure(0, weight=1)
-        self.navFrame = tk.Frame(self.appFrame,bg="yellow")
+        self.navFrame = tk.Frame(self.gridFrame,bg="yellow")
         self.navFrame.rowconfigure(1, weight=1)
         self.navFrame.columnconfigure(0, weight=80)
         self.navFrame.columnconfigure(1, weight=20)
@@ -175,7 +373,7 @@ class UltraVisView(tk.Frame):
         
         #Navigation Frame Content
         self.navLabel = tk.Label(self.navFrame)
-        self.navLabel["text"] = "Navigtion GUI"
+        self.navLabel["text"] = "Navigation GUI"
         self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
         self.sysmodeLabel = tk.Label(self.navFrame)
         self.sysmodeLabel["text"] = "Operating Mode: - "
@@ -186,24 +384,26 @@ class UltraVisView(tk.Frame):
         self.ax.set_autoscale_on(False)
         self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
         
-
         self.buildCoordinatesystem()
         
         self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
-
-        self.appFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        self.appFrame.after_idle(self.calcUSImgSize)
+        self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.gridFrame.after_idle(self.calcUSImgSize)
 
 
         #Gallery Frame Content
-        self.galleryFrame = tk.Frame(rFrame, bg="#99ffcc")
-        self.galleryFrame.grid(row=1, pady=(0,8), padx=8, sticky=tk.NSEW)
+        self.galleryFrame = tk.Frame(self.appFrame, bg="#99ffcc")
 
         self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
         self.galleryLb.pack()
 
+        self.galleryFrame.grid(row=1,column=0, pady=(0,8), padx=8, sticky=tk.NSEW)
+
+        self.appFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+        
+
     def refreshImgSize(self,event):
-        self.appFrame.after_idle(self.calcUSImgSize)  
+        self.gridFrame.after_idle(self.calcUSImgSize)  
 
     def Capture_FrameGrabber(self):
         _isFirstCapture = True
@@ -367,8 +567,7 @@ class UltraVisView(tk.Frame):
         # self.restartBut.pack()
         self.quitBut.grid(row=6,padx=(1,1),sticky=tk.NSEW)
 
-        self.auaReInitBut = tk.Button(lFrame)
-        self.auaReInitBut["text"] = "Try Init Aurora"
+        
 
         for i,child in enumerate(lFrame.winfo_children(),start=0):   
             lFrame.rowconfigure(i, weight=1)
@@ -459,3 +658,12 @@ class UltraVisView(tk.Frame):
         finally:
             return ImageTk.PhotoImage(tkimage)
 
+
+
+    def packChildren(self,childList,side,fill,padx,pady):
+        for child in childList:
+            child.pack(side=side,fill=fill,padx=padx,pady=pady)
+
+
+    
+            
