@@ -2,14 +2,14 @@
 import pandas as pd
 import logging
 import sys
-sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
+sys.path.insert(1, '..\\')
 from AuroraAPI import Handle
 import uuid
 
 class UltraVisModel:
     def __init__(self):
         
-        datapath = 'TTRP/data/'
+        datapath = '..\\data\\'
         self.untersuch_path = datapath+'untersuchung.csv'
         self.aufz_path = datapath+'aufzeichnung.csv'
         self.handle_path = datapath+'handles.csv'
