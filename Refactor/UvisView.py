@@ -598,7 +598,7 @@ class UltraVisView(tk.Frame):
 
     def initImages(self):
 
-        self.imgdir = "D:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP\\img\\"
+        self.imgdir = "..\\img\\"
         self.notfoundimg = self.imgdir+"not-found-image.jpg"
 
         # Bilder f�r x-Achse
