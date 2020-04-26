@@ -62,8 +62,8 @@ class NavigationVisualizer:
                                 blit=True)
 
     def set_pos(self, x, y):
-        self.pos_x = x
-        self.pos_y = y
+        self.pos_x = max(min(x, 1), -1)
+        self.pos_y = max(min(y, 1), -1)
 
     def set_ori(self, x, y, z):
         self.ori_x = x

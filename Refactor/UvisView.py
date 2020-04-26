@@ -479,23 +479,22 @@ class UltraVisView(tk.Frame):
 
 
     def buildCoordinatesystem(self):
-        plt.cla()
-        self.ax.set_xlabel('X')
-        self.ax.set_xlim(-230, 230)
-        self.ax.set_ylabel('Y')
-        self.ax.set_ylim(-320, 320)
-        self.ax.set_zlabel('Z')
-        self.ax.set_zlim(0, -600)
+        #plt.cla()
+        #self.ax.set_xlabel('X')
+        #self.ax.set_xlim(-230, 230)
+        #self.ax.set_ylabel('Y')
+        #self.ax.set_ylim(-320, 320)
+        #self.ax.set_zlabel('Z')
+        #self.ax.set_zlim(0, -600)
         
 
         if (len(self.navCanvasData) is not 0):
             x,y,z,color = self.navCanvasData
             self.navigationvis.set_pos(x[0], y[0])
-            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
-            
+            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)           
             #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
         
-        self.navCanvas.draw()
+        #self.navCanvas.draw()
 
 
     def saveUSImg(self):

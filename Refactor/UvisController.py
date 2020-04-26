@@ -493,6 +493,9 @@ class UltraVisController:
         #a = [0, 80, 200] # becken rechts
         #b = [100, 0, -30] # becken links
         #c = [70, 110, 2] # brustbein
+        a = None
+        b = None
+        c = None
         with self.aua._lock:
             tx = self.aua.tx()
             self.hm.updateHandles(tx)
