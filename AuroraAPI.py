@@ -54,6 +54,7 @@ class Aurora:
         for methodkey in self._observers:
             self._observers[methodkey]()
 
+
     #Debug & Additional Methods
     #Commands & Parameters are not case sensitive
     def writeCMD(self,cmd,expect=False):
@@ -114,8 +115,6 @@ class Aurora:
             
         except ValueError as e:
             logging.exception(str(e)) 
-
-        
 
     
     def init(self):

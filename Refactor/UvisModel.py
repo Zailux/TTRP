@@ -10,48 +10,88 @@ class UltraVisModel:
     def __init__(self):
         
         datapath = 'TTRP/data/'
-        self.untersuch_path = datapath+'untersuchung.csv'
-        self.aufz_path = datapath+'aufzeichnung.csv'
+        self.examination_path = datapath+'examination.csv'
+        self.records_path = datapath+'record.csv'
         self.handle_path = datapath+'handles.csv'
 
         try: 
-           # self.untersuchungen = pd.read_csv(self.untersuch_path,index_col=0)
-            self.t_aufzeichnungen = pd.read_csv(self.aufz_path,index_col=0)
+            self.t_examination = pd.read_csv(self.examination_path,index_col=0)
+            self.t_records = pd.read_csv(self.records_path,index_col=0)
             self.t_handles = pd.read_csv(self.handle_path,index_col=0)
         except FileNotFoundError as e:
             logging.error(e)
             #disable saving functions!
 
 
-    def getUntersuchung(self, ID=None):
-        pass
-
-
-    def addUntersuchung(self, ID):
-        pass
-
-
-
-    def getAufzeichnung(self, A_ID=None):
-        
-        A_ID = str(A_ID)
+    def getExamination(self, ID=None):
+        E_ID = str(ID)
         try:
-            a = self.t_aufzeichnungen.loc[A_ID]
-            aufz = Aufzeichnung(A_ID=A_ID, descr=a.Beschreibung, date=a.Datum,US_img=a.US_Bild)
+            e = self.t_examination.loc[E_ID]
+            examination = Examination(E_ID= E_ID,doctor=e.doctor,patient=e.patient,examitem=e.examitem,created=e.created)
 
-            return aufz
+            return examination
 
         except KeyError as e:
             logging.debug(str(e))
-            logging.error(f'Aufzeichnung with Key "{A_ID}" could not be found.')
+            logging.error(f'Record with key "{E_ID}" could not be found.')
 
 
-
-
-    def saveAufzeichnung(self, aufzeichnung, persistant=False):
+    def saveExamination(self, examination, persistant=False):
         
-        if (not(isinstance(aufzeichnung,Aufzeichnung))):
-            raise TypeError('Invalid Object of type:'+ type(aufzeichnung)+". Please use a correct Aufzeichnung Object.")
+        if (not(isinstance(examination,Examination))):
+            raise TypeError(f'Invalid Object of type: {type(examination)}". Please use a correct {Examination} Object.')
+        
+        logging.debug('Trying to write data:')
+        
+        if (persistant):
+            '''
+            as_list = df.index.tolist()
+            idx = as_list.index('Republic of Korea')
+            as_list[idx] = 'South Korea'
+            df.index = as_list
+            '''
+            #here kommt noch was
+            pass
+
+
+        exam = examination.__dict__
+        df = pd.DataFrame(data=exam,index=[0])
+        df = df.set_index('E_ID')
+        logging.debug(df)
+
+        try:
+            new_exam = self.t_examination.append(df,verify_integrity=True)
+            new_exam.to_csv(self.examination_path)
+            self.t_examination = new_exam
+        except ValueError as e:
+            logging.error("Could not save record. Errormsg - "+str(e))
+            raise ValueError(str(e))
+
+        logging.info("Succesfully saved record "+str(exam["E_ID"]))
+        
+
+
+
+    def getRecord(self, R_ID=None):
+        
+        R_ID = str(R_ID)
+        try:
+            r = self.t_records.loc[R_ID]
+            rec = Record(R_ID=R_ID, descr=r.Beschreibung, date=r.Datum,US_img=r.US_Bild,E_ID=r.E_ID)
+
+            return rec
+
+        except KeyError as e:
+            logging.debug(str(e))
+            logging.error(f'Record with key "{R_ID}" could not be found.')
+
+
+
+
+    def saveRecord(self, record, persistant=False):
+        
+        if (not(isinstance(record,Record))):
+            raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
         
         logging.debug('Trying to write data:')
         
@@ -60,36 +100,47 @@ class UltraVisModel:
             pass
 
 
-        aufz = aufzeichnung.to_dict()
+        rec = record.to_dict()
         
-        df = pd.DataFrame(data=aufz,index=[0])
-        df = df.set_index('A_ID')
+        df = pd.DataFrame(data=rec,index=[0])
+        df = df.set_index('R_ID')
         logging.debug(df)
 
         try:
-            new_aufz = self.t_aufzeichnungen.append(df,verify_integrity=True)
-            new_aufz.to_csv(self.aufz_path)
-            self.t_aufzeichnungen = new_aufz
+            new_record = self.t_records.append(df,verify_integrity=True)
+            new_record.to_csv(self.records_path)
+            self.t_records = new_record
         except ValueError as e:
-            logging.error("Could not save Aufzeichnung. Errormsg - "+str(e))
+            logging.error("Could not save record. Errormsg - "+str(e))
             raise ValueError(str(e))
 
-        logging.info("Succesfully saved Aufzeichnung "+str(aufzeichnung.A_ID))
+        logging.info("Succesfully saved record "+str(rec.R_ID))
         
         
-    
-    def getPosition(self, A_ID=None):
+    #WIP
+    def getPosition(self, R_ID=None):
+
+        R_ID = str(R_ID)
+        try:
+            h = self.t_handles.loc[R_ID]
+            #record = Record(R_ID=R_ID, descr=a.Beschreibung, date=a.Datum,US_img=a.US_Bild)
+
+            #return record
+
+        except KeyError as e:
+            logging.debug(str(e))
+            logging.error(f'Record with Key "{R_ID}" could not be found.')
         pass
 
 
-    def savePosition(self, A_ID,handles):
+    def savePosition(self, R_ID,handles):
 
         try:
             temp_data = self.t_handles    
 
             for h in handles.values():
                 h = h.to_dict()
-                h['A_ID'] = A_ID
+                h['R_ID'] = R_ID
 
                 handle_data = h
                 new_df = pd.DataFrame(data=handle_data,index=[len(temp_data.index)])
@@ -107,31 +158,40 @@ class UltraVisModel:
 
 
 
+class Record():
 
-
-class Aufzeichnung():
-
-    def __init__(self, A_ID = None, descr=None, date=None,US_img=None):
+    def __init__(self,E_ID, R_ID = None, descr=None, date=None,US_img=None ):
             
-        self.A_ID = A_ID
-        self.descr=descr
+        self.R_ID = R_ID
+        self.descr = descr
         self.date = date
-        self.US_img=US_img
+        self.US_img = US_img
+        self.E_ID = E_ID
 
-        if (A_ID is None):
+        if (R_ID is None):
             uid = uuid.uuid4()
-            self.A_ID = 'tempA-'+str(uid)
+            self.R_ID = 'temp_R-'+str(uid)
 
-    def to_dict(self):
-        d = {
-            'A_ID' : self.A_ID,
-            'descr' : self.descr,
-            'date' : self.date,
-            'US_img' : self.US_img
-        }
-        return d
+
+
+class Examination():
+
+    def __init__(self, E_ID = None, doctor=None, patient=None, examitem=None,created=None):
+            
+        self.E_ID = E_ID
+        self.doctor = doctor
+        self.patient = patient
+        self.examitem = examitem
+        self.created = created
+        
+
+        if (E_ID is None):
+            uid = uuid.uuid4()
+            self.E_ID = 'tempE-'+str(uid)
 
     
+
+
     
    
 
