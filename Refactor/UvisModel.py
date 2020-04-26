@@ -2,6 +2,7 @@
 import pandas as pd
 import logging
 import sys
+sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
 sys.path.insert(1, '..\\')
 from AuroraAPI import Handle
 import uuid

@@ -61,7 +61,7 @@ class UltraVisView(tk.Frame):
 
 
         self.tabControl = ttk.Notebook(self.master)
-        self.initImages()
+        #self.initImages()
         self.buildTab1()
         self.buildTab2()       
 
@@ -177,7 +177,7 @@ class UltraVisView(tk.Frame):
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
             'setup': [self.NOBUTTONSYET, self.calibrateBut, self.startNavBut],
-            'app': [self.trackBut,self.saveRecordBut,self.cancelBut, self.targetBut],
+            'app': [self.calibrateBut,self.trackBut,self.saveRecordBut,self.cancelBut, self.targetBut],
             'navigation':[self.NOBUTTONSYET]
         }
 
@@ -492,7 +492,8 @@ class UltraVisView(tk.Frame):
             x,y,z,color = self.navCanvasData
             self.navigationvis.set_pos(x[0], y[0])
             #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)           
-            #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
+            self._Canvasjob = self.navFrame.after(40,func=self.buildCoordinatesystem)
+            print("ICH ZEICHNWAS")
         
         #self.navCanvas.draw()
 

@@ -174,7 +174,7 @@ class UltraVisController:
         logging.info("Connection success")
         self.aua.register("Sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
-        self.view.auaReInitBut.grid_forget()
+        self.view.reinitAuaBut.grid_forget()
 
         logging.info("Reset Aurorasystem")
         self.aua.resetandinitSystem()
@@ -252,12 +252,12 @@ class UltraVisController:
             self.stopTracking = False
             self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
-            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.buildCoordinatesystem)
+            self.view._Canvasjob = self.view.navFrame.after(1500,func=self.view.buildCoordinatesystem)
             
 
         elif(self.aua.getSysmode()=='TRACKING'):
             self.stopTracking = True
-            self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+            self.view.navFrame.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
 
             with self.aua._lock:
@@ -271,7 +271,7 @@ class UltraVisController:
         
         logging.info(threading.current_thread().name+" has started tracking")
        
-        freq = 0.5
+        freq = 0.1
         while(not self.stopTracking):
 
             with self.aua._lock:
@@ -317,7 +317,8 @@ class UltraVisController:
                 color.append(av_color[i])
             
                 
-    
+        print(f'x values: {x}')
+        
             
         logging.debug(f'x values: {x}')
         
@@ -496,29 +497,22 @@ class UltraVisController:
         a = None
         b = None
         c = None
-        with self.aua._lock:
-            tx = self.aua.tx()
-            self.hm.updateHandles(tx)
+        
 
-            x,y,z = [],[],[]
-            num_handle = self.hm.getNum_Handles()
-            if (num_handle is not 4):
-                logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
-            
-            handles = self.hm.getHandles()
+        handles = self.hm.getHandles()
             #Might change for Items, if the specific request of handle object is neccessary.
-            for i,handle in enumerate(handles.values()):
-                if (handle.MISSING is None):
-                    break
+        for i,handle in enumerate(handles.values()):
+            if (handle.MISSING is None):
+                break
 
-                if (handle.MISSING is False):
-                    # TODO access values directly and not by checking iterator
-                    if (i == 1):
-                        a = [handle.Tx, handle.Ty, handle.Tz]
-                    elif (i == 2):
-                        b = [handle.Tx, handle.Ty, handle.Tz]
-                    elif (i == 3):
-                        c = [handle.Tx, handle.Ty, handle.Tz]
+            if (handle.MISSING is False):
+                # TODO access values directly and not by checking iterator
+                if (i == 1):
+                    a = [handle.Tx, handle.Ty, handle.Tz]
+                elif (i == 2):
+                    b = [handle.Tx, handle.Ty, handle.Tz]
+                elif (i == 3):
+                    c = [handle.Tx, handle.Ty, handle.Tz]
 
         self.calibrator.set_trafo_matrix(a,b,c)
 
@@ -587,7 +581,8 @@ class UltraVisController:
 
 
     def refreshSysmode(self):
-        self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        pass
+        #self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
         
 
 '''        
