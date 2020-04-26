@@ -21,6 +21,8 @@ import numpy as np
 
 import threading
 
+from NavigationVisualizer import NavigationVisualizer
+
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
 
@@ -137,6 +139,9 @@ class UltraVisView(tk.Frame):
         self.cancelBut = tk.Button(self.menuFrame)  
         self.cancelBut["text"] = "Abbrechen"
 
+        self.targetBut = tk.Button(self.menuFrame)
+        self.targetBut["text"] = "Set Target"
+
         #Misc Buttons
         self.continueBut = tk.Button(self.menuFrame)  
         self.continueBut["text"] = "Fortfahren"
@@ -151,6 +156,8 @@ class UltraVisView(tk.Frame):
         self.reinitAuaBut = tk.Button(self.menuFrame)
         self.reinitAuaBut["text"] = "Reinitialize Aurora"
         self.NOBUTTONSYET = tk.Button(self.menuFrame,text="Secret Blowup Button")
+        self.calibrateBut = tk.Button(self.menuFrame,text="Calibrate")
+        self.startNavBut = tk.Button(self.menuFrame,text="Start Navigation")
 
         self.menuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
 
@@ -169,8 +176,8 @@ class UltraVisView(tk.Frame):
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.NOBUTTONSYET],
-            'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
+            'setup': [self.NOBUTTONSYET, self.calibrateBut, self.startNavBut],
+            'app': [self.trackBut,self.saveRecordBut,self.cancelBut, self.targetBut],
             'navigation':[self.NOBUTTONSYET]
         }
 
@@ -317,7 +324,7 @@ class UltraVisView(tk.Frame):
         
 
     @clearFrame
-    def buildAppFrame(self,master):
+    def buildAppFrame(self,master,nav=False):
 
         #Init of AppFrame Attributes
         
@@ -379,14 +386,19 @@ class UltraVisView(tk.Frame):
         self.sysmodeLabel["text"] = "Operating Mode: - "
         self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
 
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_autoscale_on(False)
-        self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
+        # TODO remove test
+        if nav :
+            # navigation test
+            self.navigationvis = NavigationVisualizer(self.navFrame)
+        else:
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(111, projection='3d')
+            self.ax.set_autoscale_on(False)
+            self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
         
-        self.buildCoordinatesystem()
+            self.buildCoordinatesystem()
         
-        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
+            self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
         self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
         self.gridFrame.after_idle(self.calcUSImgSize)
 
@@ -478,9 +490,10 @@ class UltraVisView(tk.Frame):
 
         if (len(self.navCanvasData) is not 0):
             x,y,z,color = self.navCanvasData
-            Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
+            self.navigationvis.set_pos(x[0], y[0])
+            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
             
-            self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
+            #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
         
         self.navCanvas.draw()
 

@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 
-
+from Calibrator import Calibrator
 
 #GlobaleVariablen Definition
 BUTTON_WIDTH = 25
@@ -48,7 +48,8 @@ def toQueue(func):
 class UltraVisController:
 
     def __init__(self,debug_mode=False):
-        
+        self.calibrator = Calibrator()
+
         #Logging Configuration
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
@@ -299,9 +300,20 @@ class UltraVisController:
                 break
 
             if (handle.MISSING is False):
-                x.append(handle.Tx)
-                y.append(handle.Ty)
-                z.append(handle.Tz)
+                #x.append(handle.Tx)
+                #y.append(handle.Ty)
+                #z.append(handle.Tz)
+
+                # TODO only for uvis sensor
+                if (i == 0):
+                    transformed = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
+                    x.append(transformed[0])
+                    y.append(transformed[1])
+                    z.append(transformed[2])
+                else:
+                    x.append(handle.Tx)
+                    y.append(handle.Ty)
+                    z.append(handle.Tz)
                 color.append(av_color[i])
             
                 
@@ -445,6 +457,72 @@ class UltraVisController:
         self.view.buildAppFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='app')
 
+    def setTargetPos(self):
+        print("Set Target Position")
+        #pos = [0.5, 0.5]
+        
+        pos = [0.0, 0.0, 0.0]
+        with self.aua._lock:
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+
+            x,y,z = [],[],[]
+            num_handle = self.hm.getNum_Handles()
+            if (num_handle is not 4):
+                logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
+            
+            handles = self.hm.getHandles()
+            #Might change for Items, if the specific request of handle object is neccessary.
+            for i,handle in enumerate(handles.values()):
+                if (handle.MISSING is None):
+                    break
+                if (handle.MISSING is False):
+                    if (i == 0):
+                        print("Raw pos:")
+                        print([handle.Tx, handle.Ty, handle.Tz])
+                        pos = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
+                        print("Transformed pos:")
+                        print(pos)
+
+
+        self.view.navigationvis.set_target_pos(pos[0], pos[1])
+
+    def calibrate_coordsys(self):
+        print("Calibrate Coordination System")
+        # test values
+        #a = [0, 80, 200] # becken rechts
+        #b = [100, 0, -30] # becken links
+        #c = [70, 110, 2] # brustbein
+        with self.aua._lock:
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+
+            x,y,z = [],[],[]
+            num_handle = self.hm.getNum_Handles()
+            if (num_handle is not 4):
+                logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
+            
+            handles = self.hm.getHandles()
+            #Might change for Items, if the specific request of handle object is neccessary.
+            for i,handle in enumerate(handles.values()):
+                if (handle.MISSING is None):
+                    break
+
+                if (handle.MISSING is False):
+                    # TODO access values directly and not by checking iterator
+                    if (i == 1):
+                        a = [handle.Tx, handle.Ty, handle.Tz]
+                    elif (i == 2):
+                        b = [handle.Tx, handle.Ty, handle.Tz]
+                    elif (i == 3):
+                        c = [handle.Tx, handle.Ty, handle.Tz]
+
+        self.calibrator.set_trafo_matrix(a,b,c)
+
+    def start_navigation(self):
+        self.view.buildAppFrame(master=self.view.rightFrame, nav=True)
+        self.view.showMenu(menu='app')
+
     def initFunctionality(self):
         
         self.view.newExamiBut["command"] = self.newExamination
@@ -452,6 +530,10 @@ class UltraVisController:
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
 
         self.view.NOBUTTONSYET["command"] = self.startExamination
+        self.view.calibrateBut["command"] = self.calibrate_coordsys
+        self.view.startNavBut["command"] = self.start_navigation
+
+        self.view.targetBut["command"] = self.setTargetPos
 
     def addFuncTracking(self):
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
