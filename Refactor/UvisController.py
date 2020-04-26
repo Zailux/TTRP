@@ -1,4 +1,4 @@
-from UvisModel import UltraVisModel,Aufzeichnung
+from UvisModel import UltraVisModel,Record,Examination
 from UvisView import UltraVisView
 import logging
 import time
@@ -142,11 +142,10 @@ class UltraVisController:
         q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
         q_Thread.start()
 
-    def initAurora(self,ser,extended=None):
+    def initAurora(self,ser):
 
         logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
-        if (extended == None):
-            extended = self._debug
+        
 
         
         widgets = self.view.menuFrame.winfo_children()
@@ -159,30 +158,26 @@ class UltraVisController:
             #self.disableWidgets(widgets)
             self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
             return
         except Warning as w:
             logging.exception(str(w))
             #self.disableWidgets(widgets)
             self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
             return
 
         self.aua_active = True
         logging.info("Connection success")
         self.aua.register("Sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
-        self.view.auaReInitBut.grid_forget()
+        self.view.reinitAuaBut.grid_forget()
 
         logging.info("Reset Aurorasystem")
         self.aua.resetandinitSystem()
         
         self.addFuncDebug()
-
-        if (extended):
-            self.q.put(self.activateHandles)
-            self.addFuncTracking()
         
         logging.info("Initialize Aurorasystem - done")
 
@@ -324,7 +319,7 @@ class UltraVisController:
         tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")        
         #to do: description auf gui ziehen 
 
-        aufz = Aufzeichnung(date=tmpstamp)
+        rec = Record(date=tmpstamp)
 
         #Stops the current refresh and changing of Positional data 
         #self.navAnim.event_source.stop()
@@ -336,13 +331,13 @@ class UltraVisController:
             #Save Image to Filesystem and prepare Imagepath image
             img = self.view.savedImg.copy()
             img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
-            filename = f'{aufz.A_ID[4:]}_img'
+            filename = f'{rec.R_ID[4:]}_img'
             imgpath = 'TTRP/data/img/'+filename+'.png'
             
             try:
                 img.save(imgpath)
-                aufz.US_img=imgpath
-                self.model.saveAufzeichnung(aufzeichnung=aufz)
+                rec.US_img=imgpath
+                self.model.saveRecord(record=rec)
             except IOError as e:
                 raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
             except ValueError as e:
@@ -350,7 +345,7 @@ class UltraVisController:
                 pass
             
             try:
-                self.model.savePosition(A_ID=aufz.A_ID, handles=handles)
+                self.model.savePosition(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
@@ -358,7 +353,7 @@ class UltraVisController:
             
 
 
-    def cleanSavingProcess(self, aufzeichnung):
+    def cleanSavingProcess(self, record):
         pass
 
 
@@ -429,13 +424,48 @@ class UltraVisController:
     def newExamination(self):
         self.view.buildNewExamFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='new_examination')
-        self.view.continueBut["command"] = self.setupUvis
-       #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
+        self.view.continueBut["command"] = self.setupHandles
+    
+
+    def val_newExamination(self):
+        #if there is future validation necessary e.g. Patient data is required, you need to implement it here
+        doctor = self.view.doctorEntry.get()
+        patient = self.view.patientEntry.get()
+        examitem = self.view.examItemTextbox.get("1.0",'end-1c')
+        created = self.view.createdEntry.get()
+
+        params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem,"created":created}
+        new_exam = Examination(**params)
+        logging.debug(f'Exam Data - {new_exam}')
+
+        #Due to no validation as of now, 
+        validExam = True 
+        
+        return validExam,new_exam
+            
+
 
     #wip
-    def setupUvis(self):
+    def setupHandles(self):
+        
+        #save exam procudere should be actually somewhere else ...
+        validExam,new_exam = self.val_newExamination()
+        if (validExam):
+            try:
+                self.model.saveExamination(examination=new_exam)
+            except ValueError as e:
+                msg = "Could not save Examination. See logs for details."
+                self.view.detailsInfoLabel["text"] = msg
+                return
+        else:
+            logging.error(f'Invalid Examinationdata')
+            return
+        
+
         self.view.buildSetupFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='setup')
+        #self.view.startExamiBut["state"] = 'disabled'
+
         #load Menu but still disabled. 
         #self.q.put(self.activateHandles)
         #wenn sucessfull dann enable button. 
@@ -444,18 +474,21 @@ class UltraVisController:
     def startExamination(self):
         self.view.buildAppFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='app')
+        
+
 
     def initFunctionality(self):
         
         self.view.newExamiBut["command"] = self.newExamination
+
+        self.view.startExamiBut["command"] = self.startExamination
+
+
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+        
+        self.view.NOBUTTONSYET["command"] = lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
-        self.view.NOBUTTONSYET["command"] = self.startExamination
-
-    def addFuncTracking(self):
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
 
 
 
@@ -502,7 +535,8 @@ class UltraVisController:
 
 
     def refreshSysmode(self):
-        self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        if (hasattr(self.view,'sysmodeLabel')):
+            self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
         
 
 '''        

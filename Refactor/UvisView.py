@@ -124,6 +124,8 @@ class UltraVisView(tk.Frame):
         self.openExamiBut["state"] = 'disabled'
 
         #Setup Menu
+        self.startExamiBut = tk.Button(self.menuFrame) 
+        self.startExamiBut["text"] = "Untersuchung beginnen"
         self.activateHandleBut = tk.Button(self.menuFrame)  
         self.activateHandleBut["text"] = "Try Activate Handles"
 
@@ -157,9 +159,11 @@ class UltraVisView(tk.Frame):
         self.menuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
     
 
-    def showMenu(self,menu='main'):
-        MENUES = ['main','new_examination','setup','app','navigation','all_debug']
+    def showMenu(self,menu='main',states=None):
+        #Idea to use a state "table of 0 and 1 to enable / disable Button"    
 
+        MENUES = ['main','new_examination','setup','app','navigation','all_debug']
+        
         if menu not in MENUES:
             raise ValueError(f'Try showing Menu "{menu}" which was not in {MENUES}')
 
@@ -169,7 +173,7 @@ class UltraVisView(tk.Frame):
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.NOBUTTONSYET],
+            'setup': [self.startExamiBut,self.cancelBut,self.NOBUTTONSYET],
             'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
             'navigation':[self.NOBUTTONSYET]
         }
@@ -178,7 +182,6 @@ class UltraVisView(tk.Frame):
             button.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both") 
 
         
-
 
 
     def cleanMenu(self,childList):
