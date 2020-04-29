@@ -59,7 +59,7 @@ class UltraVisView(tk.Frame):
 
 
         self.tabControl = ttk.Notebook(self.master)
-        self.initImages()
+        #self.initImages()
         self.buildTab1()
         self.buildTab2()       
 

@@ -17,8 +17,7 @@ import queue
 #from Observable import Observable
 import sys
 
-#TTRP.AuroraAPI is an temporary Solution. Should be same folder later
-sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
+sys.path.insert(1, '..\\')
 from AuroraAPI import Aurora, Handle, HandleManager
 
 from PIL import Image
@@ -631,6 +630,3 @@ class UltraVisController:
         self.ultraVisView.screenshotmain.configure(image=imgtk)
 '''
 
-#TEMPORÄR!!!
-controller = UltraVisController(debug_mode=True)
-controller.run()
