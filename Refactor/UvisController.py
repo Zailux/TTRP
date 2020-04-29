@@ -8,7 +8,7 @@ import random
 import tkinter as tk
 
 import serial
-import functools
+from functools import wraps, partial
 import threading
 import queue
 #import os
@@ -26,6 +26,10 @@ import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 
 
+from helper import Helper
+
+global hp
+hp = Helper()
 
 #GlobaleVariablen Definition
 BUTTON_WIDTH = 25
@@ -189,6 +193,7 @@ class UltraVisController:
         # todo Gesamtprozess nach Guide (siehe Aurora API)
         logging.info("Activate Handles - Acquiring Lock")
 
+        success = True
         with self.aua._lock:
             try: 
                 #print("All allocated Ports")
@@ -223,12 +228,11 @@ class UltraVisController:
             
             except Warning as w:
                 logging.warning(str(w))
-
-        
-        logging.info("Activate Handles - done")
-
-    
-
+                success=False
+                #maybe solve via states in show menu Later
+                self.view.activateHandleBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            
+        logging.info("Activate Handles - finished with no errors" if success else "Activate Handles - finished with errors")
 
 
     #---- App Frame functionality tracking and saving----#
@@ -304,9 +308,7 @@ class UltraVisController:
         logging.debug(f'x values: {x}')
         
         self.view.navCanvasData = (x,y,z,color)
-        
-
-    
+           
     def savePosition(self):
         if (not self.aua.getSysmode()=='TRACKING'):
             logging.info("This functionality is only available during tracking. Please Start Tracking")
@@ -348,16 +350,10 @@ class UltraVisController:
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
-           
-            
-
+                  
 
     def cleanSavingProcess(self, record):
-        pass
-
-
-           
- 
+        pass 
             
     def validatePosition(self, handles):
         #Validate Handles for saving
@@ -390,6 +386,143 @@ class UltraVisController:
                
 
 
+    #----GUI Related ----#
+
+
+
+    def newExamination(self):
+        self.view.buildNewExamFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='new_examination')
+        self.view.continueBut["command"] = self.setupHandles
+    
+
+    def validateExamination(self):
+        #if there is future validation necessary e.g. Patient data is required, you need to implement it here
+        doctor = self.view.doctorEntry.get()
+        patient = self.view.patientEntry.get()
+        examitem = self.view.examItemTextbox.get("1.0",'end-1c')
+        created = self.view.createdEntry.get()
+
+        params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem,"created":created}
+        new_exam = Examination(**params)
+        logging.debug(f'Exam Data - {new_exam}')
+
+        #Due to no validation as of now, 
+        validExam = True 
+        
+        return validExam,new_exam
+            
+
+    
+    def setupHandles(self):
+        
+        #save exam procudere should be actually somewhere else ...
+        validExam,new_exam = self.validateExamination()
+        if (validExam):
+            try:
+                self.model.saveExamination(examination=new_exam)
+            except ValueError as e:
+                msg = "Could not save Examination. See logs for details."
+                self.view.detailsInfoLabel["text"] = msg
+                return
+        else:
+            logging.error(f'Invalid Examinationdata')
+            return
+        
+        self.view.buildSetupFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='setup')
+        self.addSetupHandlesFunc()
+        
+        
+        #self.view.startExamiBut["state"] = 'disabled'
+        
+
+        #load Menu but still disabled. 
+        self.q.put(self.activateHandles)
+
+        
+
+        #wenn sucessfull dann enable button. Und hole dir Handledaten
+        #Else zeige zurückbutton und läd den Basescreen again. 
+
+
+    def validateSetupHandles(self,handle_index=None):
+        
+        last_index = self.hm.getNum_Handles()-1
+        setuphandles = self.view.setupHandleFrames
+        isValid = None
+        #Check all handles and start next App part
+        if handle_index is None:
+            
+            valid_list = [] 
+            for setuphandle in setuphandles:
+                valid_list.append(setuphandle['valid'])
+            
+            if False in valid_list:
+                self.view.setSetupInstruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
+                isValid = False
+            else:
+                isValid = True
+
+            return isValid
+
+        #Check Single Index
+        elif handle_index <= last_index:
+            
+            # check handle Data
+            setuphandle = setuphandles[handle_index]
+            ref_value = setuphandle["ref_entry"].get()
+            
+            if (len(ref_value) is not 0):
+                setuphandle["valid"] = True
+            else:
+                self.view.setSetupInstruction("Bitte tragen Sie einen Referenznamen für die Spule ein")
+                isValid = False
+                return isValid
+
+            if (handle_index != last_index):
+                self.view.setCurrentSetupHandle(handle_index+1)
+            else:
+                self.view.setSetupInstruction("Einrichtung der Spulen abgeschlossen. Sie können mit der Untersuchung beginnen :)")
+                children = setuphandles[handle_index]["frame"].winfo_children()
+                hp.disableWidgets(children,disable_all=True)
+                isValid = True
+                return isValid
+        else:
+            raise ValueError(f"Invalid Handle_index: {handle_index}.")
+
+
+    def startExamination(self):
+        valid_setupHandles = self.validateSetupHandles()
+        if (valid_setupHandles == False):
+            return
+        else:
+            self.view.buildAppFrame(master=self.view.rightFrame)
+            self.view.showMenu(menu='app')
+        
+
+
+    def initFunctionality(self):
+        
+        self.view.newExamiBut["command"] = self.newExamination
+
+        self.view.startExamiBut["command"] = self.startExamination
+        self.view.activateHandleBut["command"] =lambda: self.q.put(self.activateHandles)
+
+        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
+        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+        
+        self.view.NOBUTTONSYET["command"] = lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
+
+
+    def addSetupHandlesFunc(self):
+        
+        frames = self.view.setupHandleFrames
+        #Partial muss genutzt werden, weil der Parameter hochgezählt wird. 
+        for i,frame_data in enumerate(frames):
+            #frame,handlename,ref_entry,button,valid = frame_data.values()
+            button = frame_data["button"]
+            button["command"] = partial(self.validateSetupHandles, handle_index=i)
 
 
 
@@ -414,81 +547,6 @@ class UltraVisController:
     def testFunction(self):
         with self.aua._lock:
             self.aua.beep(2)
-
-    #----GUI Related ----#
-
-
-
-
-    def newExamination(self):
-        self.view.buildNewExamFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='new_examination')
-        self.view.continueBut["command"] = self.setupHandles
-    
-
-    def val_newExamination(self):
-        #if there is future validation necessary e.g. Patient data is required, you need to implement it here
-        doctor = self.view.doctorEntry.get()
-        patient = self.view.patientEntry.get()
-        examitem = self.view.examItemTextbox.get("1.0",'end-1c')
-        created = self.view.createdEntry.get()
-
-        params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem,"created":created}
-        new_exam = Examination(**params)
-        logging.debug(f'Exam Data - {new_exam}')
-
-        #Due to no validation as of now, 
-        validExam = True 
-        
-        return validExam,new_exam
-            
-
-
-    #wip
-    def setupHandles(self):
-        
-        #save exam procudere should be actually somewhere else ...
-        validExam,new_exam = self.val_newExamination()
-        if (validExam):
-            try:
-                self.model.saveExamination(examination=new_exam)
-            except ValueError as e:
-                msg = "Could not save Examination. See logs for details."
-                self.view.detailsInfoLabel["text"] = msg
-                return
-        else:
-            logging.error(f'Invalid Examinationdata')
-            return
-        
-
-        self.view.buildSetupFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='setup')
-        #self.view.startExamiBut["state"] = 'disabled'
-
-        #load Menu but still disabled. 
-        #self.q.put(self.activateHandles)
-        #wenn sucessfull dann enable button. 
-        #Else zeige zurückbutton und läd den Basescreen again. 
-
-    def startExamination(self):
-        self.view.buildAppFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='app')
-        
-
-
-    def initFunctionality(self):
-        
-        self.view.newExamiBut["command"] = self.newExamination
-
-        self.view.startExamiBut["command"] = self.startExamination
-
-
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-        
-        self.view.NOBUTTONSYET["command"] = lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
-
-
 
 
     def addFuncDebug(self):

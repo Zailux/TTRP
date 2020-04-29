@@ -1,5 +1,5 @@
-# -*- coding: latin-1 -*-
-from __future__ import print_function
+# -*- coding: latin-1 -
+#from __future__ import print_function
 # from visual import *
 import tkinter as tk
 from tkinter import ttk
@@ -20,6 +20,11 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 import threading
+
+from helper import Helper
+
+global hp
+hp = Helper()
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
@@ -170,10 +175,11 @@ class UltraVisView(tk.Frame):
         children = self.menuFrame.winfo_children()
         self.cleanMenu(children)
 
+        #potentiall add activatehandles button
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.startExamiBut,self.cancelBut,self.NOBUTTONSYET],
+            'setup': [self.startExamiBut,self.cancelBut,self.NOBUTTONSYET], 
             'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
             'navigation':[self.NOBUTTONSYET]
         }
@@ -294,30 +300,60 @@ class UltraVisView(tk.Frame):
         self.instructionLabel = tk.Label(self.setupFrame, text="Some Instruction", font='Helvetica 9 italic')
         self.instructionLabel.grid(row=2,column=0,columnspan=4,pady=(0,10),sticky=tk.NSEW)
 
+        self.setupHandleFrames = []
+        self.__currentSetupHandle = None
 
         for i in range(4):
             handle_Frame = tk.Frame(self.setupFrame,bg="white",padx=10,pady=10)
             lb = tk.Label(handle_Frame, text="Spulenname")
             lb2 = tk.Label(handle_Frame, text="Referenzname")
-            entry = tk.Entry(handle_Frame,bd=5)
-            But = tk.Button(handle_Frame ) 
-            But["text"] = "Done"
+            ref_entry = tk.Entry(handle_Frame,bd=5)
+            but = tk.Button(handle_Frame) 
+            but["text"] = "Done"
+            valid = False
+
             children = handle_Frame.winfo_children()
+            hp.disableWidgets(childList=children,disable_all=True)
+
+            dic = {'frame':handle_Frame,'handlename':lb,'ref_entry':ref_entry,'button':but,'valid':valid}
+            self.setupHandleFrames.append(dic)
             
             self.packChildren(children,side=tk.TOP,fill=tk.BOTH,padx=5,pady=5)
             
             handle_Frame.grid(row=3,column=i,sticky=tk.NSEW,padx=2,pady=2)
-            
-
-
-
         
-        #Anwendungslogik!
         
         handle_index = 0
-
+        self.setCurrentSetupHandle(handle_index)
         self.setupFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+    
+
+    def setCurrentSetupHandle(self, handle_index):
+        lastindex = len(self.setupHandleFrames)-1
+        if (self.__currentSetupHandle is None):
+            self.__currentSetupHandle = self.setupHandleFrames[handle_index]
+        elif (handle_index is not lastindex):
+            widgets = self.__currentSetupHandle["frame"].winfo_children()
+            hp.disableWidgets(widgets,disable_all=True)
+            self.__currentSetupHandle["frame"]["bg"] = "white"
+
         
+        FARBEN = ['GELBE','ROTE','GR\u00DCNE','BLAUE']
+        HANDLENAME = None
+        REFERENCEPOINT = ['Ultraschallkopf', 'bspw. rechten H\u00FCftknochen','bspw. linken H\u00DCftknochen','bspw. Brustbein']
+        INSTRUCTION = f'Bitte befestigen sie die {FARBEN[handle_index]} Spule an den Punkt {REFERENCEPOINT[handle_index]}'
+        COLORS = ['yellow','red','green','blue']
+        
+        self.setSetupInstruction(text=INSTRUCTION)
+        handle_data = self.setupHandleFrames[handle_index]
+        handle_data["frame"]["bg"] = COLORS[handle_index]
+        children = handle_data["frame"].winfo_children()
+        hp.enableWidgets(children,enable_all=True)
+        self.__currentSetupHandle = self.setupHandleFrames[handle_index]
+
+    def setSetupInstruction(self,text):
+        text = str(text)
+        self.instructionLabel["text"] = text
 
     @clearFrame
     def buildAppFrame(self,master):
