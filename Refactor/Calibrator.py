@@ -41,7 +41,12 @@ class Calibrator:
         cm = np.subtract(m, c)
         y_axis_origin = np.cross(z_axis_origin, cm)
         y_axis = np.add(c, y_axis_origin)
-        y_axis_origin = y_axis_origin/np.linalg.norm(y_axis_origin)      
+        y_axis_origin = y_axis_origin/np.linalg.norm(y_axis_origin)    
+
+        # temp axis fix
+        temp = x_axis_origin
+        x_axis_origin = -y_axis_origin
+        y_axis_origin = -temp
 
         # set matrix rotation
         self.trafo_matrix[0][0] = x_axis_origin[0]
@@ -128,6 +133,40 @@ class Calibrator:
             [vx[2], vy[2], vz[2], 0.0], \
             [0.0, 0.0, 0.0, 1.0]]
         return m
+
+    def quaternion_to_rotations(self, qw, qx, qy, qz):
+        """ builds rotation matrix from quaternion """
+        if (qw is None)or(qx is None)or(qy is None)or(qz is None):
+            return 0.0, 0.0, 0.0
+        # unit vectors
+        vx_u = [1,0,0]
+        vy_u = [0,1,0]
+        vz_u = [0,0,1]
+
+        # build quaternion from parameters
+        q = Quaternion(qw, qx, qy, qz)
+        # rotate unit vectors
+        #vx = q.rotate(vx)
+        #vy = q.rotate(vy)
+        #vz = q.rotate(vz)
+        
+        vx = q.rotate(vx_u)
+        vy = q.rotate(vy_u)
+        vz = q.rotate(vz_u)
+
+        v_xz = self.__unit_vector([vz[0], 0.0, vz[2]])
+        a_xz = self.__angle_between(vz, v_xz)*-np.sign(vz[1])
+
+        v_yz = self.__unit_vector([0.0, vz[1], vz[2]])
+        a_yz = self.__angle_between(vz, v_yz)*np.sign(vz[0])
+
+        #v_xy = self.__unit_vector([vx[0], vx[1], 0.0])
+        #a_xy = self.__angle_between(vx, v_xy)*np.sign(vx[1])*np.pi
+
+        print("Orientations: " + str([a_yz, a_xz, 0.0]))
+        return a_yz, a_xz, 0.0
+
+
 
     def transform_forward(self, vector):
         """ transform vector using forward matrix """

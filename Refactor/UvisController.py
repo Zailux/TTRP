@@ -97,7 +97,9 @@ class UltraVisController:
             if (self.aua_active):
                 if(self.aua.getSysmode()=='TRACKING'):
                     self.stopTracking = True
-                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+                    # TODO replace
+                    #self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+                    
                     with self.aua._lock:
                         self.aua.tstop()
         
@@ -273,12 +275,11 @@ class UltraVisController:
        
         freq = 0.1
         while(not self.stopTracking):
-
+            time_0 = time.time()
             with self.aua._lock:
                 tx = self.aua.tx()
                 self.hm.updateHandles(tx)
                 self.setNavCanvasData()
-            time.sleep(freq)
 
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
@@ -315,14 +316,19 @@ class UltraVisController:
                     y.append(handle.Ty)
                     z.append(handle.Tz)
                 color.append(av_color[i])
-            
-                
+
+  
+        if (num_handle is 4):
+            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            self.view.navigationvis.set_ori(a,b,c)
+
         print(f'x values: {x}')
         
             
         logging.debug(f'x values: {x}')
         
         self.view.navCanvasData = (x,y,z,color)
+
         
 
     
@@ -459,62 +465,42 @@ class UltraVisController:
         self.view.showMenu(menu='app')
 
     def setTargetPos(self):
-        print("Set Target Position")
-        #pos = [0.5, 0.5]
-        
+        print("Set Target Position")      
         pos = [0.0, 0.0, 0.0]
         with self.aua._lock:
             tx = self.aua.tx()
             self.hm.updateHandles(tx)
 
-            x,y,z = [],[],[]
             num_handle = self.hm.getNum_Handles()
             if (num_handle is not 4):
                 logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
             
             handles = self.hm.getHandles()
-            #Might change for Items, if the specific request of handle object is neccessary.
-            for i,handle in enumerate(handles.values()):
-                if (handle.MISSING is None):
-                    break
-                if (handle.MISSING is False):
-                    if (i == 0):
-                        print("Raw pos:")
-                        print([handle.Tx, handle.Ty, handle.Tz])
-                        pos = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
-                        print("Transformed pos:")
-                        print(pos)
+            current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
+            current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            
+            print(current_ori)
+            pos = self.calibrator.transform_backward(current_pos)
 
 
         self.view.navigationvis.set_target_pos(pos[0], pos[1])
 
     def calibrate_coordsys(self):
         print("Calibrate Coordination System")
-        # test values
-        #a = [0, 80, 200] # becken rechts
-        #b = [100, 0, -30] # becken links
-        #c = [70, 110, 2] # brustbein
-        a = None
-        b = None
-        c = None
-        
+        with self.aua._lock:
+            tx = self.aua.tx()
+            self.hm.updateHandles(tx)
+            handles = self.hm.getHandles()
 
-        handles = self.hm.getHandles()
-            #Might change for Items, if the specific request of handle object is neccessary.
-        for i,handle in enumerate(handles.values()):
-            if (handle.MISSING is None):
-                break
-
-            if (handle.MISSING is False):
-                # TODO access values directly and not by checking iterator
-                if (i == 1):
-                    a = [handle.Tx, handle.Ty, handle.Tz]
-                elif (i == 2):
-                    b = [handle.Tx, handle.Ty, handle.Tz]
-                elif (i == 3):
-                    c = [handle.Tx, handle.Ty, handle.Tz]
-
-        self.calibrator.set_trafo_matrix(a,b,c)
+            num_handle = self.hm.getNum_Handles()
+            if (num_handle != 4):
+                logging.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!') 
+            else:
+                a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
+                b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
+                c = [handles['0D'].Tx, handles['0D'].Ty, handles['0D'].Tz] # brustbein
+            
+                self.calibrator.set_trafo_matrix(a,b,c)
 
     def start_navigation(self):
         self.view.buildAppFrame(master=self.view.rightFrame, nav=True)

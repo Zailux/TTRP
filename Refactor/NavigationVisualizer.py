@@ -51,19 +51,27 @@ class NavigationVisualizer:
         for i in range(self.circle_count):
             self.circles.append(plt.Circle((0, 0), (i+1)*(1/self.circle_count), fc='y', fill=False))
         
-        canvas = FigureCanvasTkAgg(self.fig, Frame)
-        canvas.get_tk_widget().grid()
+        self.canvas = FigureCanvasTkAgg(self.fig, Frame)
+        self.canvas.get_tk_widget().grid()
+        
+        self.__initAll()
+        self.__animateAll(0)
+
         
         # animation funtion
-        self.anim = animation.FuncAnimation(self.fig, self.__animateAll, 
-                                init_func=self.__initAll, 
-                                frames=360, 
-                                interval=10,
-                                blit=True)
+        #self.anim = animation.FuncAnimation(self.fig, self.__animateAll, 
+        #                        init_func=self.__initAll, 
+        #                        frames=360, 
+        #                        interval=10,
+        #                        blit=True)
 
     def set_pos(self, x, y):
-        self.pos_x = max(min(x, 1), -1)
-        self.pos_y = max(min(y, 1), -1)
+        self.pos_x = x #max(min(x, 1), -1)
+        self.pos_y = y #max(min(y, 1), -1)
+
+    def update_All(self):
+        self.__animateAll(0)
+        self.canvas.draw()
 
     def set_ori(self, x, y, z):
         self.ori_x = x
