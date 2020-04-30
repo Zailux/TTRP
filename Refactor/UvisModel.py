@@ -21,7 +21,23 @@ class UltraVisModel:
         except FileNotFoundError as e:
             logging.error(e)
             #disable saving functions!
+        
+        self.__currWorkitem = {}
+    
+    def setCurrentWorkitem(self, obj):
+        #validation
+        if (type(Examination)):
+            self.__currWorkitem["Examination"] = obj
+        elif (type(Record)):
+            self.__currWorkitem["Record"] = obj
+        elif (type(Handle)):
+            self.__currWorkitem["Handle"] = obj
+        else:
+            raise ValueError(f'{type(obj)} is not correct')
+            
 
+    def getCurrentWorkitem(self):
+        return self.__currWorkitem
 
     def getExamination(self, ID=None):
         E_ID = str(ID)
@@ -100,7 +116,7 @@ class UltraVisModel:
             pass
 
 
-        rec = record.to_dict()
+        rec = record.__dict__
         
         df = pd.DataFrame(data=rec,index=[0])
         df = df.set_index('R_ID')
@@ -114,7 +130,7 @@ class UltraVisModel:
             logging.error("Could not save record. Errormsg - "+str(e))
             raise ValueError(str(e))
 
-        logging.info("Succesfully saved record "+str(rec.R_ID))
+        logging.info("Succesfully saved record "+str(rec["R_ID"]))
         
         
     #WIP

@@ -431,7 +431,7 @@ class Handle:
         #Handle Data
         self.ID = ID
         self.handle_state = state
-        self.refname = "Strenum bspw."
+        self.refname = "DEFAULT"
 
         #Transformation Data
         self.MISSING = None

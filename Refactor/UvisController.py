@@ -232,7 +232,7 @@ class UltraVisController:
                 #maybe solve via states in show menu Later
                 self.view.activateHandleBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             
-        logging.info("Activate Handles - finished with no errors" if success else "Activate Handles - finished with errors")
+        logging.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
 
     #---- App Frame functionality tracking and saving----#
@@ -319,8 +319,8 @@ class UltraVisController:
         dt = datetime.now()
         tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")        
         #to do: description auf gui ziehen 
-
-        rec = Record(date=tmpstamp)
+        #
+        rec = Record(date=tmpstamp,E_ID="temporary_fix")
 
         #Stops the current refresh and changing of Positional data 
         #self.navAnim.event_source.stop()
@@ -333,7 +333,7 @@ class UltraVisController:
             img = self.view.savedImg.copy()
             img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
             filename = f'{rec.R_ID[4:]}_img'
-            imgpath = 'TTRP/data/img/'+filename+'.png'
+            imgpath = '../data/img/'+filename+'.png'
             
             try:
                 img.save(imgpath)
@@ -471,9 +471,10 @@ class UltraVisController:
             
             # check handle Data
             setuphandle = setuphandles[handle_index]
-            ref_value = setuphandle["ref_entry"].get()
+            entry = setuphandle["ref_entry"]
+            ref_value = entry.get()
             
-            if (len(ref_value) is not 0):
+            if (len(str(ref_value)) is not 0):
                 setuphandle["valid"] = True
             else:
                 self.view.setSetupInstruction("Bitte tragen Sie einen Referenznamen für die Spule ein")
@@ -483,8 +484,10 @@ class UltraVisController:
             if (handle_index != last_index):
                 self.view.setCurrentSetupHandle(handle_index+1)
             else:
+                self.view.instructionLabel["bg"] = "SpringGreen"
                 self.view.setSetupInstruction("Einrichtung der Spulen abgeschlossen. Sie können mit der Untersuchung beginnen :)")
-                children = setuphandles[handle_index]["frame"].winfo_children()
+                setuphandle["frame"]["bg"] = 'white'
+                children = setuphandle["frame"].winfo_children()
                 hp.disableWidgets(children,disable_all=True)
                 isValid = True
                 return isValid
@@ -497,6 +500,14 @@ class UltraVisController:
         if (valid_setupHandles == False):
             return
         else:
+            handles = self.hm.getHandles().values()
+            setuphandles =self.view.setupHandleFrames
+            for i,pair in enumerate(zip(handles,setuphandles)):
+                handle,setuphandle = pair
+                entry = setuphandle["ref_entry"]
+                refname = entry.get()
+                handle.setReferenceName(refname)
+
             self.view.buildAppFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='app')
         

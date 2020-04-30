@@ -179,7 +179,7 @@ class UltraVisView(tk.Frame):
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.startExamiBut,self.cancelBut,self.NOBUTTONSYET], 
+            'setup': [self.startExamiBut,self.cancelBut], 
             'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
             'navigation':[self.NOBUTTONSYET]
         }
@@ -302,12 +302,14 @@ class UltraVisView(tk.Frame):
 
         self.setupHandleFrames = []
         self.__currentSetupHandle = None
-
+        __REFPOINTSUGGESTION = ['Ultraschallkopf', 'Rechter H\u00FCftknochen','Linker H\u00FCftknochen','Brustbein']
         for i in range(4):
             handle_Frame = tk.Frame(self.setupFrame,bg="white",padx=10,pady=10)
             lb = tk.Label(handle_Frame, text="Spulenname")
             lb2 = tk.Label(handle_Frame, text="Referenzname")
+            
             ref_entry = tk.Entry(handle_Frame,bd=5)
+            ref_entry.insert(0,__REFPOINTSUGGESTION[i])
             but = tk.Button(handle_Frame) 
             but["text"] = "Done"
             valid = False
@@ -332,15 +334,17 @@ class UltraVisView(tk.Frame):
         lastindex = len(self.setupHandleFrames)-1
         if (self.__currentSetupHandle is None):
             self.__currentSetupHandle = self.setupHandleFrames[handle_index]
-        elif (handle_index is not lastindex):
+        elif (handle_index <= lastindex):
             widgets = self.__currentSetupHandle["frame"].winfo_children()
             hp.disableWidgets(widgets,disable_all=True)
             self.__currentSetupHandle["frame"]["bg"] = "white"
+        
+
 
         
         FARBEN = ['GELBE','ROTE','GR\u00DCNE','BLAUE']
         HANDLENAME = None
-        REFERENCEPOINT = ['Ultraschallkopf', 'bspw. rechten H\u00FCftknochen','bspw. linken H\u00DCftknochen','bspw. Brustbein']
+        REFERENCEPOINT = ['Ultraschallkopf', 'bspw. rechten H\u00FCftknochen','bspw. linken H\u00FCftknochen','bspw. Brustbein']
         INSTRUCTION = f'Bitte befestigen sie die {FARBEN[handle_index]} Spule an den Punkt {REFERENCEPOINT[handle_index]}'
         COLORS = ['yellow','red','green','blue']
         
