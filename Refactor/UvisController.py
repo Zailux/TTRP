@@ -36,17 +36,6 @@ BUTTON_WIDTH = 25
 
 
 
-# Idee anstatt beim jeweiligen Methoden aufruf self.q.put methoden name rein zuschreiben,
-# über einen Wrapper beim Funktionsaufruf dies zu tun. 
-def toQueue(func):
-
-    @functools.wraps(func)
-    def q_wrapper(*args, **kwargs):
-        #args[0].q.put( [func,*args,**kwargs] )
-        pass
-     
-    return q_wrapper
-
 
 class UltraVisController:
 
@@ -63,13 +52,14 @@ class UltraVisController:
        
         self.model = UltraVisModel()
         self.view = UltraVisView(self.root,debug_mode=debug_mode)
-        
+
         #Controller Attributes
         self._debug = debug_mode
         self.hm = None
         self.aua = None
 
-        self.initBackgroundQueue()
+        self.__initObservers()
+        self.__initBackgroundQueue()
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
@@ -84,11 +74,11 @@ class UltraVisController:
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.initAurora(self.ser)
         self.initFunctionality()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.protocol("WM_DELETE_WINDOW", self.__on_closing)
 
 
     #Closing Method and bind to root Window
-    def on_closing(self):
+    def __on_closing(self):
        
         if (hasattr(self.view,'appFrame')):
              #Close FrameGrabber
@@ -117,7 +107,7 @@ class UltraVisController:
     def run (self):
         self.root.mainloop()
 
-    def initBackgroundQueue(self):
+    def __initBackgroundQueue(self):
         self.q = queue.Queue(maxsize=8)
         self.quitEvent = threading.Event()
         def processQueue(self):
@@ -144,6 +134,12 @@ class UltraVisController:
 
         q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
         q_Thread.start()
+
+    def __initObservers(self):
+
+        self.model.register(key="setCurrentWorkitem",observer=self.refreshWorkItem)
+
+
 
     def initAurora(self,ser):
 
@@ -412,7 +408,6 @@ class UltraVisController:
         
         return validExam,new_exam
             
-
     
     def setupHandles(self):
         
@@ -421,6 +416,7 @@ class UltraVisController:
         if (validExam):
             try:
                 self.model.saveExamination(examination=new_exam)
+                self.model.setCurrentWorkitem(obj=new_exam)
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.detailsInfoLabel["text"] = msg
@@ -433,12 +429,9 @@ class UltraVisController:
         self.view.showMenu(menu='setup')
         self.addSetupHandlesFunc()
         
-        
-        #self.view.startExamiBut["state"] = 'disabled'
-        
-
         #load Menu but still disabled. 
-        self.q.put(self.activateHandles)
+        if (self.aua_active):
+            self.q.put(self.activateHandles)
 
         
 
@@ -511,7 +504,9 @@ class UltraVisController:
             self.view.buildAppFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='app')
         
-
+    def cancelExamination(self,save=False):
+        self.view.buildMainScreenFrame(master=self.view.rightFrame)
+        self.view.showMenu()
 
     def initFunctionality(self):
         
@@ -523,6 +518,8 @@ class UltraVisController:
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
         
+        self.view.cancelBut["command"] = self.cancelExamination
+
         self.view.NOBUTTONSYET["command"] = lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
 
@@ -606,96 +603,10 @@ class UltraVisController:
         if (hasattr(self.view,'sysmodeLabel')):
             self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
         
+    def refreshWorkItem(self):
+        print("I AM REFRESHEN")
+        workitem = self.model.getCurrentWorkitem()
+        exam = workitem["Examination"]
 
-'''        
-   
-
-    def safe_met_handle_string(self, test_out):
-        Anz_Sensoren = int(test_out[0:2])
-        test_out = test_out[2:]
-        iii = 0
-        while iii < Anz_Sensoren:
-            if "MISSING" in test_out[0:15]:
-                test_out = test_out[32:101]
-                iii += 1
-            else:
-                # String zu einem Sensor
-                self.handle_string = test_out[0:69]
-                if self.handle_string[1:2] == "A":
-                    self.handle_0_ID = self.handle_string[1:2]
-                    self.handle_0_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_0_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_0_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_0_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_0_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_0_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_0_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_0_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_0_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-
-                if self.handle_string[1:2] == "B":
-                    # print("gute nacht sina")
-                    self.handle_1_ID = self.handle_string[1:2]
-                    self.handle_1_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_1_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_1_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_1_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_1_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_1_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_1_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_1_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_1_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-                if self.handle_string[1:2] == "C":
-                    self.handle_2_ID = self.handle_string[1:2]
-                    self.handle_2_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_2_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_2_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_2_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_2_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_2_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_2_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_2_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_2_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-                if self.handle_string[1:2] == "D":
-                    self.handle_3_ID = self.handle_string[1:2]
-                    self.handle_3_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_3_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_3_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_3_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_3_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_3_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_3_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_3_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_3_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-
-                self.koordinatenSystem()
-                test_out = test_out[70:]
-                iii += 1
-
-    def onSaveRefPosClicked(self):
-        # print("Clicked save ref")
-        self.safe_handle_0_ID = self.handle_0_ID
-        self.safe_handle_0_Q0 = self.handle_0_Q0
-        self.safe_handle_0_Qx = self.handle_0_Qx
-        self.safe_handle_0_Qy = self.handle_0_Qy
-        self.safe_handle_0_Qz = self.handle_0_Qz
-        self.safe_handle_0_Tx = self.handle_0_Tx
-        self.safe_handle_0_Ty = self.handle_0_Ty
-        self.safe_handle_0_Tz = self.handle_0_Tz
-        self.safe_handle_0_Err = self.handle_0_Err
-
-        cv2image = cv2.cvtColor(self.ultraVisView.frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        imgtk = ImageTk.PhotoImage(image=img)
-        self.ultraVisView.screenshotmain.imgtk = imgtk
-        self.ultraVisView.screenshotmain.configure(image=imgtk)
-'''
-
+        self.view.detailsInfoLabel["text"] = f'Current Workitem | Examination-ID: {exam.E_ID}'
+        

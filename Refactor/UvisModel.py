@@ -22,22 +22,28 @@ class UltraVisModel:
             logging.error(e)
             #disable saving functions!
         
-        self.__currWorkitem = {}
+        self._observers = {}
+
+        self.__currWorkitem = {"Examination":None, "Records":[],"Handles":[]}
     
+    
+            
+
+    def getCurrentWorkitem(self):
+        return self.__currWorkitem
+
     def setCurrentWorkitem(self, obj):
         #validation
         if (type(Examination)):
             self.__currWorkitem["Examination"] = obj
         elif (type(Record)):
-            self.__currWorkitem["Record"] = obj
+            self.__currWorkitem["Records"].append(obj)
         elif (type(Handle)):
-            self.__currWorkitem["Handle"] = obj
+            self.__currWorkitem["Handles"].append(obj)
         else:
             raise ValueError(f'{type(obj)} is not correct')
-            
 
-    def getCurrentWorkitem(self):
-        return self.__currWorkitem
+        self.__callback(key="setCurrentWorkitem")
 
     def getExamination(self, ID=None):
         E_ID = str(ID)
@@ -171,6 +177,25 @@ class UltraVisModel:
         except ValueError as e:
             logging.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))
+
+
+    def register(self,key,observer):
+        key = str(key)
+        if (key not in self._observers):
+            self._observers[key] = []
+            self._observers[key].append(observer)
+        elif(observer not in self._observers[key]):
+            self._observers[key].append(observer)
+        else:    
+            raise Warning(f"Observermethod: {observer} for Key {key} already exists")
+
+    def __callback(self,key):
+        key = str(key)
+        if (key in self._observers):
+            logging.debug(f'Callback for "{key}" - {self._observers[key]}')
+            for observer_method in self._observers[key]:
+                observer_method()
+
 
 
 

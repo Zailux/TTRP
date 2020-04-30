@@ -8,9 +8,8 @@ import functools
 
 class Aurora:
     
-    def __init__(self, ser, activateThreading=False, num_tries=3):
+    def __init__(self, ser, debug_mode=False):
         #Aurora System relevant Attributes
-        self.threading = activateThreading
         self._lock = threading.Lock()
         self._observers = {}
      
@@ -36,7 +35,7 @@ class Aurora:
 
     #Observer Pattern - Add Observer Method / Callback Method
     def register(self,key,observer):
-        if ("key" not in self._observers):
+        if (str(key) not in self._observers):
             self._observers[key] = observer
         else:
             raise Warning("Key: "+str(key)+" already exists")
