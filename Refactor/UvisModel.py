@@ -5,6 +5,14 @@ import sys
 sys.path.insert(1, '..\\')
 from AuroraAPI import Handle
 import uuid
+import PIL
+
+from helper import Helper
+from config import Configuration
+global hp
+hp = Helper()
+global _cfg
+_cfg = Configuration()
 
 class UltraVisModel:
     def __init__(self):
@@ -26,25 +34,33 @@ class UltraVisModel:
 
         self.__currWorkitem = {"Examination":None, "Records":[],"Handles":[]}
     
-    
-            
+    def clearCurrentWorkitem(self):
+        self.__currWorkitem.clear()
+        self.__currWorkitem = {"Examination":None, "Records":[],"Handles":[]}
 
     def getCurrentWorkitem(self):
         return self.__currWorkitem
 
+    #handling von gruppe von objekten. Ggf. ist das auch einfach über n Selekt auf Basis der Examination ID möglich
+
     def setCurrentWorkitem(self, obj):
         #validation
-        if (type(Examination)):
+        
+        if (type(obj) == Examination):
             self.__currWorkitem["Examination"] = obj
-        elif (type(Record)):
+        elif (type(obj) == Record):
             self.__currWorkitem["Records"].append(obj)
-        elif (type(Handle)):
+        elif (all(isinstance(h, Handle) for h in obj)):
             self.__currWorkitem["Handles"].append(obj)
         else:
-            raise ValueError(f'{type(obj)} is not correct')
+            raise TypeError(f'{type(obj)} is not correct')
 
         self.__callback(key="setCurrentWorkitem")
 
+
+
+
+    # NEXT FEATURE get all corresponding Data based on Examination ID.  
     def getExamination(self, ID=None):
         E_ID = str(ID)
         try:
@@ -56,7 +72,9 @@ class UltraVisModel:
         except KeyError as e:
             logging.debug(str(e))
             logging.error(f'Record with key "{E_ID}" could not be found.')
+            return None
 
+    
 
     def saveExamination(self, examination, persistant=False):
         
@@ -90,9 +108,6 @@ class UltraVisModel:
             raise ValueError(str(e))
 
         logging.info("Succesfully saved record "+str(exam["E_ID"]))
-        
-
-
 
     def getRecord(self, R_ID=None):
         
@@ -106,9 +121,7 @@ class UltraVisModel:
         except KeyError as e:
             logging.debug(str(e))
             logging.error(f'Record with key "{R_ID}" could not be found.')
-
-
-
+            return None
 
     def saveRecord(self, record, persistant=False):
         
@@ -120,7 +133,6 @@ class UltraVisModel:
         if (persistant):
             #here kommt noch was
             pass
-
 
         rec = record.__dict__
         
@@ -179,6 +191,19 @@ class UltraVisModel:
             raise ValueError(str(e))
 
 
+    def savePILImage(self,img,img_name,filetype='.png'):
+
+        if (type(img)!= PIL.Image.Image):
+            raise TypeError(f'Wrong type "{type(img)}for img. Use appropriate PIL Image Object')
+
+        image_path = _cfg.SAVEDIMGPATH+str(img_name)+filetype
+
+        try:
+            img.save(image_path)
+            return image_path
+        except IOError as e:
+            raise IOError(str(e))
+
     def register(self,key,observer):
         key = str(key)
         if (key not in self._observers):
@@ -211,7 +236,7 @@ class Record():
 
         if (R_ID is None):
             uid = uuid.uuid4()
-            self.R_ID = 'temp_R-'+str(uid)
+            self.R_ID = 'tempR-'+str(uid)
 
 
 

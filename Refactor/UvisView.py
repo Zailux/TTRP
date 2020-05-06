@@ -21,7 +21,7 @@ import numpy as np
 
 import threading
 
-from helper import Helper
+from helper import Helper, ScrollableFrame
 
 global hp
 hp = Helper()
@@ -307,7 +307,6 @@ class UltraVisView(tk.Frame):
             handle_Frame = tk.Frame(self.setupFrame,bg="white",padx=10,pady=10)
             lb = tk.Label(handle_Frame, text="Spulenname")
             lb2 = tk.Label(handle_Frame, text="Referenzname")
-            
             ref_entry = tk.Entry(handle_Frame,bd=5)
             ref_entry.insert(0,__REFPOINTSUGGESTION[i])
             but = tk.Button(handle_Frame) 
@@ -338,9 +337,6 @@ class UltraVisView(tk.Frame):
             widgets = self.__currentSetupHandle["frame"].winfo_children()
             hp.disableWidgets(widgets,disable_all=True)
             self.__currentSetupHandle["frame"]["bg"] = "white"
-        
-
-
         
         FARBEN = ['GELBE','ROTE','GR\u00DCNE','BLAUE']
         HANDLENAME = None

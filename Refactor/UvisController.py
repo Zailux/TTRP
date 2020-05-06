@@ -27,10 +27,11 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 from helper import Helper
-
+from config import Configuration
 global hp
 hp = Helper()
-
+global _cfg
+_cfg = Configuration()
 #GlobaleVariablen Definition
 BUTTON_WIDTH = 25
 
@@ -304,48 +305,54 @@ class UltraVisController:
         logging.debug(f'x values: {x}')
         
         self.view.navCanvasData = (x,y,z,color)
-           
-    def savePosition(self):
+    
+    #Position is saving Record and Handles
+    def saveRecord(self):
         if (not self.aua.getSysmode()=='TRACKING'):
             logging.info("This functionality is only available during tracking. Please Start Tracking")
             return
 
         self.view.saveUSImg()
+        img = self.view.savedImg.copy()
+        img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
 
         dt = datetime.now()
-        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")        
-        #to do: description auf gui ziehen 
-        #
-        rec = Record(date=tmpstamp,E_ID="temporary_fix")
+        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")     
 
-        #Stops the current refresh and changing of Positional data 
-        #self.navAnim.event_source.stop()
-        handles = self.hm.getHandles()
+        # Description atrtibute, aus der GUI
+        # Gets Current Workitem and accesses its Examination
+        workitem = self.model.getCurrentWorkitem()
+        E_ID = workitem["Examination"].E_ID
+        rec = Record(date=tmpstamp,E_ID=E_ID)
+        img_name = f'{rec.R_ID[4:]}_img'
+        handles = self.hm.getHandles(real_copy=True)
 
         if (self.validatePosition(handles)):
-            #saving position Frame and Handles 
-
-            #Save Image to Filesystem and prepare Imagepath image
-            img = self.view.savedImg.copy()
-            img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
-            filename = f'{rec.R_ID[4:]}_img'
-            imgpath = '../data/img/'+filename+'.png'
             
+            #try saving image and the record
             try:
-                img.save(imgpath)
-                rec.US_img=imgpath
+                path = self.model.savePILImage(img=img,img_name=img_name)
+                rec.US_img=path
                 self.model.saveRecord(record=rec)
             except IOError as e:
                 raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
             except ValueError as e:
                 #Konnte Aufzeichnung nicht speichern. Please try again with SAME DATA!
-                pass
+                return
             
+            #try saving corresponding Position
             try:
                 self.model.savePosition(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
+            
+            self.model.setCurrentWorkitem(rec)
+            self.model.setCurrentWorkitem(handles.values())
+            
+            
+
+
                   
 
     def cleanSavingProcess(self, record):
@@ -367,7 +374,8 @@ class UltraVisController:
                 validSave = False
                 missID.append(h_id)
             
-            if (h.frame_id not in frameID and frameID):
+            #check for ID and frameID must not be empty
+            if ((h.frame_id not in frameID) and not not frameID):
                 validSave = False
 
             frameID.append(h.frame_id)
@@ -441,7 +449,7 @@ class UltraVisController:
 
     def validateSetupHandles(self,handle_index=None):
         
-        last_index = self.hm.getNum_Handles()-1
+        last_index = self.hm.getNum_Handles() - 1 if self.hm is not None else 3
         setuphandles = self.view.setupHandleFrames
         isValid = None
         #Check all handles and start next App part
@@ -453,6 +461,7 @@ class UltraVisController:
             
             if False in valid_list:
                 self.view.setSetupInstruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
+                logging.info(f"Invalid Setuphandles. See List: {valid_list}")
                 isValid = False
             else:
                 isValid = True
@@ -508,6 +517,17 @@ class UltraVisController:
         self.view.buildMainScreenFrame(master=self.view.rightFrame)
         self.view.showMenu()
 
+
+    def finalizeExamination(self):
+        #validate whether Position was saved
+
+        #Display current data
+
+        #Persist data and display success or not / go to main menu
+        pass
+
+
+
     def initFunctionality(self):
         
         self.view.newExamiBut["command"] = self.newExamination
@@ -515,7 +535,7 @@ class UltraVisController:
         self.view.startExamiBut["command"] = self.startExamination
         self.view.activateHandleBut["command"] =lambda: self.q.put(self.activateHandles)
 
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
+        self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
         
         self.view.cancelBut["command"] = self.cancelExamination
@@ -602,11 +622,30 @@ class UltraVisController:
     def refreshSysmode(self):
         if (hasattr(self.view,'sysmodeLabel')):
             self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        else:
+            self.view.rightFrame.after(2000,self.refreshSysmode)
         
     def refreshWorkItem(self):
-        print("I AM REFRESHEN")
-        workitem = self.model.getCurrentWorkitem()
-        exam = workitem["Examination"]
+        # WIP
 
-        self.view.detailsInfoLabel["text"] = f'Current Workitem | Examination-ID: {exam.E_ID}'
+        infotext = f'Current Workitem\n'
+
+        workitem = self.model.getCurrentWorkitem()
+    
+        exam,records,handles = workitem.values()
+        infotext += f'\nExamination-ID: {exam.E_ID}\n{exam.__dict__}\n'
+        
+
+        for i, rec in enumerate(records):
+            infotext +=f'\nRecord-ID: {rec.R_ID}\n{rec.__dict__}\n'
+            
+            try:
+                position = handles[i]
+                infotext +=f'\nPositiondata {i}\n'
+                for h in position:
+                    infotext += f'Handle {h.ID}-{h.refname}: {h.__dict__}\n'
+            except IndexError as e:
+                continue
+    
+        self.view.detailsInfoLabel["text"] = infotext
         
