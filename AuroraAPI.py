@@ -3,7 +3,7 @@ import time
 import logging
 import threading
 import functools
-
+from copy import copy,deepcopy
 
 
 class Aurora:
@@ -331,7 +331,7 @@ class HandleManager:
     def __init__(self, phsr ):
         #01 0A 00D 2674\r als antwort
         #01 0A 00 001 74\r keine Handles 
-
+        self._hmlock = threading.Lock()
         self.handles = {}
         self.num_handles = int(phsr[0:2])
         phsr = phsr[2:]
@@ -350,12 +350,14 @@ class HandleManager:
     def getNum_Handles(self):
         return self.num_handles
     
-    def getHandles(self):
-        return self.handles
+    def getHandles(self,real_copy=False):
+        with self._hmlock:
+            return self.handles if not real_copy else deepcopy(self.handles)
 
     def getMissingHandles(self):
         misshandles = []
-        for h_id,handle in self.handles.items():
+        h = self.getHandles()
+        for h_id,handle in h.items():
             if (handle.MISSING):
                 misshandles.append(h_id)
         return misshandles
@@ -375,7 +377,7 @@ class HandleManager:
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
-            logging.critical("Uneven Handles OMFG - Critical Issue")
+            logging.critical(f"Critical Issue - Wrong InputString tx_str: {tx_str}")
         self.num_handles = num
         tx_str = tx_str[2:]
         
@@ -386,35 +388,35 @@ class HandleManager:
         sys_status, crc = tx_str[-1][:4],tx_str[-1][4:]
         tx_str.pop()
         
-        
-        for handle in tx_str:
-            h_id = handle[0:2]
-            new_handle = self.handles[h_id]
-            handle = handle[2:]
+        with self._hmlock:
+            for handle in tx_str:
+                h_id = handle[0:2]
+                new_handle = self.handles[h_id]
+                handle = handle[2:]
 
-            if (handle.startswith("MISSING")):
-                handle = handle[7:]
-                port_state = handle[0:8]
-                frame_id = handle[8:]
-                new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
+                if (handle.startswith("MISSING")):
+                    handle = handle[7:]
+                    port_state = handle[0:8]
+                    frame_id = handle[8:]
+                    new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
 
-            else:
-                Q0 = self.string2float(handle[0:6],2)
-                Qx = self.string2float(handle[6:12],2)
-                Qy = self.string2float(handle[12:18],2)
-                Qz = self.string2float(handle[18:24],2)
-                Tx = self.string2float(handle[24:31],5)
-                Ty = self.string2float(handle[31:38],5)
-                Tz = self.string2float(handle[38:45],5)
-                calc_Err = self.string2float(handle[45:51],2)
-                port_state = handle[51:59]
-                frame_id = handle[59:67]
+                else:
+                    Q0 = self.string2float(handle[0:6],2)
+                    Qx = self.string2float(handle[6:12],2)
+                    Qy = self.string2float(handle[12:18],2)
+                    Qz = self.string2float(handle[18:24],2)
+                    Tx = self.string2float(handle[24:31],5)
+                    Ty = self.string2float(handle[31:38],5)
+                    Tz = self.string2float(handle[38:45],5)
+                    calc_Err = self.string2float(handle[45:51],2)
+                    port_state = handle[51:59]
+                    frame_id = handle[59:67]
 
-                new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                    new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                
+                self.handles[h_id] = new_handle
             
-            self.handles[h_id] = new_handle
-        
-        
+            
 
     def string2float(self, string, separator_index,round_to=4):
         s = string[:separator_index] + '.' + string[separator_index:]
@@ -447,6 +449,12 @@ class Handle:
         self.calc_Err = None
         self.port_state = None
         self.frame_id = None
+
+    def __copy__(self):
+        cls = self.__class__
+        copy_handle = cls.__new__(cls)
+        copy_handle.__dict__.update(self.__dict__)
+        return copy_handle
 
     def setReferenceName(self,refname):
         if (type(refname) == str):
