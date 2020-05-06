@@ -14,6 +14,7 @@ class Configuration(metaclass=Singleton):
     def __init__(self):
 
         self.DATAPATH = '..\\data\\'
+        self.SAVEDIMGPATH = '../data/img/'
 
         # Serial Configuration
         self.COM = None
