@@ -140,13 +140,22 @@ class UltraVisView(tk.Frame):
 
         self.saveRecordBut = tk.Button(self.menuFrame)  
         self.saveRecordBut["text"] = "Aufzeichnung speichern"
+
+        self.finishExamiBut = tk.Button(self.menuFrame) 
+        self.finishExamiBut["text"] = "Untersuchung abschließen"
         
-        self.cancelBut = tk.Button(self.menuFrame)  
-        self.cancelBut["text"] = "Abbrechen"
+
+        #Finish Examination Menu
+        
+        self.saveEditBut = tk.Button(self.menuFrame) 
+        self.saveEditBut["text"] = "Editieren"
 
         #Misc Buttons
         self.continueBut = tk.Button(self.menuFrame)  
         self.continueBut["text"] = "Fortfahren"
+
+        self.cancelBut = tk.Button(self.menuFrame)  
+        self.cancelBut["text"] = "Abbrechen"
 
         self.backBut = tk.Button(self.menuFrame)  
         self.backBut["text"] = "Zur\u00FCck"
@@ -167,7 +176,7 @@ class UltraVisView(tk.Frame):
     def showMenu(self,menu='main',states=None):
         #Idea to use a state "table of 0 and 1 to enable / disable Button"    
 
-        MENUES = ['main','new_examination','setup','app','navigation','all_debug']
+        MENUES = ['main','new_examination','setup','app','summary','navigation','all_debug']
         
         if menu not in MENUES:
             raise ValueError(f'Try showing Menu "{menu}" which was not in {MENUES}')
@@ -180,13 +189,16 @@ class UltraVisView(tk.Frame):
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
             'setup': [self.startExamiBut,self.cancelBut], 
-            'app': [self.trackBut,self.saveRecordBut,self.cancelBut],
+            'app': [self.trackBut,self.saveRecordBut,self.finishExamiBut,self.cancelBut],
+            'summary': [self.mainMenuBut,self.saveEditBut,self.cancelBut],
             'navigation':[self.NOBUTTONSYET]
         }
 
         for button in menu_buttons[menu]:
             button.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both") 
 
+        if (self._debug):
+            self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),padx=(10), fill="both")
         
 
 
@@ -208,6 +220,7 @@ class UltraVisView(tk.Frame):
 
         self.detailsTitleLabel = tk.Label(self.detailsFrame, text="Details")
         self.detailsInfoLabel = tk.Label(self.detailsFrame, text=" - ")
+        self.workitemdataLabel = tk.Label(self.detailsFrame, text=" - ")
 
 
         self.adsfBut = tk.Button(self.detailsFrame)  
@@ -215,8 +228,19 @@ class UltraVisView(tk.Frame):
 
         self.detailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
         self.detailsInfoLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
-
+        self.workitemdataLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
         self.detailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
+
+
+    #cleaning setInfomsg?? when and how
+    def setInfoMessage(self,msg,type='INFO'):
+        OPTIONS = ['INFO','SUCCESS','ERROR']
+        #FONTS = 
+
+        msg = str(msg)
+
+        self.detailsInfoLabel["text"] = msg
+
 
     @clearFrame
     def buildMainScreenFrame(self,master):
@@ -439,7 +463,6 @@ class UltraVisView(tk.Frame):
         self.galleryFrame.grid(row=1,column=0, pady=(0,8), padx=8, sticky=tk.NSEW)
 
         self.appFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
-        
 
     def refreshImgSize(self,event):
         self.gridFrame.after_idle(self.calcUSImgSize)  
@@ -504,7 +527,6 @@ class UltraVisView(tk.Frame):
             self.savedImgLabel.imgtk = imgtk
             self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
 
-
     def buildCoordinatesystem(self):
         plt.cla()
         self.ax.set_xlabel('X')
@@ -523,13 +545,25 @@ class UltraVisView(tk.Frame):
         
         self.navCanvas.draw()
 
-
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         self.savedImg = Image.fromarray(cv2image)
         self.refresh_savedImg()
 
     
+    @clearFrame
+    def buildSummaryFrame(self,master):
+        self.summaryFrame = tk.Frame(master)
+        self.summaryFrame.rowconfigure(0, weight=10, uniform=1)
+        self.summaryFrame.rowconfigure(1, weight=90, uniform=1)
+        self.summaryFrame.columnconfigure(0,weight=1,uniform=1)
+        self.summaryTitlelb = tk.Label(self.summaryFrame,text="Summary")
+        self.sumcontentlb = tk.Label(self.summaryFrame,text="Content")
+
+        self.summaryTitlelb.grid(row=0,column=0,sticky=tk.NSEW)
+        self.sumcontentlb.grid(row=1,column=0,sticky=tk.NSEW)
+        self.summaryFrame.grid(row=0, column=0,sticky=tk.NSEW) 
+
     def buildActionFrame(self,bFrame):
             
         self.backBut = tk.Button(bFrame)  

@@ -46,7 +46,7 @@ class UltraVisController:
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
         self._Logger = logging.getLogger()
-        #self._Logger.setLevel(logging.DEBUG)
+        self._Logger.setLevel(logging.DEBUG)
 
         #Create Model and View
         self.root = tk.Tk()
@@ -193,7 +193,6 @@ class UltraVisController:
         success = True
         with self.aua._lock:
             try: 
-                #print("All allocated Ports")
                 logging.info("All allocated Ports")
                 phsr_string = self.aua.phsr()
 
@@ -255,8 +254,7 @@ class UltraVisController:
             self.tracking_Thread.join()
 
             with self.aua._lock:
-                self.aua.tstop()
-                
+                self.aua.tstop()        
  
     def trackHandles(self):
 
@@ -400,7 +398,7 @@ class UltraVisController:
         self.view.continueBut["command"] = self.setupHandles
     
 
-    def validateExamination(self):
+    def validateNewExamination(self):
         #if there is future validation necessary e.g. Patient data is required, you need to implement it here
         doctor = self.view.doctorEntry.get()
         patient = self.view.patientEntry.get()
@@ -420,14 +418,14 @@ class UltraVisController:
     def setupHandles(self):
         
         #save exam procudere should be actually somewhere else ...
-        validExam,new_exam = self.validateExamination()
+        validExam,new_exam = self.validateNewExamination()
         if (validExam):
             try:
                 self.model.saveExamination(examination=new_exam)
                 self.model.setCurrentWorkitem(obj=new_exam)
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
-                self.view.detailsInfoLabel["text"] = msg
+                self.view.setInfoMessage(msg)
                 return
         else:
             logging.error(f'Invalid Examinationdata')
@@ -512,18 +510,75 @@ class UltraVisController:
 
             self.view.buildAppFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='app')
-        
+            self.view.continueBut = self.finalizeExamination
+
+
+    #Muss Logik einbauen, dass das System dabei auch resettet wird &
+    # das GUI etc. korrekt gestoppt wird   
     def cancelExamination(self,save=False):
         self.view.buildMainScreenFrame(master=self.view.rightFrame)
         self.view.showMenu()
 
 
+    def validateExamination(self):
+        isValid = None
+
+        workitem = self.model.getCurrentWorkitem()
+        if not workitem["Records"]:
+            isValid = False
+        elif False:
+            #another Validation
+            pass
+        
+        if (isValid is None):
+            isValid = True   
+
+        return isValid
+
     def finalizeExamination(self):
-        #validate whether Position was saved
+        isValidExam = self.validateExamination()
+        if (isValidExam):
+
+            try:
+                self.model.persistWorkitem()
+
+            except ValueError as e:
+                msg = "Could not save Examination. See logs for details."
+                self.view.setInfoMessage(msg)
+                logging.error(str(e))
+                return
+
+
+            self.view.buildSummaryFrame(master=self.view.rightFrame)
+            self.view.showMenu(menu='summary')
+            self.view.sumcontentlb["text"] = self.view.workitemdataLabel["text"]
+
+
+
+        else:
+            msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
+            logging.info(msg)
+            self.view.setInfoMessage(msg=msg,type='ERROR')
+            return
+        
+
+            
+            
+
+
 
         #Display current data
 
+    def saveandfinishExamination(self):
         #Persist data and display success or not / go to main menu
+
+        try:
+            self.model.persistWorkitem()
+        except ValueError as e:
+            print("OUH NOOOO do something with it")
+            msg = "RIP try save and finish again"
+            self.view.setInfoMessage(msg=msg,type='ERROR')
+            logging.info(msg)
         pass
 
 
@@ -537,10 +592,12 @@ class UltraVisController:
 
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+        self.view.finishExamiBut["command"] = self.finalizeExamination
         
         self.view.cancelBut["command"] = self.cancelExamination
 
-        self.view.NOBUTTONSYET["command"] = lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
+        self.view.NOBUTTONSYET["command"] = self.model.persistWorkitem
+        #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
 
     def addSetupHandlesFunc(self):
@@ -647,5 +704,5 @@ class UltraVisController:
             except IndexError as e:
                 continue
     
-        self.view.detailsInfoLabel["text"] = infotext
+        self.view.workitemdataLabel["text"] = infotext
         
