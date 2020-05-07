@@ -1,19 +1,12 @@
-R_ID,descr,date,US_img,E_ID
-temp_R-342f282d-0fd3-40dd-9c03-9d24d0401a2f,,"Tue, 05-May-2020 (15:49:31)",../data/img/_R-342f282d-0fd3-40dd-9c03-9d24d0401a2f_img.png,temporary_fix
-temp_R-1ac28394-6f86-41b6-bf3a-241c1d980113,,"Tue, 05-May-2020 (23:18:20)",../data/img/_R-1ac28394-6f86-41b6-bf3a-241c1d980113_img.png,tempE-41af9b25-7ee6-4779-b633-180fbb30c139
-temp_R-3c3e99e1-e5a1-490b-800a-2581619f6000,,"Wed, 06-May-2020 (10:27:53)",../data/img/_R-3c3e99e1-e5a1-490b-800a-2581619f6000_img.png,tempE-07a61fe5-61e7-4af1-beb5-c731541aa084
-temp_R-35c6696c-b87b-45f0-a86e-370d89977de2,,"Wed, 06-May-2020 (10:31:20)",../data/img/R-35c6696c-b87b-45f0-a86e-370d89977de2_img.png,tempE-d785520a-39ae-4b39-b407-9d9b198bec6f
-tempR-28fb3ebc-3c0a-4306-8083-5f2e73ec5eb4,,"Wed, 06-May-2020 (10:34:46)",../data/img/R-28fb3ebc-3c0a-4306-8083-5f2e73ec5eb4_img.png,tempE-729f3f41-f7c2-4266-acf6-dcb8aff928e0
-tempR-2f20da2b-d50b-44f9-97e6-11469fd9e8e6,,"Wed, 06-May-2020 (10:46:50)",../data/img/R-2f20da2b-d50b-44f9-97e6-11469fd9e8e6_img.png,tempE-7a79983a-3695-40d6-af23-0334fbf93a8e
-tempR-cfd10587-27cc-4c2e-85ad-161c61cc7bee,,"Wed, 06-May-2020 (10:50:18)",../data/img/R-cfd10587-27cc-4c2e-85ad-161c61cc7bee_img.png,tempE-6c658011-c6a6-4e7d-8db3-937270e5f76a
-tempR-e998bbd5-d4d0-4cf0-bb46-0bc72d1db03d,,"Wed, 06-May-2020 (10:53:50)",../data/img/R-e998bbd5-d4d0-4cf0-bb46-0bc72d1db03d_img.png,tempE-54d48eae-f6fd-4c06-b90f-6222bbb07a47
-tempR-0cd7b16e-70c5-4c86-a5d4-2557f34e7f37,,"Wed, 06-May-2020 (10:55:10)",../data/img/R-0cd7b16e-70c5-4c86-a5d4-2557f34e7f37_img.png,tempE-54d48eae-f6fd-4c06-b90f-6222bbb07a47
-tempR-428f1328-3640-4663-ab1b-79a850d464ee,,"Wed, 06-May-2020 (11:44:50)",../data/img/R-428f1328-3640-4663-ab1b-79a850d464ee_img.png,tempE-99506880-dcce-46f3-9692-bd1b4f0d1ba1
-tempR-88a2bdf4-5ee7-4275-addd-c951e3f41a4e,,"Wed, 06-May-2020 (11:46:12)",../data/img/R-88a2bdf4-5ee7-4275-addd-c951e3f41a4e_img.png,tempE-76199c33-42f1-4a43-9286-48e4ea6520db
-tempR-29c962a3-51b3-46ba-ab9f-4923b491bcfe,,"Wed, 06-May-2020 (11:49:50)",../data/img/R-29c962a3-51b3-46ba-ab9f-4923b491bcfe_img.png,tempE-0db08003-1808-4623-a9f6-886783df4815
-tempR-aa474db0-0037-41c2-8e6e-34c6801cc4d6,,"Wed, 06-May-2020 (11:50:56)",../data/img/R-aa474db0-0037-41c2-8e6e-34c6801cc4d6_img.png,tempE-d5f19467-6ff6-4521-90ff-8580c9189a97
-tempR-32571d98-55ed-42e9-a33c-6c9ac6c824b3,,"Wed, 06-May-2020 (11:53:05)",../data/img/R-32571d98-55ed-42e9-a33c-6c9ac6c824b3_img.png,tempE-d5f19467-6ff6-4521-90ff-8580c9189a97
-tempR-7092072d-b126-4de2-bc20-225009e8e0a3,,"Wed, 06-May-2020 (11:56:34)",../data/img/R-7092072d-b126-4de2-bc20-225009e8e0a3_img.png,tempE-99d577df-0a8c-4087-9a6b-1fbb4a446958
-tempR-fd446b95-4a2c-4953-a41b-dcbac209c89e,,"Wed, 06-May-2020 (11:56:53)",../data/img/R-fd446b95-4a2c-4953-a41b-dcbac209c89e_img.png,tempE-99d577df-0a8c-4087-9a6b-1fbb4a446958
-tempR-832afea6-6d77-47d9-aa19-e0de253391d8,,"Wed, 06-May-2020 (11:57:51)",../data/img/R-832afea6-6d77-47d9-aa19-e0de253391d8_img.png,tempE-99d577df-0a8c-4087-9a6b-1fbb4a446958
-tempR-00243af4-324d-4386-836c-673f8f24f5f0,,"Wed, 06-May-2020 (11:57:55)",../data/img/R-00243af4-324d-4386-836c-673f8f24f5f0_img.png,tempE-99d577df-0a8c-4087-9a6b-1fbb4a446958
+,descr,date,US_img,E_ID
+R-0,,"Thu, 07-May-2020 (14:47:25)",../data/img/R-6b30cb06-211a-42ea-b24a-33789eaccdb5_img.png,E-0
+R-1,,"Thu, 07-May-2020 (14:47:30)",../data/img/R-a4b485e7-ba9f-4eaf-9563-f59ca946a41e_img.png,E-0
+R-2,,"Thu, 07-May-2020 (14:47:40)",../data/img/R-690ce6eb-fb0e-4791-b69c-b2dc264a68d6_img.png,E-0
+R-3,,"Thu, 07-May-2020 (14:50:23)",../data/img/R-cc59f0ed-a853-4a08-a9f4-1bd882716d17_img.png,E-4
+R-4,,"Thu, 07-May-2020 (14:50:27)",../data/img/R-bb220501-036e-4b27-ada7-e61cb74d3788_img.png,E-4
+R-5,,"Thu, 07-May-2020 (14:52:20)",../data/img/R-0f79d024-d9c7-44d5-bcab-afa7db924b7f_img.png,E-0
+R-6,,"Thu, 07-May-2020 (14:52:23)",../data/img/R-6a81201e-9939-48bf-b7ce-aaecb504c7c9_img.png,E-0
+R-7,,"Thu, 07-May-2020 (18:35:38)",../data/img/R-81f7821b-13d1-4681-b09e-5bccf00abc70_img.png,E-1
+R-8,,"Thu, 07-May-2020 (18:35:43)",../data/img/R-79632889-5810-426e-bf7f-8e2f0a1bc722_img.png,E-1
+R-9,,"Thu, 07-May-2020 (18:38:28)",../data/img/R-c34ed4e4-cbd4-4fd0-bbc9-ec4abe9cb978_img.png,E-2
+R-10,,"Thu, 07-May-2020 (18:38:30)",../data/img/R-e6b6f3e2-69ff-4339-b183-6dc67dd89eda_img.png,E-2
