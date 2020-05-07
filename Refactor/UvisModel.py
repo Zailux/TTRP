@@ -18,6 +18,7 @@ class UltraVisModel:
     def __init__(self):
         
         datapath = '..\\data\\'
+       # datapath = 'TTRP\\data\\'
         self.examination_path = datapath+'examination.csv'
         self.records_path = datapath+'record.csv'
         self.handle_path = datapath+'handles.csv'
@@ -39,7 +40,7 @@ class UltraVisModel:
         self.__currWorkitem = {"Examination":None, "Records":[],"Handles":[]}
 
     def getCurrentWorkitem(self):
-        return self.__currWorkitem
+         return self.__currWorkitem
 
     #handling von gruppe von objekten. Ggf. ist das auch einfach über n Selekt auf Basis der Examination ID möglich
 
@@ -57,7 +58,17 @@ class UltraVisModel:
 
         self.__callback(key="setCurrentWorkitem")
 
+    #für Examination & Record
+    def _getnextID(self,df):
+        indexlist = df.index.tolist()
+        length = []
 
+        for i, ID in enumerate(indexlist):
+            if (not str(ID).startswith('temp')):
+                length.append(ID)
+
+        next_id = len(length)
+        return next_id
 
 
     # NEXT FEATURE get all corresponding Data based on Examination ID.  
@@ -75,6 +86,52 @@ class UltraVisModel:
             return None
 
     
+    def persistWorkitem(self):
+        exam,records,handles = self.getCurrentWorkitem().values()
+
+        #persist ExamID
+        old_E_ID = exam.E_ID
+        num_E_ID = self._getnextID(df=self.t_examination)
+        new_E_ID = 'E-'+str(num_E_ID) if str(old_E_ID).startswith('temp') else old_E_ID
+        
+        
+        exam_index = self.t_examination.index.tolist()
+        idx = exam_index.index(old_E_ID)
+        exam_index[idx] = new_E_ID
+
+        self.t_examination.index = exam_index 
+
+        # Persist Records
+        df = self.t_records
+        df['E_ID'].where(df['E_ID'] != old_E_ID,new_E_ID,True)
+        
+        for i,rec in enumerate(records):
+            old_R_ID = rec.R_ID
+            new_index = self._getnextID(df)
+            new_R_ID = 'R-'+str(new_index) if str(old_R_ID).startswith('temp') else old_R_ID
+
+            as_list = df.index.tolist()
+            idx = as_list.index(old_R_ID)
+            as_list[idx] = new_R_ID
+            df.index = as_list
+
+            #Persist corresponding Position
+            df2 = self.t_handles
+            df2['R_ID'].where(df2['R_ID'] != old_R_ID,new_R_ID,True)
+            
+            logging.debug(f'Replaced tempID: {old_R_ID} with new ID: {new_R_ID} (in Records and Handles Table)' if old_R_ID != new_R_ID else None)
+
+     
+        #write changes to tables
+        
+        self.t_examination.to_csv(self.examination_path)
+        self.t_records.to_csv(self.records_path)
+        self.t_handles.to_csv(self.handle_path)
+        
+
+        
+
+
 
     def saveExamination(self, examination, persistant=False):
         
@@ -90,6 +147,9 @@ class UltraVisModel:
             as_list[idx] = 'South Korea'
             df.index = as_list
             '''
+
+
+
             #here kommt noch was
             pass
 
