@@ -44,48 +44,25 @@ class UltraVisModel:
 
     #handling von gruppe von objekten. Ggf. ist das auch einfach über n Selekt auf Basis der Examination ID möglich
 
+    # loadWorkitem is inefficient. It would be better if this methods gets the E_ID and 
+    # then tries to find all corresponding data (records & handles) and then refreshes just once afterwards
     def setCurrentWorkitem(self, obj):
-        #validation
-        
-        if (type(obj) == Examination):
-            self.__currWorkitem["Examination"] = obj
-        elif (type(obj) == Record):
-            self.__currWorkitem["Records"].append(obj)
-        elif (all(isinstance(h, Handle) for h in obj)):
-            self.__currWorkitem["Handles"].append(obj)
-        else:
-            raise TypeError(f'{type(obj)} is not correct')
 
-        self.__callback(key="setCurrentWorkitem")
+        liste = [obj] if type(obj) is not list else obj
 
-    #für Examination & Record
-    def _getnextID(self,df):
-        indexlist = df.index.tolist()
-        length = []
+        for item in liste:
+            if (type(item) == Examination):
+                self.__currWorkitem["Examination"] = item
+            elif (type(item) == Record):
+                self.__currWorkitem["Records"].append(item)
+            elif (all(isinstance(h, Handle) for h in item)):
+                self.__currWorkitem["Handles"].append(item)
+            else:
+                raise TypeError(f'{type(obj)} is not correct')
 
-        for i, ID in enumerate(indexlist):
-            if (not str(ID).startswith('temp')):
-                length.append(ID)
-
-        next_id = len(length)
-        return next_id
+        self.__callback(key="setCurrentWorkitem")   
 
 
-    # NEXT FEATURE get all corresponding Data based on Examination ID.  
-    def getExamination(self, ID=None):
-        E_ID = str(ID)
-        try:
-            e = self.t_examination.loc[E_ID]
-            examination = Examination(E_ID= E_ID,doctor=e.doctor,patient=e.patient,examitem=e.examitem,created=e.created)
-
-            return examination
-
-        except KeyError as e:
-            logging.debug(str(e))
-            logging.error(f'Record with key "{E_ID}" could not be found.')
-            return None
-
-    
     def persistWorkitem(self):
         exam,records,handles = self.getCurrentWorkitem().values()
 
@@ -127,10 +104,58 @@ class UltraVisModel:
         self.t_examination.to_csv(self.examination_path)
         self.t_records.to_csv(self.records_path)
         self.t_handles.to_csv(self.handle_path)
+
+        # set current workitem to 
+        return new_E_ID
+    
+    def loadWorkitem(self,E_ID):
+
+        exam = self.getExamination(ID=E_ID)
+        records = []
+        positions = []
+
+        if not exam:
+            logging.error(f"Can't load Examination with {E_ID}")
+            return
+        
+        records = self.getRecord(E_ID=E_ID)
+
+        for rec in records:
+            R_ID = rec.R_ID
+            pos = self.getPosition(R_ID)
+            positions.append(pos)
+        
+        self.setCurrentWorkitem(exam)
+        self.setCurrentWorkitem(records)
+        self.setCurrentWorkitem(positions)
         
 
-        
 
+
+    #für Examination & Record
+    def _getnextID(self,df):
+        indexlist = df.index.tolist()
+        length = []
+
+        for i, ID in enumerate(indexlist):
+            if (not str(ID).startswith('temp')):
+                length.append(ID)
+
+        next_id = len(length)
+        return next_id
+
+
+    def getExamination(self, ID=None):
+        E_ID = str(ID)
+        try:
+            e = self.t_examination.loc[E_ID]
+            examination = Examination(E_ID= E_ID,doctor=e.doctor,patient=e.patient,examitem=e.examitem,created=e.created)
+            return examination
+
+        except KeyError as e:
+            logging.debug(str(e))
+            logging.error(f'Record with key "{E_ID}" could not be found.')
+            return None
 
 
     def saveExamination(self, examination, persistant=False):
@@ -169,19 +194,37 @@ class UltraVisModel:
 
         logging.info("Succesfully saved record "+str(exam["E_ID"]))
 
-    def getRecord(self, R_ID=None):
+
+    def getRecord(self, R_ID=None,E_ID=None):
         
-        R_ID = str(R_ID)
-        try:
-            r = self.t_records.loc[R_ID]
-            rec = Record(R_ID=R_ID, descr=r.Beschreibung, date=r.Datum,US_img=r.US_Bild,E_ID=r.E_ID)
+        if (R_ID is not None and E_ID is not None):
+            raise ValueError('Either use R_ID or E_ID not both parameters')
 
-            return rec
+        if R_ID is not None:   
+            R_ID = str(R_ID)
+            try:
+                r = self.t_records.loc[R_ID]
+                rec = Record(R_ID=R_ID, descr=r.descr, date=r.date,US_img=r.US_img,E_ID=r.E_ID)
 
-        except KeyError as e:
-            logging.debug(str(e))
-            logging.error(f'Record with key "{R_ID}" could not be found.')
-            return None
+                return rec
+
+            except KeyError as e:
+                logging.debug(str(e))
+                logging.error(f'Record with key "{R_ID}" could not be found.')
+                return None
+
+        if E_ID is not None:
+            result = []
+            df = self.t_records[self.t_records["E_ID"] == E_ID]
+
+            for R_ID in df.index.tolist():
+                rec = self.getRecord(R_ID=R_ID)
+                result.append(rec)
+            
+            return result
+
+
+
 
     def saveRecord(self, record, persistant=False):
         
@@ -211,15 +254,40 @@ class UltraVisModel:
         logging.info("Succesfully saved record "+str(rec["R_ID"]))
         
         
-    #WIP
+    
     def getPosition(self, R_ID=None):
 
         R_ID = str(R_ID)
         try:
-            h = self.t_handles.loc[R_ID]
-            #record = Record(R_ID=R_ID, descr=a.Beschreibung, date=a.Datum,US_img=a.US_Bild)
+            position = []
+            
+            df = self.t_handles[self.t_handles["R_ID"] == R_ID]
+            index = df.index.tolist()
 
-            #return record
+            for i in index:
+                h = self.t_handles.loc[i]
+
+                init_dict = {
+                    'ID' : h.ID,
+                    'handle_state' : h.handle_state,
+                    'refname' : h.refname,
+                    'MISSING' : h.MISSING,
+                    'Q0' : h.Q0,
+                    'Qx' : h.Qx,
+                    'Qy' : h.Qy,
+                    'Qz' : h.Qz,
+                    'Tx' : h.Tx,
+                    'Ty' : h.Ty,
+                    'Tz' : h.Tz,
+                    'calc_Err' : h.calc_Err,
+                    'port_state' : h.port_state,
+                    'frame_id' : h.frame_id
+                }
+
+                handle = Handle(**init_dict)
+                position.append(handle)
+            
+            return position
 
         except KeyError as e:
             logging.debug(str(e))
@@ -233,7 +301,8 @@ class UltraVisModel:
             temp_data = self.t_handles    
 
             for h in handles.values():
-                h = h.to_dict()
+                #h = h.to_dict()
+                h = h.__dict__
                 h['R_ID'] = R_ID
 
                 handle_data = h
