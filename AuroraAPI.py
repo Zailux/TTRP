@@ -427,28 +427,27 @@ class HandleManager:
 
 class Handle:
 
-    def __init__(self, ID, state):
+    def __init__(self, ID, handle_state, refname='DEFAULT',MISSING = None, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
         
         #Handle Data
         self.ID = ID
-        self.handle_state = state
-        self.refname = "DEFAULT"
+        self.handle_state = handle_state
+        self.refname = refname
 
         #Transformation Data
-        self.MISSING = None
+        self.MISSING = MISSING
 
-        self.Q0 = None
-        self.Qx = None
-        self.Qy = None
-        self.Qz = None
-        self.Tx = None
-        self.Ty = None
-        self.Tz = None
-        #self.Err = None
+        self.Q0 = Q0
+        self.Qx = Qx
+        self.Qy = Qy
+        self.Qz = Qz
+        self.Tx = Tx
+        self.Ty = Ty
+        self.Tz = Tz
 
-        self.calc_Err = None
-        self.port_state = None
-        self.frame_id = None
+        self.calc_Err = calc_Err
+        self.port_state = port_state
+        self.frame_id = frame_id
 
     def __copy__(self):
         cls = self.__class__
@@ -475,6 +474,7 @@ class Handle:
         self.port_state = port_state
         self.frame_id = frame_id
 
+    #obsolete there is a standard __dict__ attribute for every object in python. 
     def to_dict(self):
 
         h_dict = {
@@ -489,7 +489,6 @@ class Handle:
             'Tx' : self.Tx,
             'Ty' : self.Ty,
             'Tz' : self.Tz,
-            #'Err' : self.Err,
             'calc_Err' : self.calc_Err,
             'port_state' : self.port_state,
             'frame_id' : self.frame_id
