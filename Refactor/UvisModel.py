@@ -17,8 +17,8 @@ _cfg = Configuration()
 class UltraVisModel:
     def __init__(self):
         
-        #datapath = '..\\data\\'
-        datapath = 'TTRP\\data\\'
+        datapath = '..\\data\\'
+        #datapath = 'TTRP\\data\\'
         self.examination_path = datapath+'examination.csv'
         self.records_path = datapath+'record.csv'
         self.handle_path = datapath+'handles.csv'
@@ -129,9 +129,6 @@ class UltraVisModel:
         self.setCurrentWorkitem(records)
         self.setCurrentWorkitem(positions)
         
-
-
-
     #für Examination & Record
     def _getnextID(self,df):
         indexlist = df.index.tolist()

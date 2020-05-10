@@ -184,7 +184,7 @@ class UltraVisView(tk.Frame):
         children = self.menuFrame.winfo_children()
         self.cleanMenu(children)
 
-        #potentiall add activatehandles button
+        #potentially add activatehandles button
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
@@ -558,11 +558,21 @@ class UltraVisView(tk.Frame):
         self.summaryFrame.rowconfigure(1, weight=90, uniform=1)
         self.summaryFrame.columnconfigure(0,weight=1,uniform=1)
         self.summaryTitlelb = tk.Label(self.summaryFrame,text="Summary")
-        self.sumcontentlb = tk.Label(self.summaryFrame,text="Content")
+        #self.sumContentFrame = ScrollableFrame(master=self.summaryFrame)
+        self.sumContentFrame = tk.Frame(self.summaryFrame)
+
+        #self.sumContentlb = tk.Label(self.sumContentFrame)
+
 
         self.summaryTitlelb.grid(row=0,column=0,sticky=tk.NSEW)
-        self.sumcontentlb.grid(row=1,column=0,sticky=tk.NSEW)
+        #self.sumContentlb.pack()
+        self.sumContentFrame.grid(row=1,column=0,sticky=tk.NSEW)
+
         self.summaryFrame.grid(row=0, column=0,sticky=tk.NSEW) 
+
+    
+
+
 
     def buildActionFrame(self,bFrame):
             

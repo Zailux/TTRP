@@ -8,6 +8,16 @@ class Helper():
     
     #Tkinter helper
     
+    def setRow(self,num):
+        self.row = num
+    
+    def getnextRow(self):
+        nextRow = self.row
+        self.row +=1
+        
+        return nextRow
+
+
     def enableWidgets(self,childList,enable_all=False):
         for child in childList:
             if (child.winfo_class() == 'Frame'):

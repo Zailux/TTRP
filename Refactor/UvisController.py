@@ -46,7 +46,7 @@ class UltraVisController:
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
         self._Logger = logging.getLogger()
-        self._Logger.setLevel(logging.DEBUG)
+        #self._Logger.setLevel(logging.DEBUG)
 
         #Create Model and View
         self.root = tk.Tk()
@@ -347,15 +347,7 @@ class UltraVisController:
             
             self.model.setCurrentWorkitem(rec)
             self.model.setCurrentWorkitem(handles.values())
-            
-            
-
-
                   
-
-    def cleanSavingProcess(self, record):
-        pass 
-            
     def validatePosition(self, handles):
         #Validate Handles for saving
         #Check for Missing Handles, check for correct frameID
@@ -540,18 +532,20 @@ class UltraVisController:
         if (isValidExam):
 
             try:
-                self.model.persistWorkitem()
-
+                new_E_ID = self.model.persistWorkitem()
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.setInfoMessage(msg)
                 logging.error(str(e))
                 return
 
-
+            self.model.loadWorkitem(new_E_ID)
             self.view.buildSummaryFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='summary')
-            self.view.sumcontentlb["text"] = self.view.workitemdataLabel["text"]
+
+            frame = self.view.sumContentFrame
+            
+            self.view.sumContentlb["text"] = self.view.workitemdataLabel["text"]
 
 
 
@@ -561,27 +555,99 @@ class UltraVisController:
             self.view.setInfoMessage(msg=msg,type='ERROR')
             return
         
+    #needs further rework.
+    def buildSummaryContent(self):      
+        
+        hp.setRow(0)
+
+        exam, records, handles = self.model.getCurrentWorkitem().values()
+        frame = self.view.sumContentFrame
+        frame.columnconfigure(0, weight=1, uniform=2)
+        frame.columnconfigure(1, weight=2, uniform=2)
+        frame.columnconfigure(2, weight=1, uniform=2)
+        frame.columnconfigure(3, weight=2, uniform=2)
+        frame.columnconfigure(4, weight=1, uniform=2)
+        frame.columnconfigure(5, weight=2, uniform=2)
+
+        row = hp.getnextRow()
+        frame.rowconfigure(row, weight=1, uniform=1)
+        exam_title = tk.Label(frame,text=f'Examination - {exam.E_ID}')
+        exam_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
+        
+        lst = list(range(10))
+        i = 0
+        x = 0
+        for key,value in exam.__dict__.items():
 
             
+            if x % 3  == 0:
+                row = hp.getnextRow()
+                x = 0
+                i = 0
             
+            frame.rowconfigure(row, weight=1, uniform=1)
+
+            lb_key = tk.Label(frame,text=str(key))
+            lb_value = tk.Label(frame,text=str(value))
+            
+            lb_key.grid(row=row,column=i,sticky=tk.EW)
+            lb_value.grid(row=row,column=i+1,sticky=tk.EW)
+            x += 1
+            i += 2
 
 
+        for r in records:
+            row = hp.getnextRow()
+            frame.rowconfigure(row, weight=1, uniform=2)
+            rec = r.__dict__.items()
+            rec_title = tk.Label(frame,text=f'Record - {r.R_ID}')
+            rec_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
+            
+            j = 0
+            y = 0
+            for key,value in rec:
 
-        #Display current data
+                if y % 3 == 0 :
+                    row = hp.getnextRow()
+                    y = 0
+                    j = 0
+                frame.rowconfigure(row, weight=1, uniform=2)
 
-    def saveandfinishExamination(self):
-        #Persist data and display success or not / go to main menu
+                lb_key = tk.Label(frame,text=str(key))
+                lb_value = tk.Label(frame,text=str(value))
+                
+                lb_key.grid(row=row,column=j,sticky=tk.EW)
+                lb_value.grid(row=row,column=j+1,sticky=tk.EW)
 
-        try:
-            self.model.persistWorkitem()
-        except ValueError as e:
-            print("OUH NOOOO do something with it")
-            msg = "RIP try save and finish again"
-            self.view.setInfoMessage(msg=msg,type='ERROR')
-            logging.info(msg)
-        pass
+                y += 1
+                j += 2
 
 
+        
+    def _debugfunc(self):
+        self.model.loadWorkitem('E-2')
+        self.view.buildSummaryFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='summary')
+        self.buildSummaryContent()
+        
+
+    # Stub for Tobias
+    def openExamination(self):
+
+        #How to access data, from Tables
+        E_ID = 'E-2'
+        self.model.loadWorkitem(E_ID)
+
+        workitem = self.model.getCurrentWorkitem()
+
+        exam_object, records_list, positions_list = workitem.values()
+
+        print(exam_object.E_ID)
+        print(records_list[0].R_ID)
+        #Position is a list object, which contains 4 handle objects
+        print(positions_list[0])
+
+        # Have fun. 
 
     def initFunctionality(self):
         
@@ -593,10 +659,12 @@ class UltraVisController:
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
         self.view.finishExamiBut["command"] = self.finalizeExamination
+
+        self.view.openExamiBut["command"] = self.openExamination
         
         self.view.cancelBut["command"] = self.cancelExamination
 
-        self.view.NOBUTTONSYET["command"] = self.model.persistWorkitem
+        self.view.NOBUTTONSYET["command"] = self._debugfunc
         #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
 
@@ -681,10 +749,10 @@ class UltraVisController:
             self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
         else:
             self.view.rightFrame.after(2000,self.refreshSysmode)
-        
-    def refreshWorkItem(self):
-        # WIP
 
+    #WIP   
+    def refreshWorkItem(self):
+    
         infotext = f'Current Workitem\n'
 
         workitem = self.model.getCurrentWorkitem()
@@ -704,5 +772,5 @@ class UltraVisController:
             except IndexError as e:
                 continue
     
-        self.view.workitemdataLabel["text"] = infotext
+        #self.view.workitemdataLabel["text"] = infotext
         
