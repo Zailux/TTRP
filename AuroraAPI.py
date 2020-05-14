@@ -3,14 +3,13 @@ import time
 import logging
 import threading
 import functools
-
+from copy import copy,deepcopy
 
 
 class Aurora:
     
-    def __init__(self, ser, activateThreading=False, num_tries=3):
+    def __init__(self, ser, debug_mode=False):
         #Aurora System relevant Attributes
-        self.threading = activateThreading
         self._lock = threading.Lock()
         self._observers = {}
      
@@ -36,7 +35,7 @@ class Aurora:
 
     #Observer Pattern - Add Observer Method / Callback Method
     def register(self,key,observer):
-        if ("key" not in self._observers):
+        if (str(key) not in self._observers):
             self._observers[key] = observer
         else:
             raise Warning("Key: "+str(key)+" already exists")
@@ -53,6 +52,7 @@ class Aurora:
         #Callback the observers with the data change ggf. logik anpassen notwendig
         for methodkey in self._observers:
             self._observers[methodkey]()
+
 
     #Debug & Additional Methods
     #Commands & Parameters are not case sensitive
@@ -114,8 +114,6 @@ class Aurora:
             
         except ValueError as e:
             logging.exception(str(e)) 
-
-        
 
     
     def init(self):
@@ -333,7 +331,7 @@ class HandleManager:
     def __init__(self, phsr ):
         #01 0A 00D 2674\r als antwort
         #01 0A 00 001 74\r keine Handles 
-
+        self._hmlock = threading.Lock()
         self.handles = {}
         self.num_handles = int(phsr[0:2])
         phsr = phsr[2:]
@@ -352,12 +350,14 @@ class HandleManager:
     def getNum_Handles(self):
         return self.num_handles
     
-    def getHandles(self):
-        return self.handles
+    def getHandles(self,real_copy=False):
+        with self._hmlock:
+            return self.handles if not real_copy else deepcopy(self.handles)
 
     def getMissingHandles(self):
         misshandles = []
-        for h_id,handle in self.handles.items():
+        h = self.getHandles()
+        for h_id,handle in h.items():
             if (handle.MISSING):
                 misshandles.append(h_id)
         return misshandles
@@ -377,7 +377,7 @@ class HandleManager:
 
         num = int(tx_str[0:2],16)
         if (self.num_handles != num ):
-            logging.critical("Uneven Handles OMFG - Critical Issue")
+            logging.critical(f"Critical Issue - Wrong InputString tx_str: {tx_str}")
         self.num_handles = num
         tx_str = tx_str[2:]
         
@@ -388,35 +388,35 @@ class HandleManager:
         sys_status, crc = tx_str[-1][:4],tx_str[-1][4:]
         tx_str.pop()
         
-        
-        for handle in tx_str:
-            h_id = handle[0:2]
-            new_handle = self.handles[h_id]
-            handle = handle[2:]
+        with self._hmlock:
+            for handle in tx_str:
+                h_id = handle[0:2]
+                new_handle = self.handles[h_id]
+                handle = handle[2:]
 
-            if (handle.startswith("MISSING")):
-                handle = handle[7:]
-                port_state = handle[0:8]
-                frame_id = handle[8:]
-                new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
+                if (handle.startswith("MISSING")):
+                    handle = handle[7:]
+                    port_state = handle[0:8]
+                    frame_id = handle[8:]
+                    new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
 
-            else:
-                Q0 = self.string2float(handle[0:6],2)
-                Qx = self.string2float(handle[6:12],2)
-                Qy = self.string2float(handle[12:18],2)
-                Qz = self.string2float(handle[18:24],2)
-                Tx = self.string2float(handle[24:31],5)
-                Ty = self.string2float(handle[31:38],5)
-                Tz = self.string2float(handle[38:45],5)
-                calc_Err = self.string2float(handle[45:51],2)
-                port_state = handle[51:59]
-                frame_id = handle[59:67]
+                else:
+                    Q0 = self.string2float(handle[0:6],2)
+                    Qx = self.string2float(handle[6:12],2)
+                    Qy = self.string2float(handle[12:18],2)
+                    Qz = self.string2float(handle[18:24],2)
+                    Tx = self.string2float(handle[24:31],5)
+                    Ty = self.string2float(handle[31:38],5)
+                    Tz = self.string2float(handle[38:45],5)
+                    calc_Err = self.string2float(handle[45:51],2)
+                    port_state = handle[51:59]
+                    frame_id = handle[59:67]
 
-                new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                    new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                
+                self.handles[h_id] = new_handle
             
-            self.handles[h_id] = new_handle
-        
-        
+            
 
     def string2float(self, string, separator_index,round_to=4):
         s = string[:separator_index] + '.' + string[separator_index:]
@@ -427,28 +427,33 @@ class HandleManager:
 
 class Handle:
 
-    def __init__(self, ID, state):
+    def __init__(self, ID, handle_state, refname='DEFAULT',MISSING = None, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
         
         #Handle Data
         self.ID = ID
-        self.handle_state = state
-        self.refname = "Strenum bspw."
+        self.handle_state = handle_state
+        self.refname = refname
 
         #Transformation Data
-        self.MISSING = None
+        self.MISSING = MISSING
 
-        self.Q0 = None
-        self.Qx = None
-        self.Qy = None
-        self.Qz = None
-        self.Tx = None
-        self.Ty = None
-        self.Tz = None
-        #self.Err = None
+        self.Q0 = Q0
+        self.Qx = Qx
+        self.Qy = Qy
+        self.Qz = Qz
+        self.Tx = Tx
+        self.Ty = Ty
+        self.Tz = Tz
 
-        self.calc_Err = None
-        self.port_state = None
-        self.frame_id = None
+        self.calc_Err = calc_Err
+        self.port_state = port_state
+        self.frame_id = frame_id
+
+    def __copy__(self):
+        cls = self.__class__
+        copy_handle = cls.__new__(cls)
+        copy_handle.__dict__.update(self.__dict__)
+        return copy_handle
 
     def setReferenceName(self,refname):
         if (type(refname) == str):
@@ -469,6 +474,7 @@ class Handle:
         self.port_state = port_state
         self.frame_id = frame_id
 
+    #obsolete there is a standard __dict__ attribute for every object in python. 
     def to_dict(self):
 
         h_dict = {
@@ -483,7 +489,6 @@ class Handle:
             'Tx' : self.Tx,
             'Ty' : self.Ty,
             'Tz' : self.Tz,
-            #'Err' : self.Err,
             'calc_Err' : self.calc_Err,
             'port_state' : self.port_state,
             'frame_id' : self.frame_id

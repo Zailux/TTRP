@@ -1,5 +1,5 @@
-# -*- coding: latin-1 -*-
-from __future__ import print_function
+# -*- coding: latin-1 -
+#from __future__ import print_function
 # from visual import *
 import tkinter as tk
 from tkinter import ttk
@@ -21,7 +21,12 @@ import numpy as np
 
 import threading
 
+from helper import Helper, ScrollableFrame
+
 from NavigationVisualizer import NavigationVisualizer
+
+global hp
+hp = Helper()
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
@@ -126,6 +131,8 @@ class UltraVisView(tk.Frame):
         self.openExamiBut["state"] = 'disabled'
 
         #Setup Menu
+        self.startExamiBut = tk.Button(self.menuFrame) 
+        self.startExamiBut["text"] = "Untersuchung beginnen"
         self.activateHandleBut = tk.Button(self.menuFrame)  
         self.activateHandleBut["text"] = "Try Activate Handles"
 
@@ -133,18 +140,30 @@ class UltraVisView(tk.Frame):
         self.trackBut = tk.Button(self.menuFrame)  
         self.trackBut["text"] = "Start/Stop Tracking"
 
-        self.saveRecordBut = tk.Button(self.menuFrame)  
-        self.saveRecordBut["text"] = "Aufzeichnung speichern"
-        
-        self.cancelBut = tk.Button(self.menuFrame)  
-        self.cancelBut["text"] = "Abbrechen"
+        self.calibrateBut = tk.Button(self.menuFrame)
+        self.calibrateBut["text"] = "Calibrate"
 
         self.targetBut = tk.Button(self.menuFrame)
         self.targetBut["text"] = "Set Target"
 
+        self.saveRecordBut = tk.Button(self.menuFrame)  
+        self.saveRecordBut["text"] = "Aufzeichnung speichern"
+
+        self.finishExamiBut = tk.Button(self.menuFrame) 
+        self.finishExamiBut["text"] = "Untersuchung abschließen"
+        
+
+        #Finish Examination Menu
+        
+        self.saveEditBut = tk.Button(self.menuFrame) 
+        self.saveEditBut["text"] = "Editieren"
+
         #Misc Buttons
         self.continueBut = tk.Button(self.menuFrame)  
         self.continueBut["text"] = "Fortfahren"
+
+        self.cancelBut = tk.Button(self.menuFrame)  
+        self.cancelBut["text"] = "Abbrechen"
 
         self.backBut = tk.Button(self.menuFrame)  
         self.backBut["text"] = "Zur\u00FCck"
@@ -156,36 +175,39 @@ class UltraVisView(tk.Frame):
         self.reinitAuaBut = tk.Button(self.menuFrame)
         self.reinitAuaBut["text"] = "Reinitialize Aurora"
         self.NOBUTTONSYET = tk.Button(self.menuFrame,text="Secret Blowup Button")
-        self.calibrateBut = tk.Button(self.menuFrame,text="Calibrate")
-        self.startNavBut = tk.Button(self.menuFrame,text="Start Navigation")
 
         self.menuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
 
         self.menuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
     
 
-    def showMenu(self,menu='main'):
-        MENUES = ['main','new_examination','setup','app','navigation','all_debug']
+    def showMenu(self,menu='main',states=None):
+        #Idea to use a state "table of 0 and 1 to enable / disable Button"    
 
+        MENUES = ['main','new_examination','setup','app','summary','navigation','all_debug']
+        
         if menu not in MENUES:
             raise ValueError(f'Try showing Menu "{menu}" which was not in {MENUES}')
 
         children = self.menuFrame.winfo_children()
         self.cleanMenu(children)
 
+        #potentially add activatehandles button
         menu_buttons = {
             'main': [self.newExamiBut,self.openExamiBut],
             'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.startNavBut, self.NOBUTTONSYET],
-            'app': [self.trackBut,self.calibrateBut,self.targetBut,self.saveRecordBut,self.cancelBut],
+            'setup': [self.startExamiBut,self.cancelBut], 
+            'app': [self.trackBut,self.calibrateBut, self.targetBut,self.saveRecordBut,self.finishExamiBut,self.cancelBut],
+            'summary': [self.mainMenuBut,self.saveEditBut,self.cancelBut],
             'navigation':[self.NOBUTTONSYET]
         }
 
         for button in menu_buttons[menu]:
             button.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both") 
 
+        if (self._debug):
+            self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),padx=(10), fill="both")
         
-
 
 
     def cleanMenu(self,childList):
@@ -206,6 +228,7 @@ class UltraVisView(tk.Frame):
 
         self.detailsTitleLabel = tk.Label(self.detailsFrame, text="Details")
         self.detailsInfoLabel = tk.Label(self.detailsFrame, text=" - ")
+        self.workitemdataLabel = tk.Label(self.detailsFrame, text=" - ")
 
 
         self.adsfBut = tk.Button(self.detailsFrame)  
@@ -213,8 +236,19 @@ class UltraVisView(tk.Frame):
 
         self.detailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
         self.detailsInfoLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
-
+        self.workitemdataLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
         self.detailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
+
+
+    #cleaning setInfomsg?? when and how
+    def setInfoMessage(self,msg,type='INFO'):
+        OPTIONS = ['INFO','SUCCESS','ERROR']
+        #FONTS = 
+
+        msg = str(msg)
+
+        self.detailsInfoLabel["text"] = msg
+
 
     @clearFrame
     def buildMainScreenFrame(self,master):
@@ -298,33 +332,63 @@ class UltraVisView(tk.Frame):
         self.instructionLabel = tk.Label(self.setupFrame, text="Some Instruction", font='Helvetica 9 italic')
         self.instructionLabel.grid(row=2,column=0,columnspan=4,pady=(0,10),sticky=tk.NSEW)
 
-
+        self.setupHandleFrames = []
+        self.__currentSetupHandle = None
+        __REFPOINTSUGGESTION = ['Ultraschallkopf', 'Rechter H\u00FCftknochen','Linker H\u00FCftknochen','Brustbein']
         for i in range(4):
             handle_Frame = tk.Frame(self.setupFrame,bg="white",padx=10,pady=10)
             lb = tk.Label(handle_Frame, text="Spulenname")
             lb2 = tk.Label(handle_Frame, text="Referenzname")
-            entry = tk.Entry(handle_Frame,bd=5)
-            But = tk.Button(handle_Frame ) 
-            But["text"] = "Done"
+            ref_entry = tk.Entry(handle_Frame,bd=5)
+            ref_entry.insert(0,__REFPOINTSUGGESTION[i])
+            but = tk.Button(handle_Frame) 
+            but["text"] = "Done"
+            valid = False
+
             children = handle_Frame.winfo_children()
+            hp.disableWidgets(childList=children,disable_all=True)
+
+            dic = {'frame':handle_Frame,'handlename':lb,'ref_entry':ref_entry,'button':but,'valid':valid}
+            self.setupHandleFrames.append(dic)
             
             self.packChildren(children,side=tk.TOP,fill=tk.BOTH,padx=5,pady=5)
             
             handle_Frame.grid(row=3,column=i,sticky=tk.NSEW,padx=2,pady=2)
-            
-
-
-
         
-        #Anwendungslogik!
         
         handle_index = 0
-
+        self.setCurrentSetupHandle(handle_index)
         self.setupFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+    
+
+    def setCurrentSetupHandle(self, handle_index):
+        lastindex = len(self.setupHandleFrames)-1
+        if (self.__currentSetupHandle is None):
+            self.__currentSetupHandle = self.setupHandleFrames[handle_index]
+        elif (handle_index <= lastindex):
+            widgets = self.__currentSetupHandle["frame"].winfo_children()
+            hp.disableWidgets(widgets,disable_all=True)
+            self.__currentSetupHandle["frame"]["bg"] = "white"
         
+        FARBEN = ['GELBE','ROTE','GR\u00DCNE','BLAUE']
+        HANDLENAME = None
+        REFERENCEPOINT = ['Ultraschallkopf', 'bspw. rechten H\u00FCftknochen','bspw. linken H\u00FCftknochen','bspw. Brustbein']
+        INSTRUCTION = f'Bitte befestigen sie die {FARBEN[handle_index]} Spule an den Punkt {REFERENCEPOINT[handle_index]}'
+        COLORS = ['yellow','red','green','blue']
+        
+        self.setSetupInstruction(text=INSTRUCTION)
+        handle_data = self.setupHandleFrames[handle_index]
+        handle_data["frame"]["bg"] = COLORS[handle_index]
+        children = handle_data["frame"].winfo_children()
+        hp.enableWidgets(children,enable_all=True)
+        self.__currentSetupHandle = self.setupHandleFrames[handle_index]
+
+    def setSetupInstruction(self,text):
+        text = str(text)
+        self.instructionLabel["text"] = text
 
     @clearFrame
-    def buildAppFrame(self,master,nav=False):
+    def buildAppFrame(self,master):
 
         #Init of AppFrame Attributes
         
@@ -385,20 +449,17 @@ class UltraVisView(tk.Frame):
         self.sysmodeLabel = tk.Label(self.navFrame)
         self.sysmodeLabel["text"] = "Operating Mode: - "
         self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
-
-        # TODO remove test
-        if nav :
-            # navigation test
-            self.navigationvis = NavigationVisualizer(self.navFrame)
-        else:
-            self.fig = plt.figure()
-            self.ax = self.fig.add_subplot(111, projection='3d')
-            self.ax.set_autoscale_on(False)
-            self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
         
-            self.buildCoordinatesystem()
+        self.navigationvis = NavigationVisualizer(self.navFrame)
+        self.navCanvas = self.navigationvis.canvas
+        #self.fig = plt.figure()
+        #self.ax = self.fig.add_subplot(111, projection='3d')
+        #self.ax.set_autoscale_on(False)
+        #self.navCanvas = FigureCanvasTkAgg(self.fig,self.navFrame)  
         
-            self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
+        #self.buildCoordinatesystem()
+        
+        #self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
         self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
         self.gridFrame.after_idle(self.calcUSImgSize)
 
@@ -412,7 +473,6 @@ class UltraVisView(tk.Frame):
         self.galleryFrame.grid(row=1,column=0, pady=(0,8), padx=8, sticky=tk.NSEW)
 
         self.appFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
-        
 
     def refreshImgSize(self,event):
         self.gridFrame.after_idle(self.calcUSImgSize)  
@@ -477,7 +537,6 @@ class UltraVisView(tk.Frame):
             self.savedImgLabel.imgtk = imgtk
             self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
 
-
     def buildCoordinatesystem(self):
         #plt.cla()
         #self.ax.set_xlabel('X')
@@ -489,15 +548,15 @@ class UltraVisView(tk.Frame):
         
 
         if (len(self.navCanvasData) is not 0):
-            x,y,z,color = self.navCanvasData
+            x,y,z,a,b,c,color = self.navCanvasData
             self.navigationvis.set_pos(x[0], y[0])
+            self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
-            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)           
-            self._Canvasjob = self.navFrame.after(40,func=self.buildCoordinatesystem)
-            #print("ICH ZEICHNWAS")
+            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
+            
+            self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.buildCoordinatesystem)
         
         #self.navCanvas.draw()
-
 
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
@@ -505,6 +564,29 @@ class UltraVisView(tk.Frame):
         self.refresh_savedImg()
 
     
+    @clearFrame
+    def buildSummaryFrame(self,master):
+        self.summaryFrame = tk.Frame(master)
+        self.summaryFrame.rowconfigure(0, weight=10, uniform=1)
+        self.summaryFrame.rowconfigure(1, weight=90, uniform=1)
+        self.summaryFrame.columnconfigure(0,weight=1,uniform=1)
+        self.summaryTitlelb = tk.Label(self.summaryFrame,text="Summary")
+        #self.sumContentFrame = ScrollableFrame(master=self.summaryFrame)
+        self.sumContentFrame = tk.Frame(self.summaryFrame)
+
+        #self.sumContentlb = tk.Label(self.sumContentFrame)
+
+
+        self.summaryTitlelb.grid(row=0,column=0,sticky=tk.NSEW)
+        #self.sumContentlb.pack()
+        self.sumContentFrame.grid(row=1,column=0,sticky=tk.NSEW)
+
+        self.summaryFrame.grid(row=0, column=0,sticky=tk.NSEW) 
+
+    
+
+
+
     def buildActionFrame(self,bFrame):
             
         self.backBut = tk.Button(bFrame)  

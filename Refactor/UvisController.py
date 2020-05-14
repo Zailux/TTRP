@@ -1,4 +1,4 @@
-from UvisModel import UltraVisModel,Aufzeichnung
+from UvisModel import UltraVisModel,Record,Examination
 from UvisView import UltraVisView
 import logging
 import time
@@ -8,7 +8,7 @@ import random
 import tkinter as tk
 
 import serial
-import functools
+from functools import wraps, partial
 import threading
 import queue
 #import os
@@ -17,8 +17,7 @@ import queue
 #from Observable import Observable
 import sys
 
-#TTRP.AuroraAPI is an temporary Solution. Should be same folder later
-sys.path.insert(1, 'd:\\Nam\\Docs\\Uni\\Master Projekt\\Track To Reference\\WP\\TTRP')
+sys.path.insert(1, '..\\')
 from AuroraAPI import Aurora, Handle, HandleManager
 
 from PIL import Image
@@ -26,30 +25,24 @@ import matplotlib.pyplot as plt
 import matplotlib.animation
 from mpl_toolkits.mplot3d import Axes3D
 
-from Calibrator import Calibrator
 
+from helper import Helper
+from config import Configuration
+from Calibrator import Calibrator
+global hp
+hp = Helper()
+global _cfg
+_cfg = Configuration()
 #GlobaleVariablen Definition
 BUTTON_WIDTH = 25
 
 
 
-# Idee anstatt beim jeweiligen Methoden aufruf self.q.put methoden name rein zuschreiben,
-# über einen Wrapper beim Funktionsaufruf dies zu tun. 
-def toQueue(func):
-
-    @functools.wraps(func)
-    def q_wrapper(*args, **kwargs):
-        #args[0].q.put( [func,*args,**kwargs] )
-        pass
-     
-    return q_wrapper
-
 
 class UltraVisController:
 
     def __init__(self,debug_mode=False):
-        self.calibrator = Calibrator()
-
+        
         #Logging Configuration
         format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
@@ -58,20 +51,23 @@ class UltraVisController:
 
         #Create Model and View
         self.root = tk.Tk()
+
+        self.calibrator = Calibrator()
        
         self.model = UltraVisModel()
         self.view = UltraVisView(self.root,debug_mode=debug_mode)
-        
+
         #Controller Attributes
         self._debug = debug_mode
         self.hm = None
         self.aua = None
 
-        self.initBackgroundQueue()
+        self.__initObservers()
+        self.__initBackgroundQueue()
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM8'
+        self.ser.port = 'COM3'
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
@@ -82,11 +78,11 @@ class UltraVisController:
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.initAurora(self.ser)
         self.initFunctionality()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.protocol("WM_DELETE_WINDOW", self.__on_closing)
 
 
     #Closing Method and bind to root Window
-    def on_closing(self):
+    def __on_closing(self):
        
         if (hasattr(self.view,'appFrame')):
              #Close FrameGrabber
@@ -97,9 +93,7 @@ class UltraVisController:
             if (self.aua_active):
                 if(self.aua.getSysmode()=='TRACKING'):
                     self.stopTracking = True
-                    # TODO replace
-                    #self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
-                    
+                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
                     with self.aua._lock:
                         self.aua.tstop()
         
@@ -117,7 +111,7 @@ class UltraVisController:
     def run (self):
         self.root.mainloop()
 
-    def initBackgroundQueue(self):
+    def __initBackgroundQueue(self):
         self.q = queue.Queue(maxsize=8)
         self.quitEvent = threading.Event()
         def processQueue(self):
@@ -145,11 +139,16 @@ class UltraVisController:
         q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
         q_Thread.start()
 
-    def initAurora(self,ser,extended=None):
+    def __initObservers(self):
+
+        self.model.register(key="setCurrentWorkitem",observer=self.refreshWorkItem)
+
+
+
+    def initAurora(self,ser):
 
         logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
-        if (extended == None):
-            extended = self._debug
+        
 
         
         widgets = self.view.menuFrame.winfo_children()
@@ -162,14 +161,14 @@ class UltraVisController:
             #self.disableWidgets(widgets)
             self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
             return
         except Warning as w:
             logging.exception(str(w))
             #self.disableWidgets(widgets)
             self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser,extended=self._debug)
+            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
             return
 
         self.aua_active = True
@@ -182,10 +181,6 @@ class UltraVisController:
         self.aua.resetandinitSystem()
         
         self.addFuncDebug()
-
-        if (extended):
-            self.q.put(self.activateHandles)
-            self.addFuncTracking()
         
         logging.info("Initialize Aurorasystem - done")
 
@@ -198,9 +193,9 @@ class UltraVisController:
         # todo Gesamtprozess nach Guide (siehe Aurora API)
         logging.info("Activate Handles - Acquiring Lock")
 
+        success = True
         with self.aua._lock:
             try: 
-                #print("All allocated Ports")
                 logging.info("All allocated Ports")
                 phsr_string = self.aua.phsr()
 
@@ -232,12 +227,11 @@ class UltraVisController:
             
             except Warning as w:
                 logging.warning(str(w))
-
-        
-        logging.info("Activate Handles - done")
-
-    
-
+                success=False
+                #maybe solve via states in show menu Later
+                self.view.activateHandleBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            
+        logging.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
 
     #---- App Frame functionality tracking and saving----#
@@ -254,17 +248,16 @@ class UltraVisController:
             self.stopTracking = False
             self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
-            self.view._Canvasjob = self.view.navFrame.after(1500,func=self.view.buildCoordinatesystem)
+            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.buildCoordinatesystem)
             
 
         elif(self.aua.getSysmode()=='TRACKING'):
             self.stopTracking = True
-            self.view.navFrame.after_cancel(self.view._Canvasjob)
+            self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
 
             with self.aua._lock:
-                self.aua.tstop()
-                
+                self.aua.tstop()        
  
     def trackHandles(self):
 
@@ -273,19 +266,20 @@ class UltraVisController:
         
         logging.info(threading.current_thread().name+" has started tracking")
        
-        freq = 0.1
+        freq = 0.5
         while(not self.stopTracking):
-            time_0 = time.time()
+
             with self.aua._lock:
                 tx = self.aua.tx()
                 self.hm.updateHandles(tx)
                 self.setNavCanvasData()
+            time.sleep(freq)
 
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
 
     def setNavCanvasData(self):
-        x,y,z = [],[],[]
+        x,y,z,a,b,c = [],[],[],[],[],[]
         av_color = ['yellow','red','green','blue']
         color = []
         num_handle = self.hm.getNum_Handles()
@@ -301,89 +295,72 @@ class UltraVisController:
                 break
 
             if (handle.MISSING is False):
-                #x.append(handle.Tx)
-                #y.append(handle.Ty)
-                #z.append(handle.Tz)
-
                 # TODO only for uvis sensor
                 if (i == 0):
                     transformed = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
                     x.append(transformed[0])
                     y.append(transformed[1])
                     z.append(transformed[2])
+
+                    temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rotations(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    a.append(temp_a)
+                    b.append(temp_b)
+                    c.append(temp_c)
                 else:
                     x.append(handle.Tx)
                     y.append(handle.Ty)
                     z.append(handle.Tz)
+                
                 color.append(av_color[i])
-
-  
-        if (num_handle is 4):
-            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-            self.view.navigationvis.set_ori(a,b,c)
-
-        print(f'x values: {x}')
-        
-            
+                    
         logging.debug(f'x values: {x}')
         
-        self.view.navCanvasData = (x,y,z,color)
-
-        
-
+        self.view.navCanvasData = (x,y,z,a,b,c,color)
     
-    def savePosition(self):
+    #Position is saving Record and Handles
+    def saveRecord(self):
         if (not self.aua.getSysmode()=='TRACKING'):
             logging.info("This functionality is only available during tracking. Please Start Tracking")
             return
 
         self.view.saveUSImg()
+        img = self.view.savedImg.copy()
+        img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
 
         dt = datetime.now()
-        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")        
-        #to do: description auf gui ziehen 
+        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")     
 
-        aufz = Aufzeichnung(date=tmpstamp)
-
-        #Stops the current refresh and changing of Positional data 
-        #self.navAnim.event_source.stop()
-        handles = self.hm.getHandles()
+        # Description atrtibute, aus der GUI
+        # Gets Current Workitem and accesses its Examination
+        workitem = self.model.getCurrentWorkitem()
+        E_ID = workitem["Examination"].E_ID
+        rec = Record(date=tmpstamp,E_ID=E_ID)
+        img_name = f'{rec.R_ID[4:]}_img'
+        handles = self.hm.getHandles(real_copy=True)
 
         if (self.validatePosition(handles)):
-            #saving position Frame and Handles 
-
-            #Save Image to Filesystem and prepare Imagepath image
-            img = self.view.savedImg.copy()
-            img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
-            filename = f'{aufz.A_ID[4:]}_img'
-            imgpath = 'TTRP/data/img/'+filename+'.png'
             
+            #try saving image and the record
             try:
-                img.save(imgpath)
-                aufz.US_img=imgpath
-                self.model.saveAufzeichnung(aufzeichnung=aufz)
+                path = self.model.savePILImage(img=img,img_name=img_name)
+                rec.US_img=path
+                self.model.saveRecord(record=rec)
             except IOError as e:
                 raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
             except ValueError as e:
                 #Konnte Aufzeichnung nicht speichern. Please try again with SAME DATA!
-                pass
+                return
             
+            #try saving corresponding Position
             try:
-                self.model.savePosition(A_ID=aufz.A_ID, handles=handles)
+                self.model.savePosition(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
-           
             
-
-
-    def cleanSavingProcess(self, aufzeichnung):
-        pass
-
-
-           
- 
-            
+            self.model.setCurrentWorkitem(rec)
+            self.model.setCurrentWorkitem(handles.values())
+                  
     def validatePosition(self, handles):
         #Validate Handles for saving
         #Check for Missing Handles, check for correct frameID
@@ -400,7 +377,8 @@ class UltraVisController:
                 validSave = False
                 missID.append(h_id)
             
-            if (h.frame_id not in frameID and frameID):
+            #check for ID and frameID must not be empty
+            if ((h.frame_id not in frameID) and not not frameID):
                 validSave = False
 
             frameID.append(h.frame_id)
@@ -415,6 +393,345 @@ class UltraVisController:
                
 
 
+    #----GUI Related ----#
+
+
+
+    def newExamination(self):
+        self.view.buildNewExamFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='new_examination')
+        self.view.continueBut["command"] = self.setupHandles
+    
+
+    def validateNewExamination(self):
+        #if there is future validation necessary e.g. Patient data is required, you need to implement it here
+        doctor = self.view.doctorEntry.get()
+        patient = self.view.patientEntry.get()
+        examitem = self.view.examItemTextbox.get("1.0",'end-1c')
+        created = self.view.createdEntry.get()
+
+        params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem,"created":created}
+        new_exam = Examination(**params)
+        logging.debug(f'Exam Data - {new_exam}')
+
+        #Due to no validation as of now, 
+        validExam = True 
+        
+        return validExam,new_exam
+            
+    
+    def setupHandles(self):
+        
+        #save exam procudere should be actually somewhere else ...
+        validExam,new_exam = self.validateNewExamination()
+        if (validExam):
+            try:
+                self.model.saveExamination(examination=new_exam)
+                self.model.setCurrentWorkitem(obj=new_exam)
+            except ValueError as e:
+                msg = "Could not save Examination. See logs for details."
+                self.view.setInfoMessage(msg)
+                return
+        else:
+            logging.error(f'Invalid Examinationdata')
+            return
+        
+        self.view.buildSetupFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='setup')
+        self.addSetupHandlesFunc()
+        
+        #load Menu but still disabled. 
+        if (self.aua_active):
+            self.q.put(self.activateHandles)
+
+        
+
+        #wenn sucessfull dann enable button. Und hole dir Handledaten
+        #Else zeige zurückbutton und läd den Basescreen again. 
+
+
+    def validateSetupHandles(self,handle_index=None):
+        
+        last_index = self.hm.getNum_Handles() - 1 if self.hm is not None else 3
+        setuphandles = self.view.setupHandleFrames
+        isValid = None
+        #Check all handles and start next App part
+        if handle_index is None:
+            
+            valid_list = [] 
+            for setuphandle in setuphandles:
+                valid_list.append(setuphandle['valid'])
+            
+            if False in valid_list:
+                self.view.setSetupInstruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
+                logging.info(f"Invalid Setuphandles. See List: {valid_list}")
+                isValid = False
+            else:
+                isValid = True
+
+            return isValid
+
+        #Check Single Index
+        elif handle_index <= last_index:
+            
+            # check handle Data
+            setuphandle = setuphandles[handle_index]
+            entry = setuphandle["ref_entry"]
+            ref_value = entry.get()
+            
+            if (len(str(ref_value)) is not 0):
+                setuphandle["valid"] = True
+            else:
+                self.view.setSetupInstruction("Bitte tragen Sie einen Referenznamen für die Spule ein")
+                isValid = False
+                return isValid
+
+            if (handle_index != last_index):
+                self.view.setCurrentSetupHandle(handle_index+1)
+            else:
+                self.view.instructionLabel["bg"] = "SpringGreen"
+                self.view.setSetupInstruction("Einrichtung der Spulen abgeschlossen. Sie können mit der Untersuchung beginnen :)")
+                setuphandle["frame"]["bg"] = 'white'
+                children = setuphandle["frame"].winfo_children()
+                hp.disableWidgets(children,disable_all=True)
+                isValid = True
+                return isValid
+        else:
+            raise ValueError(f"Invalid Handle_index: {handle_index}.")
+
+    
+
+    def startExamination(self):
+        valid_setupHandles = self.validateSetupHandles()
+        if (valid_setupHandles == False):
+            return
+        else:
+            # TODO remove for test
+            handles = self.hm.getHandles().values()
+            setuphandles =self.view.setupHandleFrames
+            for i,pair in enumerate(zip(handles,setuphandles)):
+                handle,setuphandle = pair
+                entry = setuphandle["ref_entry"]
+                refname = entry.get()
+                handle.setReferenceName(refname)
+
+            self.view.buildAppFrame(master=self.view.rightFrame)
+            self.view.showMenu(menu='app')
+            self.view.continueBut = self.finalizeExamination
+
+    def setTargetPos(self):
+        print("Set Target Position")      
+        pos = [0.0, 0.0, 0.0]
+        #with self.aua._lock:
+            #tx = self.aua.tx()
+            #self.hm.updateHandles(tx)
+        num_handle = self.hm.getNum_Handles()
+        if (num_handle is not 4):
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
+        else:
+            handles = self.hm.getHandles()
+            current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
+            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)            
+            #print(current_ori)
+
+            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            
+            pos = self.calibrator.transform_backward(current_pos)
+
+            self.view.navigationvis.set_target_pos(pos[0], pos[1])
+            self.view.navigationvis.set_target_ori(a, b, c)
+
+    def calibrate_coordsys(self):
+        print("Calibrate Coordination System")
+        #with self.aua._lock:
+            #tx = self.aua.tx()
+            #self.hm.updateHandles(tx)
+        handles = self.hm.getHandles()
+
+        num_handle = self.hm.getNum_Handles()
+        if (num_handle != 4):
+            logging.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!') 
+        else:
+            a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
+            b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
+            c = [handles['0D'].Tx, handles['0D'].Ty, handles['0D'].Tz] # brustbein
+        
+            self.calibrator.set_trafo_matrix(a,b,c)
+
+
+    #Muss Logik einbauen, dass das System dabei auch resettet wird &
+    # das GUI etc. korrekt gestoppt wird   
+    def cancelExamination(self,save=False):
+        self.view.buildMainScreenFrame(master=self.view.rightFrame)
+        self.view.showMenu()
+
+
+    def validateExamination(self):
+        isValid = None
+
+        workitem = self.model.getCurrentWorkitem()
+        if not workitem["Records"]:
+            isValid = False
+        elif False:
+            #another Validation
+            pass
+        
+        if (isValid is None):
+            isValid = True   
+
+        return isValid
+
+    def finalizeExamination(self):
+        isValidExam = self.validateExamination()
+        if (isValidExam):
+
+            try:
+                new_E_ID = self.model.persistWorkitem()
+            except ValueError as e:
+                msg = "Could not save Examination. See logs for details."
+                self.view.setInfoMessage(msg)
+                logging.error(str(e))
+                return
+
+            self.model.loadWorkitem(new_E_ID)
+            self.view.buildSummaryFrame(master=self.view.rightFrame)
+            self.view.showMenu(menu='summary')
+
+            frame = self.view.sumContentFrame
+            
+            self.view.sumContentlb["text"] = self.view.workitemdataLabel["text"]
+
+
+
+        else:
+            msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
+            logging.info(msg)
+            self.view.setInfoMessage(msg=msg,type='ERROR')
+            return
+        
+    #needs further rework.
+    def buildSummaryContent(self):      
+        
+        hp.setRow(0)
+
+        exam, records, handles = self.model.getCurrentWorkitem().values()
+        frame = self.view.sumContentFrame
+        frame.columnconfigure(0, weight=1, uniform=2)
+        frame.columnconfigure(1, weight=2, uniform=2)
+        frame.columnconfigure(2, weight=1, uniform=2)
+        frame.columnconfigure(3, weight=2, uniform=2)
+        frame.columnconfigure(4, weight=1, uniform=2)
+        frame.columnconfigure(5, weight=2, uniform=2)
+
+        row = hp.getnextRow()
+        frame.rowconfigure(row, weight=1, uniform=1)
+        exam_title = tk.Label(frame,text=f'Examination - {exam.E_ID}')
+        exam_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
+        
+        lst = list(range(10))
+        i = 0
+        x = 0
+        for key,value in exam.__dict__.items():
+
+            
+            if x % 3  == 0:
+                row = hp.getnextRow()
+                x = 0
+                i = 0
+            
+            frame.rowconfigure(row, weight=1, uniform=1)
+
+            lb_key = tk.Label(frame,text=str(key))
+            lb_value = tk.Label(frame,text=str(value))
+            
+            lb_key.grid(row=row,column=i,sticky=tk.EW)
+            lb_value.grid(row=row,column=i+1,sticky=tk.EW)
+            x += 1
+            i += 2
+
+
+        for r in records:
+            row = hp.getnextRow()
+            frame.rowconfigure(row, weight=1, uniform=2)
+            rec = r.__dict__.items()
+            rec_title = tk.Label(frame,text=f'Record - {r.R_ID}')
+            rec_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
+            
+            j = 0
+            y = 0
+            for key,value in rec:
+
+                if y % 3 == 0 :
+                    row = hp.getnextRow()
+                    y = 0
+                    j = 0
+                frame.rowconfigure(row, weight=1, uniform=2)
+
+                lb_key = tk.Label(frame,text=str(key))
+                lb_value = tk.Label(frame,text=str(value))
+                
+                lb_key.grid(row=row,column=j,sticky=tk.EW)
+                lb_value.grid(row=row,column=j+1,sticky=tk.EW)
+
+                y += 1
+                j += 2
+
+
+        
+    def _debugfunc(self):
+        self.model.loadWorkitem('E-2')
+        self.view.buildSummaryFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='summary')
+        self.buildSummaryContent()
+        
+
+    # Stub for Tobias
+    def openExamination(self):
+
+        #How to access data, from Tables
+        E_ID = 'E-2'
+        self.model.loadWorkitem(E_ID)
+
+        workitem = self.model.getCurrentWorkitem()
+
+        exam_object, records_list, positions_list = workitem.values()
+
+        print(exam_object.E_ID)
+        print(records_list[0].R_ID)
+        #Position is a list object, which contains 4 handle objects
+        print(positions_list[0])
+
+        # Have fun. 
+
+    def initFunctionality(self):
+        
+        self.view.newExamiBut["command"] = self.newExamination
+
+        self.view.startExamiBut["command"] = self.startExamination
+        self.view.activateHandleBut["command"] =lambda: self.q.put(self.activateHandles)
+
+        self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
+        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
+        self.view.calibrateBut["command"] = self.calibrate_coordsys
+        self.view.targetBut["command"] = self.setTargetPos
+        self.view.finishExamiBut["command"] = self.finalizeExamination
+
+        self.view.openExamiBut["command"] = self.openExamination
+        
+        self.view.cancelBut["command"] = self.cancelExamination
+
+        self.view.NOBUTTONSYET["command"] = self._debugfunc
+        #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
+
+
+    def addSetupHandlesFunc(self):
+        
+        frames = self.view.setupHandleFrames
+        #Partial muss genutzt werden, weil der Parameter hochgezählt wird. 
+        for i,frame_data in enumerate(frames):
+            #frame,handlename,ref_entry,button,valid = frame_data.values()
+            button = frame_data["button"]
+            button["command"] = partial(self.validateSetupHandles, handle_index=i)
 
 
 
@@ -439,89 +756,6 @@ class UltraVisController:
     def testFunction(self):
         with self.aua._lock:
             self.aua.beep(2)
-
-    #----GUI Related ----#
-
-
-
-
-    def newExamination(self):
-        self.view.buildNewExamFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='new_examination')
-        self.view.continueBut["command"] = self.setupUvis
-       #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
-
-    #wip
-    def setupUvis(self):
-        self.view.buildSetupFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='setup')
-        #load Menu but still disabled. 
-        #self.q.put(self.activateHandles)
-        #wenn sucessfull dann enable button. 
-        #Else zeige zurückbutton und läd den Basescreen again. 
-
-    def startExamination(self):
-        self.view.buildAppFrame(master=self.view.rightFrame)
-        self.view.showMenu(menu='app')
-
-    def setTargetPos(self):
-        print("Set Target Position")      
-        pos = [0.0, 0.0, 0.0]
-        with self.aua._lock:
-            tx = self.aua.tx()
-            self.hm.updateHandles(tx)
-
-            num_handle = self.hm.getNum_Handles()
-            if (num_handle is not 4):
-                logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
-            
-            handles = self.hm.getHandles()
-            current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
-            current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-            
-            print(current_ori)
-            pos = self.calibrator.transform_backward(current_pos)
-
-
-        self.view.navigationvis.set_target_pos(pos[0], pos[1])
-
-    def calibrate_coordsys(self):
-        print("Calibrate Coordination System")
-        with self.aua._lock:
-            tx = self.aua.tx()
-            self.hm.updateHandles(tx)
-            handles = self.hm.getHandles()
-
-            num_handle = self.hm.getNum_Handles()
-            if (num_handle != 4):
-                logging.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!') 
-            else:
-                a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
-                b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
-                c = [handles['0D'].Tx, handles['0D'].Ty, handles['0D'].Tz] # brustbein
-            
-                self.calibrator.set_trafo_matrix(a,b,c)
-
-    def start_navigation(self):
-        self.view.buildAppFrame(master=self.view.rightFrame, nav=True)
-        self.view.showMenu(menu='app')
-
-    def initFunctionality(self):
-        
-        self.view.newExamiBut["command"] = self.newExamination
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-
-        self.view.NOBUTTONSYET["command"] = self.startExamination
-        self.view.calibrateBut["command"] = self.calibrate_coordsys
-        self.view.startNavBut["command"] = self.start_navigation
-
-        self.view.targetBut["command"] = self.setTargetPos
-
-    def addFuncTracking(self):
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.savePosition)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-
 
 
     def addFuncDebug(self):
@@ -567,102 +801,32 @@ class UltraVisController:
 
 
     def refreshSysmode(self):
-        pass
-        #self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        if (hasattr(self.view,'sysmodeLabel')):
+            self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+        else:
+            self.view.rightFrame.after(2000,self.refreshSysmode)
+
+    #WIP   
+    def refreshWorkItem(self):
+    
+        infotext = f'Current Workitem\n'
+
+        workitem = self.model.getCurrentWorkitem()
+    
+        exam,records,handles = workitem.values()
+        infotext += f'\nExamination-ID: {exam.E_ID}\n{exam.__dict__}\n'
         
 
-'''        
-   
-
-    def safe_met_handle_string(self, test_out):
-        Anz_Sensoren = int(test_out[0:2])
-        test_out = test_out[2:]
-        iii = 0
-        while iii < Anz_Sensoren:
-            if "MISSING" in test_out[0:15]:
-                test_out = test_out[32:101]
-                iii += 1
-            else:
-                # String zu einem Sensor
-                self.handle_string = test_out[0:69]
-                if self.handle_string[1:2] == "A":
-                    self.handle_0_ID = self.handle_string[1:2]
-                    self.handle_0_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_0_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_0_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_0_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_0_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_0_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_0_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_0_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_0_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-
-                if self.handle_string[1:2] == "B":
-                    # print("gute nacht sina")
-                    self.handle_1_ID = self.handle_string[1:2]
-                    self.handle_1_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_1_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_1_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_1_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_1_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_1_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_1_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_1_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_1_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-                if self.handle_string[1:2] == "C":
-                    self.handle_2_ID = self.handle_string[1:2]
-                    self.handle_2_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_2_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_2_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_2_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_2_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_2_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_2_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_2_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_2_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-                if self.handle_string[1:2] == "D":
-                    self.handle_3_ID = self.handle_string[1:2]
-                    self.handle_3_Q0 = float(self.insert_dash(self.handle_string[2:8], 2))
-                    self.handle_3_Qx = float(self.insert_dash(self.handle_string[8:14], 2))
-                    self.handle_3_Qy = float(self.insert_dash(self.handle_string[14:20], 2))
-                    if self.handle_string[20] == '-':
-                        self.handle_3_Qz = float(self.insert_dash(self.handle_string[21:26], 1))
-                    elif self.handle_string[20] == '+':
-                        self.handle_3_Qz = float(self.insert_dash('-' + self.handle_string[21:26], 2))
-                    self.handle_3_Tx = float(self.insert_dash(self.handle_string[26:33], 5))
-                    self.handle_3_Ty = float(self.insert_dash(self.handle_string[33:40], 5))
-                    self.handle_3_Tz = float(self.insert_dash(self.handle_string[41:47], 4))
-                    self.handle_3_Err = float(self.insert_dash(self.handle_string[47:59], 2))
-
-                self.koordinatenSystem()
-                test_out = test_out[70:]
-                iii += 1
-
-    def onSaveRefPosClicked(self):
-        # print("Clicked save ref")
-        self.safe_handle_0_ID = self.handle_0_ID
-        self.safe_handle_0_Q0 = self.handle_0_Q0
-        self.safe_handle_0_Qx = self.handle_0_Qx
-        self.safe_handle_0_Qy = self.handle_0_Qy
-        self.safe_handle_0_Qz = self.handle_0_Qz
-        self.safe_handle_0_Tx = self.handle_0_Tx
-        self.safe_handle_0_Ty = self.handle_0_Ty
-        self.safe_handle_0_Tz = self.handle_0_Tz
-        self.safe_handle_0_Err = self.handle_0_Err
-
-        cv2image = cv2.cvtColor(self.ultraVisView.frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        imgtk = ImageTk.PhotoImage(image=img)
-        self.ultraVisView.screenshotmain.imgtk = imgtk
-        self.ultraVisView.screenshotmain.configure(image=imgtk)
-'''
-
-#TEMPORÄR!!!
-controller = UltraVisController(debug_mode=True)
-controller.run()
+        for i, rec in enumerate(records):
+            infotext +=f'\nRecord-ID: {rec.R_ID}\n{rec.__dict__}\n'
+            
+            try:
+                position = handles[i]
+                infotext +=f'\nPositiondata {i}\n'
+                for h in position:
+                    infotext += f'Handle {h.ID}-{h.refname}: {h.__dict__}\n'
+            except IndexError as e:
+                continue
+    
+        #self.view.workitemdataLabel["text"] = infotext
+        
