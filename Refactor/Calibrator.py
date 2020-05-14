@@ -156,7 +156,7 @@ class Calibrator:
         vy = q.rotate(vy_u)
         vx = self.__inverse_vec(q.rotate(vz_u))
 
-        print("---")
+        #print("---")
         #print(vx)
         #print(vy)
         #print(vz)
@@ -175,8 +175,8 @@ class Calibrator:
         # TODO this does not realy work
         rot_v = self.__unit_vector([vx[0], vx[1], 0.0])
         rot_angle = self.__angle_between([1.0,0.0,0.0], rot_v)#*np.sign(vx[1])
-        print(rot_v)
-        print(rot_angle)
+        #print(rot_v)
+        #print(rot_angle)
         #v_xy = self.__unit_vector([vx[0], vx[1], 0.0])
         #a_xy = self.__angle_between(vx, v_xy)*np.sign(vx[1])*np.pi
 

@@ -67,7 +67,7 @@ class UltraVisController:
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM8'
+        self.ser.port = 'COM3'
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
