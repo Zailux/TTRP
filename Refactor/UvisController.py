@@ -558,71 +558,131 @@ class UltraVisController:
     #needs further rework.
     def buildSummaryContent(self):      
         
-        hp.setRow(0)
-
+        itemcount = self.model.getItemCountofWorkitem()
         exam, records, handles = self.model.getCurrentWorkitem().values()
-        frame = self.view.sumContentFrame
-        frame.columnconfigure(0, weight=1, uniform=2)
-        frame.columnconfigure(1, weight=2, uniform=2)
-        frame.columnconfigure(2, weight=1, uniform=2)
-        frame.columnconfigure(3, weight=2, uniform=2)
-        frame.columnconfigure(4, weight=1, uniform=2)
-        frame.columnconfigure(5, weight=2, uniform=2)
-
-        row = hp.getnextRow()
-        frame.rowconfigure(row, weight=1, uniform=1)
-        exam_title = tk.Label(frame,text=f'Examination - {exam.E_ID}')
-        exam_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
-        
-        lst = list(range(10))
-        i = 0
-        x = 0
-        for key,value in exam.__dict__.items():
-
-            
-            if x % 3  == 0:
-                row = hp.getnextRow()
-                x = 0
-                i = 0
-            
-            frame.rowconfigure(row, weight=1, uniform=1)
-
-            lb_key = tk.Label(frame,text=str(key))
-            lb_value = tk.Label(frame,text=str(value))
-            
-            lb_key.grid(row=row,column=i,sticky=tk.EW)
-            lb_value.grid(row=row,column=i+1,sticky=tk.EW)
-            x += 1
-            i += 2
+        sumFrame = self.view.sumContentFrame
+        sumFrame.columnconfigure(0,weight=1)
+        hp.setRow(0)
+        r = hp.getnextRow()
+        self.buildSumExam(master=sumFrame,row_index=r,exam=exam)
 
 
-        for r in records:
+        for i,rec in enumerate(records):
             row = hp.getnextRow()
-            frame.rowconfigure(row, weight=1, uniform=2)
-            rec = r.__dict__.items()
-            rec_title = tk.Label(frame,text=f'Record - {r.R_ID}')
-            rec_title.grid(row=row,column=0,columnspan=6,sticky=tk.NSEW)
+            self.buildSumRecord(master=sumFrame,row_index=row,record=rec)
+
+            row = hp.getnextRow()
+            self.buildSumPosition(master=sumFrame,row_index=row,position=handles[i])
+
+
+    def buildSumExam(self,master,row_index,exam):
+        master.rowconfigure(row_index,weight=2,uniform=1)
+
+        examFrame = tk.Frame(master,bg ='blue')
+        examFrame.columnconfigure(0, weight=1,uniform=1)
+        examFrame.columnconfigure(1, weight=2,uniform=1)
+        examFrame.columnconfigure(2, weight=1,uniform=1)
+        examFrame.columnconfigure(3, weight=2,uniform=1)
+        examFrame.columnconfigure(4, weight=1,uniform=1)
+        examFrame.columnconfigure(5, weight=2,uniform=1)
+        examFrame.rowconfigure(0,weight=1,uniform=2)
+
+        exam_title = tk.Label(examFrame,text=f'Examination - {exam.E_ID}')
+        exam_title.grid(row=0,column=0,columnspan=6,sticky=tk.EW)
+
+    
+        row_i = 1
+        column_i = 0
+
+        examFrame.rowconfigure(row_i, weight=1,uniform=2)
+        #Display Examination Value
+        for item_index, pair in enumerate(exam.__dict__.items(),start=1):
+            key,value = pair
+            if item_index % 3  == 0:
+                row_i += 1
+                column_i = 0
+                examFrame.rowconfigure(row_i, weight=1,uniform=2)
             
-            j = 0
-            y = 0
-            for key,value in rec:
+            lb_key = tk.Label(examFrame,text=str(key),bd=1)
+            ref_value = hp.getReadOnlyWidget(master=examFrame,value=value,max_length=28)
+    
+            lb_key.grid(row=row_i,column=column_i,sticky=tk.EW)
+            ref_value.grid(row=row_i,column=column_i+1,sticky=tk.EW)
+            column_i += 2
 
-                if y % 3 == 0 :
-                    row = hp.getnextRow()
-                    y = 0
-                    j = 0
-                frame.rowconfigure(row, weight=1, uniform=2)
+        examFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
 
-                lb_key = tk.Label(frame,text=str(key))
-                lb_value = tk.Label(frame,text=str(value))
-                
-                lb_key.grid(row=row,column=j,sticky=tk.EW)
-                lb_value.grid(row=row,column=j+1,sticky=tk.EW)
+    def buildSumRecord(self,master,row_index,record):
 
-                y += 1
-                j += 2
+        master.rowconfigure(row_index,weight=2,uniform=1)
+
+        recordsFrame = tk.Frame(master,bg ='red')
+        recordsFrame.columnconfigure(0, weight=1,uniform=1)
+        recordsFrame.columnconfigure(1, weight=2,uniform=1)
+        recordsFrame.columnconfigure(2, weight=1,uniform=1)
+        recordsFrame.columnconfigure(3, weight=2,uniform=1)
+        recordsFrame.columnconfigure(4, weight=1,uniform=1)
+        recordsFrame.columnconfigure(5, weight=2,uniform=1)
+        recordsFrame.rowconfigure(0,weight=1,uniform=1)
+
+        r = record.__dict__
+        rec_title = tk.Label(recordsFrame,text=f'Record - {record.R_ID}')
+        rec_title.grid(row=0,column=0,columnspan=6,sticky=tk.NSEW)
+        
+        row_i = 1
+        column_i = 0
+
+        recordsFrame.rowconfigure(row_i, weight=1,uniform=1)
+        #Display Examination Value
+        for item_index,pair in enumerate(r.items(),start=1):
+            key,value = pair
+            if item_index % 3  == 0:
+                row_i += 1
+                column_i = 0
+                recordsFrame.rowconfigure(row_i, weight=1,uniform=1)
+            
+            lb_key = tk.Label(recordsFrame,text=str(key),bd=1)
+            ref_value = hp.getReadOnlyWidget(master=recordsFrame,value=value,max_length=28)
+    
+            lb_key.grid(row=row_i,column=column_i,sticky=tk.EW)
+            ref_value.grid(row=row_i,column=column_i+1,sticky=tk.EW)
+            column_i += 2
+
+        recordsFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
+        
+    def buildSumPosition(self,master,row_index,position):
+
+        master.rowconfigure(row_index,weight=2,uniform=1)
+
+        posFrame = tk.Frame(master,bg ='yellow')
+        posFrame.rowconfigure(0,weight=1,uniform=1)
+        
+        col_len = len(position[0].__dict__)
+        pos_title = tk.Label(posFrame,text=f'Corresponding Position')
+        pos_title.grid(row=0,column=0,columnspan=col_len,sticky=tk.NSEW)
+
+        posFrame.rowconfigure(1,weight=1,uniform=1)
+        for i,key in enumerate(position[0].__dict__.keys()):
+                key = str(key)
+                title_lb = tk.Label(posFrame,text=key,bd=2)
+                posFrame.columnconfigure(i, weight=1,uniform=1)
+                title_lb.grid(row=1,column=i,sticky=tk.NSEW)
+
+        for j, handle in enumerate(position,start=2):
+            
+            posFrame.rowconfigure(j,weight=1,uniform=1)
+
+            for k,val in enumerate(handle.__dict__.values()):
+                val = str(val)
+                handle_val = hp.getReadOnlyWidget(master=posFrame,value=val,max_length=15)
+                handle_val.grid(row=j,column=k,sticky=tk.EW)
+
+        posFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
+        
+     
 
 
+    
         
     def _debugfunc(self):
         self.model.loadWorkitem('E-2')

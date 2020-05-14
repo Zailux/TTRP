@@ -42,6 +42,17 @@ class UltraVisModel:
     def getCurrentWorkitem(self):
          return self.__currWorkitem
 
+    def getItemCountofWorkitem(self):
+        itemcount = 0
+
+        exam, records, handles = self.getCurrentWorkitem().values()
+        itemcount += 1 if exam is not None else 0
+        itemcount += len(records)
+        itemcount += len(handles)
+        
+        return itemcount
+
+
     #handling von gruppe von objekten. Ggf. ist das auch einfach über n Selekt auf Basis der Examination ID möglich
 
     # loadWorkitem is inefficient. It would be better if this methods gets the E_ID and 

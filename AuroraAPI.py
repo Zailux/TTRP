@@ -4,6 +4,7 @@ import logging
 import threading
 import functools
 from copy import copy,deepcopy
+from decimal import *
 
 
 class Aurora:
@@ -401,14 +402,14 @@ class HandleManager:
                     new_handle.setTXData(MISSING=True,port_state=port_state,frame_id=frame_id)
 
                 else:
-                    Q0 = self.string2float(handle[0:6],2)
-                    Qx = self.string2float(handle[6:12],2)
-                    Qy = self.string2float(handle[12:18],2)
-                    Qz = self.string2float(handle[18:24],2)
-                    Tx = self.string2float(handle[24:31],5)
-                    Ty = self.string2float(handle[31:38],5)
-                    Tz = self.string2float(handle[38:45],5)
-                    calc_Err = self.string2float(handle[45:51],2)
+                    Q0 = self.string2dec(handle[0:6],2)
+                    Qx = self.string2dec(handle[6:12],2)
+                    Qy = self.string2dec(handle[12:18],2)
+                    Qz = self.string2dec(handle[18:24],2)
+                    Tx = self.string2dec(handle[24:31],5)
+                    Ty = self.string2dec(handle[31:38],5)
+                    Tz = self.string2dec(handle[38:45],5)
+                    calc_Err = self.string2dec(handle[45:51],2)
                     port_state = handle[51:59]
                     frame_id = handle[59:67]
 
@@ -418,9 +419,9 @@ class HandleManager:
             
             
 
-    def string2float(self, string, separator_index,round_to=4):
+    def string2dec(self, string, separator_index,round_to=4):
         s = string[:separator_index] + '.' + string[separator_index:]
-        f = round(float(s),round_to)
+        f = round(Decimal(s),round_to)
         return f
 
 

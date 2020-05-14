@@ -554,18 +554,15 @@ class UltraVisView(tk.Frame):
     @clearFrame
     def buildSummaryFrame(self,master):
         self.summaryFrame = tk.Frame(master)
-        self.summaryFrame.rowconfigure(0, weight=10, uniform=1)
-        self.summaryFrame.rowconfigure(1, weight=90, uniform=1)
+        self.summaryFrame.rowconfigure(0, weight=5, uniform=1)
+        self.summaryFrame.rowconfigure(1, weight=95, uniform=1)
         self.summaryFrame.columnconfigure(0,weight=1,uniform=1)
-        self.summaryTitlelb = tk.Label(self.summaryFrame,text="Summary")
-        #self.sumContentFrame = ScrollableFrame(master=self.summaryFrame)
-        self.sumContentFrame = tk.Frame(self.summaryFrame)
-
-        #self.sumContentlb = tk.Label(self.sumContentFrame)
+        title_lb = tk.Label(self.summaryFrame,text="Summary")
+        self.sumContentFrame = ScrollableFrame(master=self.summaryFrame)
+        #self.sumContentFrame = tk.Frame(self.summaryFrame)
 
 
-        self.summaryTitlelb.grid(row=0,column=0,sticky=tk.NSEW)
-        #self.sumContentlb.pack()
+        title_lb.grid(row=0,column=0,sticky=tk.NSEW)
         self.sumContentFrame.grid(row=1,column=0,sticky=tk.NSEW)
 
         self.summaryFrame.grid(row=0, column=0,sticky=tk.NSEW) 
