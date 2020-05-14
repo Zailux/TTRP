@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import logging
 
 class NavigationVisualizer:
 
@@ -52,7 +53,7 @@ class NavigationVisualizer:
             self.circles.append(plt.Circle((0, 0), (i+1)*(1/self.circle_count), fc='y', fill=False))
         
         self.canvas = FigureCanvasTkAgg(self.fig, Frame)
-        self.canvas.get_tk_widget().grid()
+        #self.canvas.get_tk_widget().grid(columnspan=2,sticky=tk.NSEW)
         
         self.__initAll()
         self.__animateAll(0)
@@ -91,7 +92,7 @@ class NavigationVisualizer:
         """
         initialize all animations
         """
-        print("Init All")
+        logging.info("Init All Animations")
         for patch in self.circles:
             self.ax.add_patch(patch)
         return self.circles+[self.line1,self.line2]

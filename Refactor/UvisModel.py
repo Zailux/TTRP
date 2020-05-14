@@ -124,6 +124,8 @@ class UltraVisModel:
             R_ID = rec.R_ID
             pos = self.getPosition(R_ID)
             positions.append(pos)
+
+        self.clearCurrentWorkitem()
         
         self.setCurrentWorkitem(exam)
         self.setCurrentWorkitem(records)
@@ -252,11 +254,12 @@ class UltraVisModel:
         
         
     
-    def getPosition(self, R_ID=None):
+    def getPosition(self, R_ID=None,as_dict=False):
 
         R_ID = str(R_ID)
         try:
-            position = []
+            list_pos = []
+            dict_pos = {}
             
             df = self.t_handles[self.t_handles["R_ID"] == R_ID]
             index = df.index.tolist()
@@ -282,9 +285,10 @@ class UltraVisModel:
                 }
 
                 handle = Handle(**init_dict)
-                position.append(handle)
+                list_pos.append(handle)
+                dict_pos[h.ID] = handle
             
-            return position
+            return list_pos if not as_dict else dict_pos
 
         except KeyError as e:
             logging.debug(str(e))
