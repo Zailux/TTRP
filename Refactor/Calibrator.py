@@ -171,6 +171,7 @@ class Calibrator:
         
         #print(self.__angle_between(vz, v_yz))
 
+        # TODO this does not realy work
         rot_v = self.__unit_vector([vx[0], vx[1], 0.0])
         rot_angle = self.__angle_between([1.0,0.0,0.0], rot_v)#*np.sign(vx[1])
         print(rot_v)
@@ -179,7 +180,7 @@ class Calibrator:
         #a_xy = self.__angle_between(vx, v_xy)*np.sign(vx[1])*np.pi
 
         #print("Orientations: " + str([a_yz, a_xz, 0.0]))
-        return a_yz, a_xz, 0.0
+        return a_yz, a_xz, rot_angle
 
 
 
