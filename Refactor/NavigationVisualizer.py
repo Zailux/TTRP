@@ -52,7 +52,7 @@ class NavigationVisualizer:
             self.circles.append(plt.Circle((0, 0), (i+1)*(1/self.circle_count), fc='y', fill=False))
         
         self.canvas = FigureCanvasTkAgg(self.fig, Frame)
-        self.canvas.get_tk_widget().grid()
+        self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
         
         self.__initAll()
         self.__animateAll(0)

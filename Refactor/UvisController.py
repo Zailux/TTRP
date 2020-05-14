@@ -283,7 +283,7 @@ class UltraVisController:
             time.sleep(freq)
 
             t1 = datetime.now()
-            print (t1-t0)
+            #print (t1-t0)
 
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
