@@ -519,6 +519,7 @@ class UltraVisController:
             self.view.showMenu(menu='app')
             self.view.continueBut = self.finalizeExamination
 
+
     def setTargetPos(self):
         print("Set Target Position")      
         pos = [0.0, 0.0, 0.0]
