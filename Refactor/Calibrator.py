@@ -1,5 +1,6 @@
 import numpy as np
 from pyquaternion import Quaternion
+import logging
 
 class Calibrator:
     """ builds transformation matrices """
