@@ -266,14 +266,24 @@ class UltraVisController:
         
         logging.info(threading.current_thread().name+" has started tracking")
        
-        freq = 0.5
+        freq = 0.01
         while(not self.stopTracking):
-
+            t0 = datetime.now()
             with self.aua._lock:
-                tx = self.aua.tx()
-                self.hm.updateHandles(tx)
-                self.setNavCanvasData()
+
+                bx = True
+                if bx:                
+                    header, data = self.aua.bx()             
+                    if self.hm.updateHandlesBX(header, data):
+                        self.setNavCanvasData()
+                else:
+                    tx = self.aua.tx()
+                    self.hm.updateHandles(tx)
+                    self.setNavCanvasData()
             time.sleep(freq)
+
+            t1 = datetime.now()
+            print (t1-t0)
 
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
@@ -541,7 +551,7 @@ class UltraVisController:
             self.view.navigationvis.set_target_pos(pos[0], pos[1])
             self.view.navigationvis.set_target_ori(a, b, c)
 
-    def calibrate_coordsys(self):
+    def calibrate_coordsys(self):      
         print("Calibrate Coordination System")
         #with self.aua._lock:
             #tx = self.aua.tx()
