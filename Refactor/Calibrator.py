@@ -145,21 +145,36 @@ class Calibrator:
 
         # build quaternion from parameters
         q = Quaternion(qw, qx, qy, qz)
-        # rotate unit vectors
-        #vx = q.rotate(vx)
-        #vy = q.rotate(vy)
-        #vz = q.rotate(vz)
         
-        vx = q.rotate(vx_u)
+        #vx = q.rotate(vx_u)
+        #vy = q.rotate(vy_u)
+        #vz = q.rotate(vz_u)
+        
+        # rotations as 3 unit vectors
+        vz = self.__inverse_vec(q.rotate(vx_u))
         vy = q.rotate(vy_u)
-        vz = q.rotate(vz_u)
+        vx = self.__inverse_vec(q.rotate(vz_u))
 
+        print("---")
+        #print(vx)
+        #print(vy)
+        #print(vz)
+
+        # vector on the x/z plane
         v_xz = self.__unit_vector([vz[0], 0.0, vz[2]])
         a_xz = self.__angle_between(vz, v_xz)*-np.sign(vz[1])
 
+        
+        # vector on the y/z plane
         v_yz = self.__unit_vector([0.0, vz[1], vz[2]])
         a_yz = self.__angle_between(vz, v_yz)*np.sign(vz[0])
+        
+        #print(self.__angle_between(vz, v_yz))
 
+        rot_v = self.__unit_vector([vx[0], vx[1], 0.0])
+        rot_angle = self.__angle_between([1.0,0.0,0.0], rot_v)#*np.sign(vx[1])
+        print(rot_v)
+        print(rot_angle)
         #v_xy = self.__unit_vector([vx[0], vx[1], 0.0])
         #a_xy = self.__angle_between(vx, v_xy)*np.sign(vx[1])*np.pi
 
@@ -207,3 +222,5 @@ class Calibrator:
         """ Returns the unit vector of the vector.  """
         return vector / np.linalg.norm(vector)
 
+    def __inverse_vec(self, vector):
+        return [-vector[0],-vector[1],-vector[2]]
