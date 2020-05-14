@@ -67,7 +67,7 @@ class UltraVisController:
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM3'
+        self.ser.port = 'COM8'
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
@@ -607,6 +607,7 @@ class UltraVisController:
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
             logging.info(msg)
+            print(msg)
             self.view.setInfoMessage(msg=msg,type='ERROR')
             return
         
@@ -707,18 +708,19 @@ class UltraVisController:
     def initFunctionality(self):
         
         self.view.newExamiBut["command"] = self.newExamination
+        self.view.openExamiBut["command"] = self.openExamination
 
         self.view.startExamiBut["command"] = self.startExamination
         self.view.activateHandleBut["command"] =lambda: self.q.put(self.activateHandles)
 
         self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-        self.view.calibrateBut["command"] = self.calibrate_coordsys
-        self.view.targetBut["command"] = self.setTargetPos
         self.view.finishExamiBut["command"] = self.finalizeExamination
 
-        self.view.openExamiBut["command"] = self.openExamination
         
+        self.view.calibrateBut["command"] = self.calibrate_coordsys
+        self.view.targetBut["command"] = self.setTargetPos
+
         self.view.cancelBut["command"] = self.cancelExamination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
@@ -829,5 +831,5 @@ class UltraVisController:
             except IndexError as e:
                 continue
     
-        #self.view.workitemdataLabel["text"] = infotext
+        self.view.workitemdataLabel["text"] = infotext
         

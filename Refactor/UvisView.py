@@ -198,8 +198,8 @@ class UltraVisView(tk.Frame):
             'new_examination': [self.continueBut,self.cancelBut],
             'setup': [self.startExamiBut,self.cancelBut], 
             'app': [self.trackBut,self.calibrateBut, self.targetBut,self.saveRecordBut,self.finishExamiBut,self.cancelBut],
-            'summary': [self.mainMenuBut,self.saveEditBut,self.cancelBut],
-            'navigation':[self.NOBUTTONSYET]
+            'summary': [self.mainMenuBut],
+            'navigation':[self.trackBut,self.calibrateBut, self.targetBut,self.saveRecordBut,self.finishExamiBut,self.cancelBut]
         }
 
         for button in menu_buttons[menu]:
@@ -574,11 +574,11 @@ class UltraVisView(tk.Frame):
         #self.sumContentFrame = ScrollableFrame(master=self.summaryFrame)
         self.sumContentFrame = tk.Frame(self.summaryFrame)
 
-        #self.sumContentlb = tk.Label(self.sumContentFrame)
+        self.sumContentlb = tk.Label(self.sumContentFrame, text="-")
 
 
         self.summaryTitlelb.grid(row=0,column=0,sticky=tk.NSEW)
-        #self.sumContentlb.pack()
+        self.sumContentlb.pack()
         self.sumContentFrame.grid(row=1,column=0,sticky=tk.NSEW)
 
         self.summaryFrame.grid(row=0, column=0,sticky=tk.NSEW) 
