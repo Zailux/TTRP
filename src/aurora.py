@@ -1,10 +1,19 @@
-import serial
-import time
+"""This is the Uvis Controller module.
+
+This module does stuff.
+"""
+
+__version__ = '0.1'
+__author__ = 'Bach, Baader'
+
+import functools
 import logging
 import threading
-import functools
-from copy import copy,deepcopy
+import time
+from copy import copy, deepcopy
 from decimal import *
+
+import serial
 
 
 class Aurora:
@@ -428,7 +437,9 @@ class HandleManager:
 
 class Handle:
 
-    def __init__(self, ID, handle_state, refname='DEFAULT',MISSING = None, Q0=None,Qx=None,Qy=None,Qz=None,Tx=None,Ty=None,Tz=None,calc_Err=None,port_state=None,frame_id=None):
+    def __init__(self, ID, handle_state, 
+                 refname = 'DEFAULT',MISSING = None, Q0=None, Qx=None, Qy=None, Qz=None,
+                 Tx=None, Ty=None, Tz=None, calc_Err=None, port_state=None, frame_id=None):
         
         #Handle Data
         self.ID = ID
@@ -496,4 +507,3 @@ class Handle:
         }
        
         return h_dict
-

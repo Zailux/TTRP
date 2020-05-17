@@ -1,33 +1,33 @@
-from UvisModel import UltraVisModel,Record,Examination
-from UvisView import UltraVisView
+"""This is the Uvis Controller module.
+
+This module does stuff.
+"""
+
 import logging
-import time
-import pandas as pd
-from datetime import datetime
-import random
-import tkinter as tk
-
-import serial
-from functools import wraps, partial
-import threading
 import queue
-#import os
-
-# import logging or threadsafe logging etc. 
-#from Observable import Observable
+import random
 import sys
+import threading
+import time
+import tkinter as tk
+from datetime import datetime
+from functools import partial, wraps
 
-sys.path.insert(1, '..\\')
-from AuroraAPI import Aurora, Handle, HandleManager
-
-from PIL import Image
-import matplotlib.pyplot as plt
 import matplotlib.animation
+import matplotlib.pyplot as plt
+import pandas as pd
+import serial
 from mpl_toolkits.mplot3d import Axes3D
+from PIL import Image
+
+#sys.path.insert(1, '..\\')
+from src.aurora import Aurora, Handle, HandleManager
+from src.config import Configuration
+from src.helper import Helper
+from src.uvis_model import Examination, Record, UltraVisModel
+from src.uvis_view import UltraVisView
 
 
-from helper import Helper
-from config import Configuration
 global hp
 hp = Helper()
 global _cfg
@@ -36,16 +36,14 @@ _cfg = Configuration()
 BUTTON_WIDTH = 25
 
 
-
-
 class UltraVisController:
 
     def __init__(self,debug_mode=False):
         
         #Logging Configuration
-        format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
-        logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
-        self._Logger = logging.getLogger()
+        #format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
+        #logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
+        self._Logger = _cfg.LOGGER
         #self._Logger.setLevel(logging.DEBUG)
 
         #Create Model and View
@@ -64,7 +62,7 @@ class UltraVisController:
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM8'
+        self.ser.port = _cfg.COM
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
@@ -138,7 +136,7 @@ class UltraVisController:
 
     def __initObservers(self):
 
-        self.model.register(key="setCurrentWorkitem",observer=self.refreshWorkItem)
+        self.model.register(key="set_current_workitem",observer=self.refreshWorkItem)
 
 
 
@@ -319,7 +317,7 @@ class UltraVisController:
 
         # Description atrtibute, aus der GUI
         # Gets Current Workitem and accesses its Examination
-        workitem = self.model.getCurrentWorkitem()
+        workitem = self.model.get_current_workitem()
         E_ID = workitem["Examination"].E_ID
         rec = Record(date=tmpstamp,E_ID=E_ID)
         img_name = f'{rec.R_ID[4:]}_img'
@@ -331,7 +329,7 @@ class UltraVisController:
             try:
                 path = self.model.savePILImage(img=img,img_name=img_name)
                 rec.US_img=path
-                self.model.saveRecord(record=rec)
+                self.model.save_record(record=rec)
             except IOError as e:
                 raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
             except ValueError as e:
@@ -340,13 +338,13 @@ class UltraVisController:
             
             #try saving corresponding Position
             try:
-                self.model.savePosition(R_ID=rec.R_ID, handles=handles)
+                self.model.save_position(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
             
-            self.model.setCurrentWorkitem(rec)
-            self.model.setCurrentWorkitem(handles.values())
+            self.model.set_current_workitem(rec)
+            self.model.set_current_workitem(handles.values())
                   
     def validatePosition(self, handles):
         #Validate Handles for saving
@@ -413,8 +411,8 @@ class UltraVisController:
         validExam,new_exam = self.validateNewExamination()
         if (validExam):
             try:
-                self.model.saveExamination(examination=new_exam)
-                self.model.setCurrentWorkitem(obj=new_exam)
+                self.model.save_examination(examination=new_exam)
+                self.model.set_current_workitem(obj=new_exam)
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.setInfoMessage(msg)
@@ -515,7 +513,7 @@ class UltraVisController:
     def validateExamination(self):
         isValid = None
 
-        workitem = self.model.getCurrentWorkitem()
+        workitem = self.model.get_current_workitem()
         if not workitem["Records"]:
             isValid = False
         elif False:
@@ -532,14 +530,14 @@ class UltraVisController:
         if (isValidExam):
 
             try:
-                new_E_ID = self.model.persistWorkitem()
+                new_E_ID = self.model.persist_workitem()
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.setInfoMessage(msg)
                 logging.error(str(e))
                 return
 
-            self.model.loadWorkitem(new_E_ID)
+            self.model.load_workitem(new_E_ID)
             self.view.buildSummaryFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='summary')
 
@@ -558,8 +556,8 @@ class UltraVisController:
     #needs further rework.
     def buildSummaryContent(self):      
         
-        itemcount = self.model.getItemCountofWorkitem()
-        exam, records, handles = self.model.getCurrentWorkitem().values()
+        itemcount = self.model.get_length_workitem()
+        exam, records, handles = self.model.get_current_workitem().values()
         sumFrame = self.view.sumContentFrame
         sumFrame.columnconfigure(0,weight=1)
         hp.setRow(0)
@@ -694,7 +692,7 @@ class UltraVisController:
     
         
     def _debugfunc(self):
-        self.model.loadWorkitem('E-2')
+        self.model.load_workitem('E-2')
         self.view.buildSummaryFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='summary')
         self.buildSummaryContent()
@@ -705,9 +703,9 @@ class UltraVisController:
 
         #How to access data, from Tables
         E_ID = 'E-2'
-        self.model.loadWorkitem(E_ID)
+        self.model.load_workitem(E_ID)
 
-        workitem = self.model.getCurrentWorkitem()
+        workitem = self.model.get_current_workitem()
 
         exam_object, records_list, positions_list = workitem.values()
 
@@ -824,7 +822,7 @@ class UltraVisController:
     
         infotext = f'Current Workitem\n'
 
-        workitem = self.model.getCurrentWorkitem()
+        workitem = self.model.get_current_workitem()
     
         exam,records,handles = workitem.values()
         infotext += f'\nExamination-ID: {exam.E_ID}\n{exam.__dict__}\n'
@@ -842,4 +840,3 @@ class UltraVisController:
                 continue
     
         #self.view.workitemdataLabel["text"] = infotext
-        

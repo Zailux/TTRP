@@ -1,30 +1,32 @@
-# -*- coding: latin-1 -
-#from __future__ import print_function
-# from visual import *
-import tkinter as tk
-from tkinter import ttk
-from cv2 import cv2
-from PIL import Image
-from PIL import ImageTk
-import time
-import logging
+"""This is the Uvis View module.
+
+This module does stuff.
+"""
+
 import functools
+import logging
+import threading
+import time
+import tkinter as tk
 from datetime import datetime
+from tkinter import ttk
 
 import matplotlib
-matplotlib.use('Tkagg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
 import matplotlib.animation
-from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 import numpy as np
+from cv2 import cv2
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from mpl_toolkits.mplot3d import Axes3D
+from PIL import Image, ImageTk
 
-import threading
+from src.config import Configuration
+from src.helper import Helper, ScrollableFrame
 
-from helper import Helper, ScrollableFrame
+matplotlib.use('Tkagg')
 
-from helper import Helper
-from config import Configuration
+
+
 global hp
 hp = Helper()
 global _cfg
@@ -106,7 +108,7 @@ class UltraVisView(tk.Frame):
         self.leftFrame.columnconfigure(0,weight=1)
         self.rightFrame = tk.Frame(self.t1_mainFrame, bg = "#196666")
         self.rightFrame.rowconfigure(0, weight=1, uniform=1)
-        self.rightFrame.columnconfigure(0,weight=1)
+        self.rightFrame.columnconfigure(0, weight=1)
        # self.bottomFrame = tk.Frame(self.t1_mainFrame, bg="#ccccff")
 
         self.leftFrame.grid(row=0, column=0, pady=4, padx=4, sticky=tk.NSEW)
@@ -173,15 +175,17 @@ class UltraVisView(tk.Frame):
         self.reinitAuaBut["text"] = "Reinitialize Aurora"
         self.NOBUTTONSYET = tk.Button(self.menuFrame,text="Secret Blowup Button")
 
-        self.menuTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
+        self.menuTitleLabel.pack(side=tk.TOP, pady=(10,2), fill="both")
 
-        self.menuFrame.grid(row=0, column=0,padx=2,pady=2,sticky=tk.NSEW) 
+        self.menuFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW) 
     
 
     def showMenu(self,menu='main',states=None):
         #Idea to use a state "table of 0 and 1 to enable / disable Button"    
 
-        MENUES = ['main','new_examination','setup','app','summary','navigation','all_debug']
+        MENUES = ['main', 'new_examination', 'setup', 'app', 
+                  'summary', 'navigation', 
+                  'all_debug']
         
         if menu not in MENUES:
             raise ValueError(f'Try showing Menu "{menu}" which was not in {MENUES}')
@@ -191,19 +195,19 @@ class UltraVisView(tk.Frame):
 
         #potentially add activatehandles button
         menu_buttons = {
-            'main': [self.newExamiBut,self.openExamiBut],
-            'new_examination': [self.continueBut,self.cancelBut],
-            'setup': [self.startExamiBut,self.cancelBut], 
-            'app': [self.trackBut,self.saveRecordBut,self.finishExamiBut,self.cancelBut],
-            'summary': [self.mainMenuBut,self.saveEditBut,self.cancelBut],
-            'navigation':[self.NOBUTTONSYET]
+            'main': [self.newExamiBut, self.openExamiBut],
+            'new_examination': [self.continueBut, self.cancelBut],
+            'setup': [self.startExamiBut, self.cancelBut], 
+            'app': [self.trackBut, self.saveRecordBut, self.finishExamiBut, self.cancelBut],
+            'summary': [self.mainMenuBut, self.saveEditBut, self.cancelBut],
+            'navigation':[self.NOBUTTONSYET] 
         }
 
         for button in menu_buttons[menu]:
-            button.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both") 
+            button.pack(side=tk.TOP, pady=(0, 0), padx=(10), fill="both") 
 
         if (self._debug):
-            self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),padx=(10), fill="both")
+            self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0), padx=(10), fill="both")
         
 
 
@@ -231,10 +235,10 @@ class UltraVisView(tk.Frame):
         self.adsfBut = tk.Button(self.detailsFrame)  
         self.adsfBut["text"] = "Start/Stop Tracking"
 
-        self.detailsTitleLabel.pack(side=tk.TOP, pady=(10,2),fill="both")
-        self.detailsInfoLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
-        self.workitemdataLabel.pack(side=tk.TOP, pady=(2,2),fill="both")
-        self.detailsFrame.grid(row=1, column=0,padx=2, pady=2,sticky=tk.NSEW)
+        self.detailsTitleLabel.pack(side=tk.TOP, pady=(10,2), fill="both")
+        self.detailsInfoLabel.pack(side=tk.TOP, pady=(2,2), fill="both")
+        self.workitemdataLabel.pack(side=tk.TOP, pady=(2,2), fill="both")
+        self.detailsFrame.grid(row=1, column=0,padx=2, pady=2, sticky=tk.NSEW)
 
 
     #cleaning setInfomsg?? when and how
@@ -430,7 +434,7 @@ class UltraVisView(tk.Frame):
         self.USImgLabel.grid(row=0, column=0,sticky=tk.NSEW)
         self.USImgLabel.grid_propagate(0)
 
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
         self.Capture_FrameGrabber()
         
 
@@ -748,7 +752,3 @@ class UltraVisView(tk.Frame):
     def packChildren(self,childList,side,fill,padx,pady):
         for child in childList:
             child.pack(side=side,fill=fill,padx=padx,pady=pady)
-
-
-    
-            

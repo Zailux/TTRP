@@ -1,7 +1,23 @@
+"""Uvis helper Module
+
+The helper module contains methods, which helps with
+easier GUI Handling.
+
+Available Classes
+    Helper Class
+    Scrollable Frame Class
+"""
+
 import tkinter as tk
 from tkinter import ttk
 
+
 class Helper():
+    """ The helper class easier GUI Handling in uvis_controller and uvis_view
+      
+    Attributes: 
+        None yet
+    """
 
     def __init__(self):
         pass
@@ -57,10 +73,7 @@ class Helper():
             child.pack(side=side,fill=fill,padx=padx,pady=pady)
 
 
-    
-
-
-
+#Not working ATM
 class ScrollableFrame(ttk.Frame):
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
