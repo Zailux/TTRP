@@ -15,7 +15,7 @@ class Configuration(metaclass=Singleton):
 
         self.DATAPATH = '..\\data\\'
         self.SAVEDIMGPATH = '../data/img/'
-
+        self.IMGPATH = "..\\img\\"
         # Serial Configuration
         self.COM = None
 

@@ -682,6 +682,15 @@ class UltraVisController:
      
 
 
+        #Show loaded Image 
+        filename = records_list[0].US_img
+        imgtk = self.view.getTKImage(filename)
+        
+        self.view.savedImgLabel.imgtk = imgtk
+        self.view.savedImgLabel.configure(image=self.view.savedImgLabel.imgtk)
+
+        logging.info("Navigation is ready. Please start Tracking and calibrating")
+
     
         
     def _debugfunc(self):

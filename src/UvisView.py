@@ -23,8 +23,12 @@ import threading
 
 from helper import Helper, ScrollableFrame
 
+from helper import Helper
+from config import Configuration
 global hp
 hp = Helper()
+global _cfg
+_cfg = Configuration()
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
@@ -33,6 +37,7 @@ BUTTON_WIDTH = 25
 
 #application frames will clear the self.rightframe first before displaying their gui
 def clearFrame(func):
+
     @functools.wraps(func)
     def buildFrame_wrapper(*args, **kwargs):
         master = kwargs['master']
@@ -44,7 +49,7 @@ def clearFrame(func):
             if (len(frame) is not 0):
                 frame[0].destroy()
         return func(*args, **kwargs)
-     
+
     return buildFrame_wrapper
 
 
@@ -675,8 +680,8 @@ class UltraVisView(tk.Frame):
 
     def initImages(self):
 
-        self.imgdir = "..\\img\\"
-        self.notfoundimg = self.imgdir+"not-found-image.jpg"
+        imgdir = _cfg.IMGPATH
+        self.notfoundimg = imgdir+"not-found-image.jpg"
 
         # Bilder f�r x-Achse
         self.x_links_orange = self.getTKImage("x-links-orange.jpg")
@@ -726,7 +731,7 @@ class UltraVisView(tk.Frame):
 
     def getTKImage(self,filename):
         #Opens Image and translates it to TK compatible file.
-        filename = self.imgdir+filename
+        #filename = self.imgdir+filename
         
         try:
             tkimage = Image.open(filename)  
