@@ -17,7 +17,7 @@ class Singleton(type):
 class Configuration(metaclass=Singleton):
 
     def __init__(self):
-        self.DEBUG = None
+        self.DEBUG = True
 
         #Paths
         self.DATAPATH = 'data\\'

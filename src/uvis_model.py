@@ -32,14 +32,20 @@ _cfg = Configuration()
 
 
 class UltraVisModel:
-
+    """ The UltraVisModel class provides
+        methods to access the data / model of the uvis application.
+        It is primarily for reading and saving data from the csv tables.
+        As for a more handy accessability, the model maintains the application
+        data in a "workitem". A dict, which consolidates the Examination, Records
+        and Handles in one object. 
+        Via an observer pattern, the model triggers a callback to
+        the corresponding methods in the controller (caller).
+    """
     def __init__(self):
-        
         datapath = _cfg.DATAPATH
         self.EXAMINATION_PATH = datapath+'examination.csv'
         self.RECORDS_PATH = datapath+'record.csv'
         self.HANDLE_PATH = datapath+'handles.csv'
-
         try: 
             self.t_examination = pd.read_csv(self.EXAMINATION_PATH, index_col=0)
             self.t_records = pd.read_csv(self.RECORDS_PATH, index_col=0)
@@ -68,7 +74,7 @@ class UltraVisModel:
         """Calls the observers methods, based on the methodkey of UltraVisModel method."""
         key = str(key)
         if (key in self._observers):
-            logging.debug(f'Callback for "{key}" - {self._observers[key]}')
+            logging.debug(f'{self.__class__}: Callback for "{key}" - {self._observers[key]}')
             for observer_method in self._observers[key]:
                 observer_method()
 
@@ -267,18 +273,15 @@ class UltraVisModel:
         if (not(isinstance(record,Record))):
             raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
         
-        logging.debug('Trying to write data:')
-        
+        logging.debug('Trying to write data:') 
         if (persistant):
             #here kommt noch was
             pass
 
         rec = record.__dict__
-        
         df = pd.DataFrame(data=rec,index=[0])
         df = df.set_index('R_ID')
         logging.debug(df)
-
         try:
             new_record = self.t_records.append(df,verify_integrity=True)
             new_record.to_csv(self.RECORDS_PATH)
@@ -300,7 +303,6 @@ class UltraVisModel:
 
             for i in index:
                 h = self.t_handles.loc[i]
-
                 init_dict = {
                     'ID' : h.ID,
                     'handle_state' : h.handle_state,
@@ -317,7 +319,6 @@ class UltraVisModel:
                     'port_state' : h.port_state,
                     'frame_id' : h.frame_id
                 }
-
                 handle = Handle(**init_dict)
                 position.append(handle)
             
@@ -328,27 +329,19 @@ class UltraVisModel:
             logging.error(f'Record with Key "{R_ID}" could not be found.')
             return None
         
-
     def save_position(self, R_ID,handles):
 
         try:
             temp_data = self.t_handles    
-
             for h in handles.values():
-                #h = h.to_dict()
                 h = h.__dict__
                 h['R_ID'] = R_ID
-
                 handle_data = h
                 new_df = pd.DataFrame(data=handle_data,index=[len(temp_data.index)])
-
-                temp_data = temp_data.append(new_df,verify_integrity=True)
-
-            
+                temp_data = temp_data.append(new_df,verify_integrity=True)    
             logging.debug(str(temp_data))
             temp_data.to_csv(self.HANDLE_PATH)
             self.t_handles = temp_data
-
         except ValueError as e:
             logging.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))

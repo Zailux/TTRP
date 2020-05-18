@@ -29,11 +29,9 @@ from src.uvis_view import UltraVisView
 
 
 global hp
-hp = Helper()
 global _cfg
+hp = Helper()
 _cfg = Configuration()
-#GlobaleVariablen Definition
-BUTTON_WIDTH = 25
 
 
 class UltraVisController:
@@ -86,7 +84,7 @@ class UltraVisController:
         
             #Close Tracking + Matplotanimation
             if (self.aua_active):
-                if(self.aua.getSysmode()=='TRACKING'):
+                if(self.aua.get_sysmode()=='TRACKING'):
                     self.stopTracking = True
                     self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
                     with self.aua._lock:
@@ -168,12 +166,12 @@ class UltraVisController:
 
         self.aua_active = True
         logging.info("Connection success")
-        self.aua.register("Sysmode",self.refreshSysmode)
+        self.aua.register("set_sysmode",self.refreshSysmode)
         self.enableWidgets(widgets)
         self.view.reinitAuaBut.grid_forget()
 
         logging.info("Reset Aurorasystem")
-        self.aua.resetandinitSystem()
+        self.aua.reset_and_init_system()
         
         self.addFuncDebug()
         
@@ -235,7 +233,7 @@ class UltraVisController:
         #Bug self.aua can't deal with concurrent calls !
        
         
-        if (self.aua.getSysmode()=='SETUP'):
+        if (self.aua.get_sysmode()=='SETUP'):
             with self.aua._lock:
                 self.aua.tstart(40)
 
@@ -246,7 +244,7 @@ class UltraVisController:
             self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.buildCoordinatesystem)
             
 
-        elif(self.aua.getSysmode()=='TRACKING'):
+        elif(self.aua.get_sysmode()=='TRACKING'):
             self.stopTracking = True
             self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
@@ -304,7 +302,7 @@ class UltraVisController:
     
     #Position is saving Record and Handles
     def saveRecord(self):
-        if (not self.aua.getSysmode()=='TRACKING'):
+        if (not self.aua.get_sysmode()=='TRACKING'):
             logging.info("This functionality is only available during tracking. Please Start Tracking")
             return
 
@@ -758,7 +756,7 @@ class UltraVisController:
                 a = self.view.expec.get()
 
             logging.debug("Execute command: "+command)
-            self.aua.writeCMD(command,expect=a)
+            self.aua.write_cmd(command,expect=a)
             self.view.cmdEntry.delete(0, 'end')
 
         except Warning as e:
@@ -772,8 +770,8 @@ class UltraVisController:
     def addFuncDebug(self):
         #Menu
         #self.view.initBut["command"] = self.beep
-        self.view.readBut["command"] = self.aua.readSerial
-        self.view.resetBut["command"] = self.aua.resetandinitSystem
+        self.view.readBut["command"] = self.aua.read_serial
+        self.view.resetBut["command"] = self.aua.reset_and_init_system
         self.view.testBut["command"] = self.testFunction
         self.view.handleBut["command"] = self.activateHandles
         #self.view.restartBut["command"] = self.restart
@@ -813,7 +811,7 @@ class UltraVisController:
 
     def refreshSysmode(self):
         if (hasattr(self.view,'sysmodeLabel')):
-            self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.getSysmode()
+            self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.get_sysmode()
         else:
             self.view.rightFrame.after(2000,self.refreshSysmode)
 
