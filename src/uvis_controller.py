@@ -34,10 +34,13 @@ hp = Helper()
 _cfg = Configuration()
 
 
+SUM_MAXHEIGHT = 4
+SUM_TITLE_PADY = 5
+
 class UltraVisController:
 
     def __init__(self,debug_mode=False):
-        
+
         #Logging Configuration
         #format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
         #logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
@@ -46,7 +49,7 @@ class UltraVisController:
 
         #Create Model and View
         self.root = tk.Tk()
-       
+
         self.model = UltraVisModel()
         self.view = UltraVisView(self.root,debug_mode=debug_mode)
 
@@ -57,7 +60,7 @@ class UltraVisController:
 
         self.__initObservers()
         self.__initBackgroundQueue()
-        
+
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
         self.ser.port = _cfg.COM
@@ -76,12 +79,12 @@ class UltraVisController:
 
     #Closing Method and bind to root Window
     def __on_closing(self):
-       
+
         if (hasattr(self.view,'appFrame')):
              #Close FrameGrabber
             self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
             self.view.cap.release()
-        
+
             #Close Tracking + Matplotanimation
             if (self.aua_active):
                 if(self.aua.get_sysmode()=='TRACKING'):
@@ -89,7 +92,7 @@ class UltraVisController:
                     self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
                     with self.aua._lock:
                         self.aua.tstop()
-        
+
 
         self.quitEvent.set()
         self.ser.close()
@@ -118,7 +121,7 @@ class UltraVisController:
 
                 func = self.q.get()
                 thread = threading.Thread(target=func)
-                
+
                 logging.info(f"Start {thread.getName()}: process {func.__name__}()")
                 time.sleep(0.25)
                 thread.start()
@@ -141,9 +144,9 @@ class UltraVisController:
     def initAurora(self,ser):
 
         logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
-        
 
-        
+
+
         widgets = self.view.menuFrame.winfo_children()
         self.aua_active = False
         try:
@@ -172,9 +175,9 @@ class UltraVisController:
 
         logging.info("Reset Aurorasystem")
         self.aua.reset_and_init_system()
-        
+
         self.addFuncDebug()
-        
+
         logging.info("Initialize Aurorasystem - done")
 
 
@@ -188,12 +191,12 @@ class UltraVisController:
 
         success = True
         with self.aua._lock:
-            try: 
+            try:
                 logging.info("All allocated Ports")
                 phsr_string = self.aua.phsr()
 
                 self.hm = HandleManager(phsr_string)
-                handles = self.hm.getHandles()
+                handles = self.hm.get_handles()
 
                 # print("handles 02")
                 # Occupied handles but not initialized or enabled
@@ -201,10 +204,10 @@ class UltraVisController:
 
                 # Alle Port-Handles Initialisieren
                 # Alle Port-Hanldes aktivieren
-                logging.info(str(self.hm.getNum_Handles())+" Handles identified")
+                logging.info(str(self.hm.get_numhandles())+" Handles identified")
                 logging.info("Initializing Port-Handles")
-           
-                        
+
+
                 for h_id in handles :
                     self.aua.pinit(handles[h_id])
                     self.aua.pena(handles[h_id],'D')
@@ -214,16 +217,16 @@ class UltraVisController:
                 # print("handles 03")
                 # ser.write(b'PHSR 03\r')
                 # time.sleep(1)
-                # readSerial(ser)  
+                # readSerial(ser)
 
                 time.sleep(0.5)
-            
+
             except Warning as w:
                 logging.warning(str(w))
                 success=False
                 #maybe solve via states in show menu Later
                 self.view.activateHandleBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
-            
+
         logging.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
 
@@ -231,8 +234,8 @@ class UltraVisController:
 
     def startstopTracking(self):
         #Bug self.aua can't deal with concurrent calls !
-       
-        
+
+
         if (self.aua.get_sysmode()=='SETUP'):
             with self.aua._lock:
                 self.aua.tstart(40)
@@ -242,7 +245,7 @@ class UltraVisController:
             self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
             self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.buildCoordinatesystem)
-            
+
 
         elif(self.aua.get_sysmode()=='TRACKING'):
             self.stopTracking = True
@@ -250,21 +253,21 @@ class UltraVisController:
             self.tracking_Thread.join()
 
             with self.aua._lock:
-                self.aua.tstop()        
- 
+                self.aua.tstop()
+
     def trackHandles(self):
 
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
-        
+
         logging.info(threading.current_thread().name+" has started tracking")
-       
+
         freq = 0.5
         while(not self.stopTracking):
 
             with self.aua._lock:
                 tx = self.aua.tx()
-                self.hm.updateHandles(tx)
+                self.hm.update_handles(tx)
                 self.setNavCanvasData()
             time.sleep(freq)
 
@@ -275,14 +278,14 @@ class UltraVisController:
         x,y,z = [],[],[]
         av_color = ['yellow','red','green','blue']
         color = []
-        num_handle = self.hm.getNum_Handles()
+        num_handle = self.hm.get_numhandles()
         if (num_handle is not 4):
-            logging.warning(f'There are {num_handle} handles identified. Is that correct?')        
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
             color = color[:num_handle]
-        
-        handles = self.hm.getHandles()
+
+        handles = self.hm.get_handles()
         #Might change for Items, if the specific request of handle object is neccessary.
-        
+
         for i,handle in enumerate(handles.values()):
             if (handle.MISSING is None):
                 break
@@ -292,14 +295,14 @@ class UltraVisController:
                 y.append(handle.Ty)
                 z.append(handle.Tz)
                 color.append(av_color[i])
-            
-                
-    
-            
+
+
+
+
         logging.debug(f'x values: {x}')
-        
+
         self.view.navCanvasData = (x,y,z,color)
-    
+
     #Position is saving Record and Handles
     def saveRecord(self):
         if (not self.aua.get_sysmode()=='TRACKING'):
@@ -311,7 +314,7 @@ class UltraVisController:
         img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
 
         dt = datetime.now()
-        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")     
+        tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")
 
         # Description atrtibute, aus der GUI
         # Gets Current Workitem and accesses its Examination
@@ -319,10 +322,10 @@ class UltraVisController:
         E_ID = workitem["Examination"].E_ID
         rec = Record(date=tmpstamp,E_ID=E_ID)
         img_name = f'{rec.R_ID[4:]}_img'
-        handles = self.hm.getHandles(real_copy=True)
+        handles = self.hm.get_handles(real_copy=True)
 
         if (self.validatePosition(handles)):
-            
+
             #try saving image and the record
             try:
                 path = self.model.savePILImage(img=img,img_name=img_name)
@@ -333,17 +336,17 @@ class UltraVisController:
             except ValueError as e:
                 #Konnte Aufzeichnung nicht speichern. Please try again with SAME DATA!
                 return
-            
+
             #try saving corresponding Position
             try:
                 self.model.save_position(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
                 pass
-            
+
             self.model.set_current_workitem(rec)
             self.model.set_current_workitem(handles.values())
-                  
+
     def validatePosition(self, handles):
         #Validate Handles for saving
         #Check for Missing Handles, check for correct frameID
@@ -354,12 +357,12 @@ class UltraVisController:
         frameID = []
 
         for h_id in handles:
-            h = handles[h_id]       
+            h = handles[h_id]
 
             if(h.MISSING):
                 validSave = False
                 missID.append(h_id)
-            
+
             #check for ID and frameID must not be empty
             if ((h.frame_id not in frameID) and not not frameID):
                 validSave = False
@@ -371,9 +374,9 @@ class UltraVisController:
             logging.error("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
 
         return validSave
-            
 
-               
+
+
 
 
     #----GUI Related ----#
@@ -384,7 +387,7 @@ class UltraVisController:
         self.view.buildNewExamFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='new_examination')
         self.view.continueBut["command"] = self.setupHandles
-    
+
 
     def validateNewExamination(self):
         #if there is future validation necessary e.g. Patient data is required, you need to implement it here
@@ -397,14 +400,14 @@ class UltraVisController:
         new_exam = Examination(**params)
         logging.debug(f'Exam Data - {new_exam}')
 
-        #Due to no validation as of now, 
-        validExam = True 
-        
+        #Due to no validation as of now,
+        validExam = True
+
         return validExam,new_exam
-            
-    
+
+
     def setupHandles(self):
-        
+
         #save exam procudere should be actually somewhere else ...
         validExam,new_exam = self.validateNewExamination()
         if (validExam):
@@ -418,33 +421,33 @@ class UltraVisController:
         else:
             logging.error(f'Invalid Examinationdata')
             return
-        
+
         self.view.buildSetupFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='setup')
         self.addSetupHandlesFunc()
-        
-        #load Menu but still disabled. 
+
+        #load Menu but still disabled.
         if (self.aua_active):
             self.q.put(self.activateHandles)
 
-        
+
 
         #wenn sucessfull dann enable button. Und hole dir Handledaten
-        #Else zeige zurückbutton und läd den Basescreen again. 
+        #Else zeige zurückbutton und läd den Basescreen again.
 
 
     def validateSetupHandles(self,handle_index=None):
-        
-        last_index = self.hm.getNum_Handles() - 1 if self.hm is not None else 3
+
+        last_index = self.hm.get_numhandles() - 1 if self.hm is not None else 3
         setuphandles = self.view.setupHandleFrames
         isValid = None
         #Check all handles and start next App part
         if handle_index is None:
-            
-            valid_list = [] 
+
+            valid_list = []
             for setuphandle in setuphandles:
                 valid_list.append(setuphandle['valid'])
-            
+
             if False in valid_list:
                 self.view.setSetupInstruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
                 logging.info(f"Invalid Setuphandles. See List: {valid_list}")
@@ -456,12 +459,12 @@ class UltraVisController:
 
         #Check Single Index
         elif handle_index <= last_index:
-            
+
             # check handle Data
             setuphandle = setuphandles[handle_index]
             entry = setuphandle["ref_entry"]
             ref_value = entry.get()
-            
+
             if (len(str(ref_value)) is not 0):
                 setuphandle["valid"] = True
             else:
@@ -488,7 +491,7 @@ class UltraVisController:
         if (valid_setupHandles == False):
             return
         else:
-            handles = self.hm.getHandles().values()
+            handles = self.hm.get_handles().values()
             setuphandles =self.view.setupHandleFrames
             for i,pair in enumerate(zip(handles,setuphandles)):
                 handle,setuphandle = pair
@@ -502,7 +505,7 @@ class UltraVisController:
 
 
     #Muss Logik einbauen, dass das System dabei auch resettet wird &
-    # das GUI etc. korrekt gestoppt wird   
+    # das GUI etc. korrekt gestoppt wird
     def cancelExamination(self,save=False):
         self.view.buildMainScreenFrame(master=self.view.rightFrame)
         self.view.showMenu()
@@ -517,9 +520,9 @@ class UltraVisController:
         elif False:
             #another Validation
             pass
-        
+
         if (isValid is None):
-            isValid = True   
+            isValid = True
 
         return isValid
 
@@ -539,162 +542,161 @@ class UltraVisController:
             self.view.buildSummaryFrame(master=self.view.rightFrame)
             self.view.showMenu(menu='summary')
 
-            frame = self.view.sumContentFrame
-            
-            self.view.sumContentlb["text"] = self.view.workitemdataLabel["text"]
-
-
 
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
             logging.info(msg)
             self.view.setInfoMessage(msg=msg,type='ERROR')
             return
-        
+
     #needs further rework.
-    def buildSummaryContent(self):      
-        
+    def buildSummaryContent(self):
+
         itemcount = self.model.get_length_workitem()
         exam, records, handles = self.model.get_current_workitem().values()
-        sumFrame = self.view.sumContentFrame
-        sumFrame.columnconfigure(0,weight=1)
+        sumFrame = self.view.summary_content_frame
+        sumFrame.columnconfigure(0, weight=1)
+        sumFrame.rowconfigure(0, weight=1)
         hp.setRow(0)
         r = hp.getnextRow()
-        self.buildSumExam(master=sumFrame,row_index=r,exam=exam)
+
+
+        self.build_summarized_exam(master=sumFrame, row_index=r, exam=exam)
+        #self.view.summary_content_frame.grid()
 
 
         for i,rec in enumerate(records):
             row = hp.getnextRow()
-            self.buildSumRecord(master=sumFrame,row_index=row,record=rec)
+            self.build_summarized_record(master=sumFrame, row_index=row, record=rec)
 
             row = hp.getnextRow()
-            self.buildSumPosition(master=sumFrame,row_index=row,position=handles[i])
+            self.build_summarized_position(master=sumFrame, row_index=row, position=handles[i])
 
 
-    def buildSumExam(self,master,row_index,exam):
-        master.rowconfigure(row_index,weight=2,uniform=1)
 
-        examFrame = tk.Frame(master,bg ='blue')
+    def build_summarized_exam(self, master, row_index, exam):
+        master.rowconfigure(row_index,weight=1)
+
+        examFrame = tk.Frame(master)
         examFrame.columnconfigure(0, weight=1,uniform=1)
         examFrame.columnconfigure(1, weight=2,uniform=1)
         examFrame.columnconfigure(2, weight=1,uniform=1)
         examFrame.columnconfigure(3, weight=2,uniform=1)
         examFrame.columnconfigure(4, weight=1,uniform=1)
         examFrame.columnconfigure(5, weight=2,uniform=1)
-        examFrame.rowconfigure(0,weight=1,uniform=2)
+        examFrame.rowconfigure(0,weight=1)
 
         exam_title = tk.Label(examFrame,text=f'Examination - {exam.E_ID}')
-        exam_title.grid(row=0,column=0,columnspan=6,sticky=tk.EW)
+        exam_title.grid(row=0, column=0, columnspan=6, pady=SUM_TITLE_PADY)
 
-    
         row_i = 1
         column_i = 0
 
-        examFrame.rowconfigure(row_i, weight=1,uniform=2)
+
         #Display Examination Value
-        for item_index, pair in enumerate(exam.__dict__.items(),start=1):
+        for item_index, pair in enumerate(exam.__dict__.items()):
             key,value = pair
             if item_index % 3  == 0:
                 row_i += 1
                 column_i = 0
-                examFrame.rowconfigure(row_i, weight=1,uniform=2)
-            
+                examFrame.rowconfigure(row_i, weight=1)
+
             lb_key = tk.Label(examFrame,text=str(key),bd=1)
-            ref_value = hp.getReadOnlyWidget(master=examFrame,value=value,max_length=28)
-    
-            lb_key.grid(row=row_i,column=column_i,sticky=tk.EW)
-            ref_value.grid(row=row_i,column=column_i+1,sticky=tk.EW)
+            ref_value = hp.get_readonly_widget(master=examFrame, value=value, max_length=28, max_height=SUM_MAXHEIGHT)
+
+            lb_key.grid(row=row_i, column=column_i, sticky=tk.EW)
+            ref_value.grid(row=row_i, column=column_i+1, sticky=tk.EW)
             column_i += 2
 
         examFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
 
-    def buildSumRecord(self,master,row_index,record):
+    def build_summarized_record(self, master, row_index, record):
 
-        master.rowconfigure(row_index,weight=2,uniform=1)
+        master.rowconfigure(row_index,weight=2)
 
-        recordsFrame = tk.Frame(master,bg ='red')
+        recordsFrame = tk.Frame(master)
         recordsFrame.columnconfigure(0, weight=1,uniform=1)
         recordsFrame.columnconfigure(1, weight=2,uniform=1)
         recordsFrame.columnconfigure(2, weight=1,uniform=1)
         recordsFrame.columnconfigure(3, weight=2,uniform=1)
         recordsFrame.columnconfigure(4, weight=1,uniform=1)
         recordsFrame.columnconfigure(5, weight=2,uniform=1)
-        recordsFrame.rowconfigure(0,weight=1,uniform=1)
+        recordsFrame.rowconfigure(0,weight=1)
 
         r = record.__dict__
         rec_title = tk.Label(recordsFrame,text=f'Record - {record.R_ID}')
-        rec_title.grid(row=0,column=0,columnspan=6,sticky=tk.NSEW)
-        
+        rec_title.grid(row=0,column=0,columnspan=6, pady=SUM_TITLE_PADY)
+
         row_i = 1
         column_i = 0
 
-        recordsFrame.rowconfigure(row_i, weight=1,uniform=1)
         #Display Examination Value
-        for item_index,pair in enumerate(r.items(),start=1):
+        for item_index,pair in enumerate(r.items()):
             key,value = pair
             if item_index % 3  == 0:
                 row_i += 1
                 column_i = 0
                 recordsFrame.rowconfigure(row_i, weight=1,uniform=1)
-            
+
             lb_key = tk.Label(recordsFrame,text=str(key),bd=1)
-            ref_value = hp.getReadOnlyWidget(master=recordsFrame,value=value,max_length=28)
-    
+            ref_value = hp.get_readonly_widget(master=recordsFrame,value=value,max_length=28, max_height=SUM_MAXHEIGHT)
+
             lb_key.grid(row=row_i,column=column_i,sticky=tk.EW)
             ref_value.grid(row=row_i,column=column_i+1,sticky=tk.EW)
             column_i += 2
 
         recordsFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
-        
-    def buildSumPosition(self,master,row_index,position):
 
-        master.rowconfigure(row_index,weight=2,uniform=1)
+    def build_summarized_position(self, master, row_index, position):
 
-        posFrame = tk.Frame(master,bg ='yellow')
-        posFrame.rowconfigure(0,weight=1,uniform=1)
-        
+        master.rowconfigure(row_index,weight=2)
+
+        posFrame = tk.Frame(master)
+        posFrame.rowconfigure(0,weight=1)
+
         col_len = len(position[0].__dict__)
         pos_title = tk.Label(posFrame,text=f'Corresponding Position')
-        pos_title.grid(row=0,column=0,columnspan=col_len,sticky=tk.NSEW)
+        pos_title.grid(row=0,column=0,columnspan=col_len, pady=SUM_TITLE_PADY)
 
-        posFrame.rowconfigure(1,weight=1,uniform=1)
+        posFrame.rowconfigure(1,weight=1)
         for i,key in enumerate(position[0].__dict__.keys()):
                 key = str(key)
                 title_lb = tk.Label(posFrame,text=key,bd=2)
                 posFrame.columnconfigure(i, weight=1,uniform=1)
-                title_lb.grid(row=1,column=i,sticky=tk.NSEW)
+                title_lb.grid(row=1,column=i,sticky=tk.EW)
 
         for j, handle in enumerate(position,start=2):
-            
+
             posFrame.rowconfigure(j,weight=1,uniform=1)
 
             for k,val in enumerate(handle.__dict__.values()):
                 val = str(val)
-                handle_val = hp.getReadOnlyWidget(master=posFrame,value=val,max_length=15)
+                handle_val = hp.get_readonly_widget(master=posFrame,value=val,max_length=15, max_height=SUM_MAXHEIGHT)
                 handle_val.grid(row=j,column=k,sticky=tk.EW)
 
-        posFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5)
-        
-     
+        posFrame.grid(row=row_index,column=0,sticky=tk.NSEW,pady=5, ipadx=5)
 
 
-        #Show loaded Image 
+
+        '''
+        #Show loaded Image
         filename = records_list[0].US_img
         imgtk = self.view.getTKImage(filename)
-        
+
         self.view.savedImgLabel.imgtk = imgtk
         self.view.savedImgLabel.configure(image=self.view.savedImgLabel.imgtk)
 
         logging.info("Navigation is ready. Please start Tracking and calibrating")
+        '''
 
-    
-        
+
+
     def _debugfunc(self):
         self.model.load_workitem('E-2')
         self.view.buildSummaryFrame(master=self.view.rightFrame)
         self.view.showMenu(menu='summary')
         self.buildSummaryContent()
-        
+
 
     # Stub for Tobias
     def openExamination(self):
@@ -712,10 +714,10 @@ class UltraVisController:
         #Position is a list object, which contains 4 handle objects
         print(positions_list[0])
 
-        # Have fun. 
+        # Have fun.
 
     def initFunctionality(self):
-        
+
         self.view.newExamiBut["command"] = self.newExamination
 
         self.view.startExamiBut["command"] = self.startExamination
@@ -726,7 +728,7 @@ class UltraVisController:
         self.view.finishExamiBut["command"] = self.finalizeExamination
 
         self.view.openExamiBut["command"] = self.openExamination
-        
+
         self.view.cancelBut["command"] = self.cancelExamination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
@@ -734,9 +736,9 @@ class UltraVisController:
 
 
     def addSetupHandlesFunc(self):
-        
+
         frames = self.view.setupHandleFrames
-        #Partial muss genutzt werden, weil der Parameter hochgezählt wird. 
+        #Partial muss genutzt werden, weil der Parameter hochgezählt wird.
         for i,frame_data in enumerate(frames):
             #frame,handlename,ref_entry,button,valid = frame_data.values()
             button = frame_data["button"]
@@ -746,7 +748,7 @@ class UltraVisController:
 
     #----Debugging Related ----#
     def writeCmd2AUA(self,event):
-           
+
         try:
             command = self.view.cmdEntry.get()
             self.aua.readsleep = float(self.view.sleeptimeEntry.get())
@@ -760,8 +762,8 @@ class UltraVisController:
             self.view.cmdEntry.delete(0, 'end')
 
         except Warning as e:
-            logging.exception("An FATAL occured: "+str(e))   
-            
+            logging.exception("An FATAL occured: "+str(e))
+
     def testFunction(self):
         with self.aua._lock:
             self.aua.beep(2)
@@ -776,15 +778,15 @@ class UltraVisController:
         self.view.handleBut["command"] = self.activateHandles
         #self.view.restartBut["command"] = self.restart
         self.view.quitBut["command"] = self.root.destroy
-        
+
 
         #DebugCMD
         self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
         self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
-    
-    
+
+
 
 
     def enableWidgets(self,childList):
@@ -804,9 +806,9 @@ class UltraVisController:
 
             if (child.winfo_class() in ['Button','Entry']):
                 child.configure(state='disabled')
-    
 
-            
+
+
 
 
     def refreshSysmode(self):
@@ -815,20 +817,20 @@ class UltraVisController:
         else:
             self.view.rightFrame.after(2000,self.refreshSysmode)
 
-    #WIP   
+    #WIP
     def refreshWorkItem(self):
-    
+
         infotext = f'Current Workitem\n'
 
         workitem = self.model.get_current_workitem()
-    
+
         exam,records,handles = workitem.values()
         infotext += f'\nExamination-ID: {exam.E_ID}\n{exam.__dict__}\n'
-        
+
 
         for i, rec in enumerate(records):
             infotext +=f'\nRecord-ID: {rec.R_ID}\n{rec.__dict__}\n'
-            
+
             try:
                 position = handles[i]
                 infotext +=f'\nPositiondata {i}\n'
@@ -836,5 +838,5 @@ class UltraVisController:
                     infotext += f'Handle {h.ID}-{h.refname}: {h.__dict__}\n'
             except IndexError as e:
                 continue
-    
+
         #self.view.workitemdataLabel["text"] = infotext

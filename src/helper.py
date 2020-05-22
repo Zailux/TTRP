@@ -14,38 +14,41 @@ from tkinter import ttk
 
 class Helper():
     """ The helper class easier GUI Handling in uvis_controller and uvis_view
-      
-    Attributes: 
+
+    Attributes:
         None yet
     """
 
     def __init__(self):
         pass
-    
+
     #Tkinter helper
-    
+
     def setRow(self,num):
         self.row = num
-    
+
     def getnextRow(self):
         nextRow = self.row
         self.row +=1
-        
+
         return nextRow
 
-    def getReadOnlyWidget(self,master,value,max_length):
+    def get_readonly_widget(self, master, value, max_length, max_height=None):
         val = str(value)
         widget = None
 
+
         if(len(val)>max_length):
-            widget = tk.Text(master,bd=3) 
-            widget.insert('1.0',str(value)) 
-            widget.configure(state='disabled') 
-           
+            widget = tk.Text(master,bd=3)
+            widget.insert('1.0',str(value))
+            widget.configure(state='disabled')
+            if max_height is not None:
+                widget.configure(height=max_height)
+
         else:
             widget = tk.Entry(master,bd=3)
             widget.insert(0,str(value))
-            widget.configure(state='readonly') 
+            widget.configure(state='readonly')
 
         return widget
 
@@ -73,28 +76,55 @@ class Helper():
             child.pack(side=side,fill=fill,padx=padx,pady=pady)
 
 
-#Not working ATM
-class ScrollableFrame(ttk.Frame):
+
+class ScrollableFrame(tk.Frame):
+    """ScrollableFrame
+    This Class instantiates an outer base_frame. Inside that frame, it
+    utilizes tk.Canvas and tk.Scrollbar to create a acrollable frame.
+    Use the 'contentframe' attribute to put widgets into it.
+    """
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
-        #self.configure(background="yellow")
-        master.columnconfigure(0,weight=95)
-        master.columnconfigure(1,weight=1)
-        master.rowconfigure(0,weight=1)
+
         canvas = tk.Canvas(self)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        self.scrollable_frame = ttk.Frame(canvas)
 
-        self.scrollable_frame.bind(
+        self.bind(
             "<Configure>",
             lambda e: canvas.configure(
                 scrollregion=canvas.bbox("all")
             )
         )
 
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-
+        super().columnconfigure(0, weight=95)
+        super().columnconfigure(1, weight=5, minsize=15)
+        super().rowconfigure(0, weight=1)
+        canvas.grid(row=0, column=0, sticky=tk.NSEW, padx=(0,10))
+        scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        canvas.grid(row=0,column=0,sticky=tk.NSEW)
-        scrollbar.grid(row=0,column=1,sticky=tk.NSEW)
+        # reset the view
+        canvas.xview_moveto(0)
+        canvas.yview_moveto(0)
+
+        self.contentframe = tk.Frame(canvas)
+        contentframe_id = canvas.create_window((0, 0), window=self.contentframe, anchor="nw")
+
+        # track changes to the canvas and frame width and sync them,
+        # also updating the scrollbar
+        def _configure_interior(event):
+            # update the scrollbars to match the size of the inner frame
+            size = (self.contentframe.winfo_reqwidth(), self.contentframe.winfo_reqheight())
+            canvas.config(scrollregion="0 0 %s %s" % size)
+            if self.contentframe.winfo_reqwidth() != canvas.winfo_width():
+                # update the canvas's width to fit the inner frame
+                canvas.config(width=self.contentframe.winfo_reqwidth())
+                #print(scrollbar.instate(statespec=['disabled']))
+        self.contentframe.bind('<Configure>', _configure_interior)
+
+        def _configure_canvas(event):
+            if self.contentframe.winfo_reqwidth() != canvas.winfo_width():
+                # update the inner frame's width to fill the canvas
+                canvas.itemconfigure(contentframe_id, width=canvas.winfo_width())
+        canvas.bind('<Configure>', _configure_canvas)
+
