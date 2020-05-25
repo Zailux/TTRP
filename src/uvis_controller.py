@@ -26,7 +26,7 @@ from src.config import Configuration
 from src.helper import Helper
 from src.uvis_model import Examination, Record, UltraVisModel
 from src.uvis_view import UltraVisView
-
+from src.Calibrator import Calibrator
 
 global hp
 global _cfg
@@ -43,6 +43,8 @@ class UltraVisController:
 
         #Create Model and View
         self.root = tk.Tk()
+
+        self.calibrator = Calibrator()
 
         self.model = UltraVisModel()
         self.view = UltraVisView(self.root,debug_mode=debug_mode)
@@ -106,10 +108,13 @@ class UltraVisController:
         self.quitEvent = threading.Event()
         def processQueue(self):
             logging.info("Initialize Queue")
-
+            x = 0
             while (not self.quitEvent.is_set() or not self.q.empty()):
+
                 if (self.q.empty()):
-                    logging.debug("Waiting for Event")
+                    if (x%5==0):
+                        logging.debug("Waiting for Event")
+                    x += 1
                     time.sleep(1.5)
                     continue
 
@@ -238,7 +243,7 @@ class UltraVisController:
             self.stopTracking = False
             self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
-            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(1500,func=self.view.build_coordinatesystem)
+            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
 
 
         elif(self.aua.get_sysmode()=='TRACKING'):
@@ -256,20 +261,30 @@ class UltraVisController:
 
         logging.info(threading.current_thread().name+" has started tracking")
 
-        freq = 0.5
+        freq = 0.01
         while(not self.stopTracking):
-
+            t0 = datetime.now()
             with self.aua._lock:
-                tx = self.aua.tx()
-                self.hm.update_handles(tx)
-                self.setNavCanvasData()
+                #NEEDS TO BE FIXED
+                bx = True
+                if bx:
+                    header, data = self.aua.bx()
+                    if self.hm.updateHandlesBX(header, data):
+                        self.setNavCanvasData()
+                else:
+                    tx = self.aua.tx()
+                    self.hm.updateHandles(tx)
+                    self.setNavCanvasData()
             time.sleep(freq)
+
+            t1 = datetime.now()
+            #print (t1-t0)
 
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
 
     def setNavCanvasData(self):
-        x,y,z = [],[],[]
+        x,y,z,a,b,c = [],[],[],[],[],[]
         av_color = ['yellow','red','green','blue']
         color = []
         num_handle = self.hm.get_numhandles()
@@ -282,20 +297,31 @@ class UltraVisController:
 
         for i,handle in enumerate(handles.values()):
             if (handle.MISSING is None):
+                print("asdfasdfadfs")
                 break
 
             if (handle.MISSING is False):
-                x.append(handle.Tx)
-                y.append(handle.Ty)
-                z.append(handle.Tz)
+                # TODO only for uvis sensor
+                if (i == 0):
+                    transformed = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
+                    x.append(transformed[0])
+                    y.append(transformed[1])
+                    z.append(transformed[2])
+
+                    temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rotations(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    a.append(temp_a)
+                    b.append(temp_b)
+                    c.append(temp_c)
+                else:
+                    x.append(handle.Tx)
+                    y.append(handle.Ty)
+                    z.append(handle.Tz)
+
                 color.append(av_color[i])
-
-
-
 
         logging.debug(f'x values: {x}')
 
-        self.view.navCanvasData = (x,y,z,color)
+        self.view.navCanvasData = (x,y,z,a,b,c,color)
 
     #Position is saving Record and Handles
     def saveRecord(self):
@@ -317,6 +343,7 @@ class UltraVisController:
         rec = Record(date=tmpstamp,E_ID=E_ID)
         img_name = f'{rec.R_ID[4:]}_img'
         handles = self.hm.get_handles(real_copy=True)
+
 
         if (self.validatePosition(handles)):
 
@@ -489,6 +516,43 @@ class UltraVisController:
             return
 
 
+    def setTargetPos(self,handles=None):
+        logging.info("Set Target Position")
+        pos = [0.0, 0.0, 0.0]
+
+        num_handle = self.hm.getNum_Handles()
+        if (num_handle is not 4):
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
+        else:
+            handles = self.hm.getHandles() if not handles else handles
+            current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
+            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            #print(current_ori)
+
+            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+
+            pos = self.calibrator.transform_backward(current_pos)
+
+            self.view.navigationvis.set_target_pos(pos[0], pos[1])
+            self.view.navigationvis.set_target_ori(a, b, c)
+
+
+    def calibrate_coordsys(self,handles = None):
+        logging.info("Calibrate Coordination System")
+
+        handles = self.hm.getHandles() if not handles else handles
+
+        num_handle = self.hm.getNum_Handles()
+        if (num_handle != 4):
+            logging.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!')
+        else:
+            a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
+            b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
+            c = [handles['0D'].Tx, handles['0D'].Ty, handles['0D'].Tz] # brustbein
+
+            self.calibrator.set_trafo_matrix(a,b,c)
+
+
     #Muss Logik einbauen, dass das System dabei auch resettet wird &
     # das GUI etc. korrekt gestoppt wird
     def cancel_examination(self, save=False):
@@ -527,9 +591,15 @@ class UltraVisController:
             self.view.show_menu(menu='summary')
             self.build_summary()
 
+            # TODO THAT!
+            if self.aua.getSysmode() == "TRACKING":
+                self.q.put(self.startstopTracking)
+                #ggf. rauskomment
+
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
             logging.info(msg)
+            print(msg)
             self.view.setInfoMessage(msg=msg,type='ERROR')
             return
 
@@ -570,23 +640,57 @@ class UltraVisController:
 
 
     def openExamination(self):
+        self.view.buildOpenExamFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='open_examination')
+        lastE_ID = self.model.t_examination.tail().index.tolist()
+        self.view.lastE_IDs["text"] += '\n\n'+str(lastE_ID)
+        self.view.examID_entry.bind('<Return>', func=self.startNavigation)
 
-        #How to access data, from Tables
-        E_ID = 'E-2'
-        self.model.load_workitem(E_ID)
+        if self.aua.getSysmode() == 'SETUP':
+            self.q.put(self.activateHandles)
+
+    # TODO wurde für präsentation mal erstellt, soltle aber nochmal überarbeitet und
+    # dokumentiert werden.
+    def startNavigation(self,event=None):
+        E_ID = str(self.view.examID_entry.get())
+
+        if not E_ID:
+            logging.info('E_ID Empty ! Please give correct input')
+            return
+
+        self.view.buildNavigationFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='navigation')
+
+        logging.info(f'Loading Examination {E_ID} for Navigation')
+        self.model.loadWorkitem(E_ID)
 
         workitem = self.model.get_current_workitem()
 
         exam_object, records_list, positions_list = workitem.values()
 
-        print(exam_object.E_ID)
-        print(records_list[0].R_ID)
-        #Position is a list object, which contains 4 handle objects
-        print(positions_list[0])
+        #Loads first Position
+        R_ID = records_list[0].R_ID
+        pos = self.model.getPosition(R_ID,as_dict=True)
+        logging.debug(pos)
+        self.loadPositiontoNavigation(position=pos)
 
-        # Have fun.
+        #Recalibrate for current position difference
+
+        logging.info("Navigation is ready. Please start Tracking and calibrating")
+
+
+
+
+    def loadPositiontoNavigation(self,position):
+        #Important use the dict Version of the Position
+        logging.debug("Calibrate and transform data before saving")
+        self.calibrate_coordsys(handles=position)
+        self.setTargetPos(handles=position)
 
     def initFunctionality(self):
+
+        self.view.newExamiBut["command"] = self.newExamination
+        self.view.openExamiBut["command"] = self.openExamination
 
         self.view.newExamiBut["command"] = self.new_examination
 
@@ -597,9 +701,13 @@ class UltraVisController:
         self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
         self.view.finishExamiBut["command"] = self.finalize_examination
 
-        self.view.openExamiBut["command"] = self.openExamination
+        self.view.mainMenuBut["command"] = self.cancelExamination
 
-        self.view.cancelBut["command"] = self.cancel_examination
+        self.view.startNaviBut["command"] = self.startNavigation
+        self.view.calibrateBut["command"] = self.calibrate_coordsys
+        self.view.targetBut["command"] = self.setTargetPos
+
+        self.view.cancelBut["command"] = self.cancelExamination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
         #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
@@ -615,6 +723,11 @@ class UltraVisController:
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
 
 
+    def _debugfunc(self):
+        self.model.loadWorkitem('E-2')
+        self.view.buildSummaryFrame(master=self.view.rightFrame)
+        self.view.showMenu(menu='summary')
+        self.buildSummaryContent()
 
     #----Debugging Related ----#
     def writeCmd2AUA(self,event):
@@ -683,11 +796,12 @@ class UltraVisController:
 
     def refreshSysmode(self):
         if (hasattr(self.view,'sysmodeLabel')):
-            self.view.sysmodeLabel["text"] = "Operating Mode: "+self.aua.get_sysmode()
+            mode = self.aua.getSysmode()
+            self.view.sysmodeLabel["text"] = "Operating Mode: "+str(mode)
         else:
             self.view.rightFrame.after(2000,self.refreshSysmode)
 
-    #WIP
+    # TODO WIP
     def refreshWorkItem(self):
 
         infotext = f'Current Workitem\n'
