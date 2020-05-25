@@ -157,6 +157,16 @@ class UltraVisView(tk.Frame):
         self.finishExamiBut = tk.Button(self.menuFrame)
         self.finishExamiBut["text"] = "Untersuchung abschließen"
 
+         #Navigation Menu
+        self.calibrateBut = tk.Button(self.menuFrame)
+        self.calibrateBut["text"] = "Calibrate"
+        self.targetBut = tk.Button(self.menuFrame)
+        self.targetBut["text"] = "Set Target"
+
+        #Start Navigation
+        self.startNaviBut = tk.Button(self.menuFrame)
+        self.startNaviBut["text"] = "Start Navigation"
+
         # Finish Examination Menu
 
         self.saveEditBut = tk.Button(self.menuFrame)
@@ -206,7 +216,8 @@ class UltraVisView(tk.Frame):
             'setup': [self.startExamiBut, self.cancelBut],
             'app': [self.trackBut, self.saveRecordBut, self.finishExamiBut, self.cancelBut],
             'summary': [self.mainMenuBut, self.saveEditBut, self.cancelBut],
-            'navigation': [self.NOBUTTONSYET]
+            'open_examination': [self.startNaviBut, self.cancelBut],
+            'navigation': [self.trackBut, self.calibrateBut, self.saveRecordBut, self.finishExamiBut, self.cancelBut]
         }
 
         for button in menu_buttons[menu]:
@@ -288,8 +299,7 @@ class UltraVisView(tk.Frame):
         self.patientLabel = tk.Label(dataFrame, text="Patient")
         self.patientEntry = tk.Entry(dataFrame, bd=5)
         self.patientEntry.insert(0, "Herr Bach")
-        self.examItemLabel = tk.Label(
-            dataFrame, text="Untersuchungsgegenstand")
+        self.examItemLabel = tk.Label(dataFrame, text="Untersuchungsgegenstand")
         self.examItemTextbox = tk.Text(dataFrame, bd=5)
         self.examItemTextbox.insert(
             '1.0', "US Untersuchung am linken Lungenfl\u00FCgel\nGutartiger Tumor")
@@ -628,6 +638,7 @@ class UltraVisView(tk.Frame):
         scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
         self.summaryFrame.grid(row=0, column=0, sticky=tk.NSEW)
 
+
     def build_exam_summary(self, master, exam):
         ''' Builds an Exam Summary Frame
         The Frame displays the Exam Object in 3 Column pairs.
@@ -708,7 +719,7 @@ class UltraVisView(tk.Frame):
 
         #image
         image_lb = tk.Label(record_summary)
-        
+
 
         return record_summary
 
@@ -744,6 +755,43 @@ class UltraVisView(tk.Frame):
                 handle_val.grid(row=j,column=k,sticky=tk.EW)
 
         return position_summary
+
+    @clear_frame
+    def build_openexam_frame(self,master):
+        self.openExamFrame = tk.Frame(master)
+        self.openExamFrame.rowconfigure(0, weight=1, uniform=1)
+        self.openExamFrame.columnconfigure(0,weight=1,uniform=1)
+        lb = tk.Label(self.openExamFrame,text="Geben Sie die E_ID zum oeffnen ein")
+        self.examID_entry = tk.Entry(self.openExamFrame,bd=5)
+
+        self.lastE_IDs = tk.Label(self.openExamFrame,text="Zuletzt hinzugefuegte IDs")
+
+        lb.pack(side=tk.TOP, pady=(20, 5),padx=(10))
+        self.examID_entry.pack(side=tk.TOP, pady=(10),padx=(10))
+        self.lastE_IDs.pack(side=tk.TOP, pady=(10),padx=(10))
+        self.openExamFrame.grid(row=0, column=0,sticky=tk.NSEW)
+
+
+    # TODO reusage with Appframe, for navigation etc.
+    @clear_frame
+    def buildNavigationFrame(self,master):
+        self.navigationFrame = tk.Frame(master)
+
+        #Navigation Frame Content
+        self.navLabel = tk.Label(self.navFrame)
+        self.navLabel["text"] = "Navigation GUI"
+        self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
+        self.sysmodeLabel = tk.Label(self.navFrame)
+        self.sysmodeLabel["text"] = "Operating Mode: - "
+        self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
+
+        self.navigationvis = NavigationVisualizer(self.navFrame)
+        self.navCanvas = self.navigationvis.canvas
+        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky=tk.NSEW)
+        self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.gridFrame.after_idle(self.calcUSImgSize)
+
+        pass
 
     def build_action_frame(self, bFrame):
 

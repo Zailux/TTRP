@@ -30,7 +30,7 @@ import threading
 import time
 from copy import copy, deepcopy
 from decimal import Decimal
-
+import struct
 import serial
 
 SYSMODES = ['SETUP', 'TRACKING']
@@ -143,7 +143,7 @@ class Aurora:
         # Executes the given command and reads it
         with self._lock:
             self.ser.write(cmd)
-            if (expect):
+            if (expect is not False):
                 self.read_serial(expected=expect)
             else:
                 self.read_serial()
@@ -187,10 +187,8 @@ class Aurora:
     def pinit(self, handle):
 
         if (not(isinstance(handle, Handle))):
-            raise TypeError(
-                'Invalid Object of type:' +
-                type(handle) +
-                ". Please use a correct Aurora.Handle Object.")
+            raise TypeError(f'Invalid Object of type: {type(handle)}. \
+                            Please use a correct Aurora.Handle Object.')
 
         cmd = 'PINIT ' + handle.ID + '\r'
         logging.info("Initialize Handle " + handle.ID)
@@ -281,6 +279,21 @@ class Aurora:
 
         if (self.read_serial().startswith(b'OKAY')):
             self.set_sysmode('SETUP')
+    def bx(self, option=None):
+        if(option == None):
+            self.ser.write(b'BX \r')
+        else:
+            print("No Options implemented for BX!")
+
+        header_bytes = self.readSerialByteCode(7)
+        repl_length = int.from_bytes(header_bytes[2:4], 'little')
+        rest_length = repl_length+1
+        rest = self.readSerialByteCode(rest_length)
+        return header_bytes, rest
+
+    def readSerialByteCode(self, length):
+        out = self.ser.read(length)
+        return out
 
     def tx(self, option=None):
 
@@ -363,7 +376,7 @@ class Aurora:
             '18': 'Invalid command',
             '19': 'Invalid command',
             '1A': 'Invalid command'
-            # REST TBD !!!!
+            # REST TODO !!!!
         }
 
         # Check for Reserved Error Codes
@@ -429,6 +442,62 @@ class HandleManager:
             if (handle.MISSING):
                 misshandles.append(h_id)
         return misshandles
+
+    def update_handlesBX(self, bx_header, bx_data):
+        #print(len(bx_header))
+        #print(len(bx_data))
+
+        # header
+        start_seq = int.from_bytes(bx_header[0:2], 'little')
+        repl_length = int.from_bytes(bx_header[2:4], 'little')
+        crc = bx_header[4:6]
+        n_handles = int.from_bytes(bx_header[6:7], 'little')
+
+        #print("Handles: " + str(n_handles))
+        #print("repl_length: " + str(repl_length))
+
+        if repl_length < 42*n_handles:
+            print("data missing from bx")
+            return False
+        else:
+            handle_bytes = []
+            for i in range(n_handles):
+                handle_bytes = bx_data[i*42:(i*42)+42]
+
+                h_id_int = handle_bytes[0]
+                h_id = ''
+                if (h_id_int == 10):
+                    h_id = '0A'
+                elif (h_id_int == 11):
+                    h_id = '0B'
+                elif (h_id_int == 12):
+                    h_id = '0C'
+                elif (h_id_int == 13):
+                    h_id = '0D'
+                new_handle = self.handles[h_id]
+
+                #print(int.from_bytes(h_id, 'little'))
+                status = handle_bytes[1:2]
+
+                Q0, =  struct.unpack('<f', handle_bytes[2:6])
+                Qx, =  struct.unpack('<f', handle_bytes[6:10])
+                Qy, =  struct.unpack('<f', handle_bytes[10:14])
+                Qz, =  struct.unpack('<f', handle_bytes[14:18])
+                Tx, =  struct.unpack('<f', handle_bytes[18:22])
+                Ty, =  struct.unpack('<f', handle_bytes[22:26])
+                Tz, =  struct.unpack('<f', handle_bytes[26:30])
+
+                calc_Err = handle_bytes[30:34]
+                port_state = handle_bytes[34:38]
+                frame_id = handle_bytes[38:42]
+
+                new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                self.handles[h_id] = new_handle
+        return True
+
+
+
+
 
     def update_handles(self, tx_str):
         # expects the outpout from tx decoded tx string.

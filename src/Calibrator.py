@@ -1,6 +1,8 @@
+import logging
+
 import numpy as np
 from pyquaternion import Quaternion
-import logging
+
 
 class Calibrator:
     """ builds transformation matrices """
@@ -42,7 +44,7 @@ class Calibrator:
         cm = np.subtract(m, c)
         y_axis_origin = np.cross(z_axis_origin, cm)
         y_axis = np.add(c, y_axis_origin)
-        y_axis_origin = y_axis_origin/np.linalg.norm(y_axis_origin)    
+        y_axis_origin = y_axis_origin/np.linalg.norm(y_axis_origin)
 
         # temp axis fix
         temp = x_axis_origin
@@ -146,11 +148,11 @@ class Calibrator:
 
         # build quaternion from parameters
         q = Quaternion(qw, qx, qy, qz)
-        
+
         #vx = q.rotate(vx_u)
         #vy = q.rotate(vy_u)
         #vz = q.rotate(vz_u)
-        
+
         # rotations as 3 unit vectors
         vz = self.__inverse_vec(q.rotate(vx_u))
         vy = q.rotate(vy_u)
@@ -165,11 +167,11 @@ class Calibrator:
         v_xz = self.__unit_vector([vz[0], 0.0, vz[2]])
         a_xz = self.__angle_between(vz, v_xz)*-np.sign(vz[1])
 
-        
+
         # vector on the y/z plane
         v_yz = self.__unit_vector([0.0, vz[1], vz[2]])
         a_yz = self.__angle_between(vz, v_yz)*np.sign(vz[0])
-        
+
         #print(self.__angle_between(vz, v_yz))
 
         # TODO this does not realy work
@@ -200,7 +202,7 @@ class Calibrator:
         result = np.dot(self.trafo_matrix_inv, vector)
         result = np.multiply(self.scale, result)
         return [result[0], result[1], result[2]]
-    
+
     def __dist_ab(self, a, b):
         """ distance between point a and b """
         ab = np.subtract(b, a)
