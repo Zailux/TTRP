@@ -18,7 +18,7 @@ import sys
 import uuid
 
 import pandas as pd
-import PIL
+from PIL import Image, ImageTk
 
 #sys.path.insert(1, '..\\')
 from src.aurora import Handle
@@ -135,6 +135,7 @@ class UltraVisModel:
 
         self.__callback(key="set_current_workitem")
 
+    #Renaming of image name can be implemented.
     def persist_workitem(self):
         """Persists Workitem.
         For each item (an Examination, Record or Handle) of the workitem,
@@ -363,11 +364,25 @@ class UltraVisModel:
             logging.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))
 
-    def savePILImage(self,img,img_name,filetype='.png'):
+    def get_tk_image(self, filename):
+        # Opens Image and translates it to TK compatible file.
+        #filename = self.imgdir+filename
+
+        try:
+            tkimage = Image.open(filename)
+
+        except FileNotFoundError as err:
+            logging.exception("File was no found, Err Img replace\n" + err)
+           # tkimage = self.notfoundimg
+
+        finally:
+            return ImageTk.PhotoImage(tkimage)
+
+    def save_PIL_image(self,img,img_name,filetype='.png'):
         """Saves an PIL Image to the _cfg defined DATAPATH.
         Returns path of the saved image as a string.
         """
-        if (type(img)!= PIL.Image.Image):
+        if (type(img)!= Image.Image):
             raise TypeError(f'Wrong type "{type(img)}for img. Use appropriate PIL Image Object')
 
         image_path = _cfg.SAVEDIMGPATH+str(img_name)+filetype
@@ -377,6 +392,7 @@ class UltraVisModel:
             return image_path
         except IOError as e:
             raise IOError(str(e))
+
 
 
 

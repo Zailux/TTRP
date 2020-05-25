@@ -20,8 +20,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
+from src.aurora import Handle
 from src.config import Configuration
 from src.helper import Helper, ScrollableFrame
+from src.uvis_model import Examination, Record
 
 matplotlib.use('Tkagg')
 
@@ -33,6 +35,9 @@ _cfg = Configuration()
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
+SUM_MAXHEIGHT = 4
+SUM_TITLE_PADY = 5
+
 
 #   --- Decorators  --- #
 
@@ -40,14 +45,14 @@ BUTTON_WIDTH = 25
 # displaying their gui
 
 
-def clearFrame(func):
+def clear_frame(func):
 
     @functools.wraps(func)
     def buildFrame_wrapper(*args, **kwargs):
         master = kwargs['master']
         if (not isinstance(master, tk.Frame)):
             logging.critical(
-                f"Misusage of clearFrame Decorator. Objecttype {type(master)} is incorrect.\nDebuginfo {args, kwargs}")
+                f"Misusage of clear_frame Decorator. Objecttype {type(master)} is incorrect.\nDebuginfo {args, kwargs}")
             return func(*args, **kwargs)
         else:
             frame = master.winfo_children()
@@ -68,13 +73,13 @@ class UltraVisView(tk.Frame):
         self.master = master
         self.master.title("TTR: Track To Reference")
         self.master.minsize(600, 350)
-        self.master.geometry(self.centerWindow(self.master, 1000, 600))
+        self.master.geometry(self.center_window(self.master, 1000, 600))
         # self.master.wm_state('zoomed')
         self.master.focus_force()
 
         self.tabControl = ttk.Notebook(self.master)
         # self.initImages()
-        self.buildTab1()
+        self.build_tab1()
         self.buildTab2()
 
         self.tabControl.add(self.t1_mainFrame, text='Navigation')
@@ -85,7 +90,7 @@ class UltraVisView(tk.Frame):
         # Selecting Tabs
         # self.tabControl.select(self.t2_debugFrame)
 
-    def centerWindow(self, toplevel, width, height):
+    def center_window(self, toplevel, width, height):
 
         toplevel.update_idletasks()
         w = toplevel.winfo_screenwidth()
@@ -95,7 +100,7 @@ class UltraVisView(tk.Frame):
         y = h / 2 - size[1] / 2
         return ("%dx%d+%d+%d" % (size + (x, y)))
 
-    def buildTab1(self):
+    def build_tab1(self):
         # Tab 1 Two Column, Menu Column and App Column
         self.t1_mainFrame = tk.Frame(self.tabControl)
         self.t1_mainFrame.rowconfigure(0, weight=98)
@@ -116,14 +121,14 @@ class UltraVisView(tk.Frame):
         self.rightFrame.grid(row=0, column=1, pady=4, padx=4, sticky=tk.NSEW)
         #self.bottomFrame.grid(row=1,column=0, columnspan=2,pady=(0,0), padx=4, sticky=tk.NSEW)
 
-        self.buildMenuFrame(self.leftFrame)
-        self.buildDetailsFrame(self.leftFrame)
-        self.buildMainScreenFrame(master=self.rightFrame)
-        self.showMenu()
+        self.build_menu_frame(self.leftFrame)
+        self.build_details_frame(self.leftFrame)
+        self.build_mainscreen_frame(master=self.rightFrame)
+        self.show_menu()
 
         self.t1_mainFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
-    def buildMenuFrame(self, lFrame):
+    def build_menu_frame(self, lFrame):
 
         self.menuFrame = tk.Frame(lFrame)
         self.menuTitleLabel = tk.Label(self.menuFrame, text="Menu")
@@ -180,7 +185,7 @@ class UltraVisView(tk.Frame):
 
         self.menuFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-    def showMenu(self, menu='main', states=None):
+    def show_menu(self, menu='main', states=None):
         # Idea to use a state "table of 0 and 1 to enable / disable Button"
 
         MENUES = ['main', 'new_examination', 'setup', 'app',
@@ -192,7 +197,7 @@ class UltraVisView(tk.Frame):
                 f'Try showing Menu "{menu}" which was not in {MENUES}')
 
         children = self.menuFrame.winfo_children()
-        self.cleanMenu(children)
+        self.clean_menu(children)
 
         # potentially add activatehandles button
         menu_buttons = {
@@ -212,16 +217,16 @@ class UltraVisView(tk.Frame):
                 side=tk.BOTTOM, pady=(
                     0, 0), padx=(10), fill="both")
 
-    def cleanMenu(self, childList):
+    def clean_menu(self, childList):
         for child in childList:
             if (child.winfo_class() == 'Frame'):
-                self.cleanMenu(child.winfo_children())
+                self.clean_menu(child.winfo_children())
                 continue
 
             if (child.winfo_class() in ['Button'] and child.winfo_ismapped()):
                 child.pack_forget()
 
-    def buildDetailsFrame(self, lFrame):
+    def build_details_frame(self, lFrame):
 
         self.detailsFrame = tk.Frame(lFrame)
         # Details soll scrollbar bekommen und deswegen soll es sich nicht
@@ -249,8 +254,8 @@ class UltraVisView(tk.Frame):
 
         self.detailsInfoLabel["text"] = msg
 
-    @clearFrame
-    def buildMainScreenFrame(self, master):
+    @clear_frame
+    def build_mainscreen_frame(self, master):
         self.mainscreenFrame = tk.Frame(master)
         self.mainscreenFrame.rowconfigure(0, weight=1, uniform=1)
         self.mainscreenFrame.columnconfigure(0, weight=1, uniform=1)
@@ -261,8 +266,8 @@ class UltraVisView(tk.Frame):
 
         self.mainscreenFrame.grid(row=0, column=0, sticky=tk.NSEW)
 
-    @clearFrame
-    def buildNewExamFrame(self, master):
+    @clear_frame
+    def build_newExam_frame(self, master):
         self.newExamFrame = tk.Frame(master, bg="grey", padx=20, pady=10)
         self.newExamFrame.rowconfigure(0, weight=10, uniform=1)
         self.newExamFrame.rowconfigure(1, weight=90, uniform=1)
@@ -309,37 +314,37 @@ class UltraVisView(tk.Frame):
 
         self.newExamFrame.grid(row=0, column=0, sticky=tk.NSEW)
 
-    @clearFrame
-    def buildSetupFrame(self, master):
+    @clear_frame
+    def build_setup_frame(self, master):
         padx = 10
 
         # 2x2 Matrix of Application frame
-        self.setupFrame = tk.Frame(master, bg="grey", padx=10, pady=10)
+        self.setup_frame = tk.Frame(master, bg="grey", padx=10, pady=10)
 
-        self.setupFrame.rowconfigure(0, weight=20, uniform=1)
-        self.setupFrame.rowconfigure(1, weight=5, uniform=1, minsize=15)
-        self.setupFrame.rowconfigure(2, weight=10, uniform=1)
-        self.setupFrame.rowconfigure(3, weight=65, uniform=1)
-        self.setupFrame.columnconfigure(0, weight=1, uniform=1)
-        self.setupFrame.columnconfigure(1, weight=1, uniform=1)
-        self.setupFrame.columnconfigure(2, weight=1, uniform=1)
-        self.setupFrame.columnconfigure(3, weight=1, uniform=1)
+        self.setup_frame.rowconfigure(0, weight=20, uniform=1)
+        self.setup_frame.rowconfigure(1, weight=5, uniform=1, minsize=15)
+        self.setup_frame.rowconfigure(2, weight=10, uniform=1)
+        self.setup_frame.rowconfigure(3, weight=65, uniform=1)
+        self.setup_frame.columnconfigure(0, weight=1, uniform=1)
+        self.setup_frame.columnconfigure(1, weight=1, uniform=1)
+        self.setup_frame.columnconfigure(2, weight=1, uniform=1)
+        self.setup_frame.columnconfigure(3, weight=1, uniform=1)
 
         self.setuptitleLabel = tk.Label(
-            self.setupFrame, text="Einrichtung des Aurorasystems")
+            self.setup_frame, text="Einrichtung des Aurorasystems")
         self.setuptitleLabel.grid(
             row=0, column=0, columnspan=4, pady=(
                 10, 8), sticky=tk.NSEW)
 
         instruc_title = tk.Label(
-            self.setupFrame,
+            self.setup_frame,
             text=" - Instruction - ",
             font='Helvetica 11 italic')
         instruc_title.grid(
             row=1, column=0, columnspan=4, pady=(
                 10, 0), sticky=tk.NSEW)
         self.instructionLabel = tk.Label(
-            self.setupFrame,
+            self.setup_frame,
             text="Some Instruction",
             font='Helvetica 9 italic')
         self.instructionLabel.grid(
@@ -355,7 +360,7 @@ class UltraVisView(tk.Frame):
             'Brustbein']
         for i in range(4):
             handle_Frame = tk.Frame(
-                self.setupFrame, bg="white", padx=10, pady=10)
+                self.setup_frame, bg="white", padx=10, pady=10)
             lb = tk.Label(handle_Frame, text="Spulenname")
             lb2 = tk.Label(handle_Frame, text="Referenzname")
             ref_entry = tk.Entry(handle_Frame, bd=5)
@@ -375,7 +380,7 @@ class UltraVisView(tk.Frame):
                 'valid': valid}
             self.setupHandleFrames.append(dic)
 
-            self.packChildren(
+            hp.packChildren(
                 children,
                 side=tk.TOP,
                 fill=tk.BOTH,
@@ -385,10 +390,10 @@ class UltraVisView(tk.Frame):
             handle_Frame.grid(row=3, column=i, sticky=tk.NSEW, padx=2, pady=2)
 
         handle_index = 0
-        self.setCurrentSetupHandle(handle_index)
-        self.setupFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
+        self.set_current_setuphandle(handle_index)
+        self.setup_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-    def setCurrentSetupHandle(self, handle_index):
+    def set_current_setuphandle(self, handle_index):
         lastindex = len(self.setupHandleFrames) - 1
         if (self.__currentSetupHandle is None):
             self.__currentSetupHandle = self.setupHandleFrames[handle_index]
@@ -407,19 +412,19 @@ class UltraVisView(tk.Frame):
         INSTRUCTION = f'Bitte befestigen sie die {FARBEN[handle_index]} Spule an den Punkt {REFERENCEPOINT[handle_index]}'
         COLORS = ['yellow', 'red', 'green', 'blue']
 
-        self.setSetupInstruction(text=INSTRUCTION)
+        self.set_setup_instruction(text=INSTRUCTION)
         handle_data = self.setupHandleFrames[handle_index]
         handle_data["frame"]["bg"] = COLORS[handle_index]
         children = handle_data["frame"].winfo_children()
         hp.enableWidgets(children, enable_all=True)
         self.__currentSetupHandle = self.setupHandleFrames[handle_index]
 
-    def setSetupInstruction(self, text):
+    def set_setup_instruction(self, text):
         text = str(text)
         self.instructionLabel["text"] = text
 
-    @clearFrame
-    def buildAppFrame(self, master):
+    @clear_frame
+    def build_app_frame(self, master):
 
         # Init of AppFrame Attributes
 
@@ -439,7 +444,7 @@ class UltraVisView(tk.Frame):
         self.gridFrame.rowconfigure(1, weight=1, uniform=1)
         self.gridFrame.columnconfigure(0, weight=1, uniform=1)
         self.gridFrame.columnconfigure(1, weight=1, uniform=1)
-        self.gridFrame.bind('<Configure>', self.refreshImgSize)
+        self.gridFrame.bind('<Configure>', self.refresh_imgsize)
 
         # Order of the US Frame, Saved Image and Navigationframe
         self.USImgFrame = tk.Frame(self.gridFrame, bg="green")
@@ -475,7 +480,7 @@ class UltraVisView(tk.Frame):
         self.USImgLabel.grid_propagate(0)
 
         self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
-        self.Capture_FrameGrabber()
+        self.capture_framegrabber()
 
         # Saved Image Content
         self.savedImgLabel = tk.Label(self.savedImgFrame)
@@ -495,12 +500,12 @@ class UltraVisView(tk.Frame):
         self.ax.set_autoscale_on(False)
         self.navCanvas = FigureCanvasTkAgg(self.fig, self.navFrame)
 
-        self.buildCoordinatesystem()
+        self.build_coordinatesystem()
 
         self.navCanvas.get_tk_widget().grid(
             row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
         self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        self.gridFrame.after_idle(self.calcUSImgSize)
+        self.gridFrame.after_idle(self.calculate_US_imgsize)
 
         # Gallery Frame Content
         self.galleryFrame = tk.Frame(self.appFrame, bg="#99ffcc")
@@ -514,10 +519,10 @@ class UltraVisView(tk.Frame):
 
         self.appFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-    def refreshImgSize(self, event):
-        self.gridFrame.after_idle(self.calcUSImgSize)
+    def refresh_imgsize(self, event):
+        self.gridFrame.after_idle(self.calculate_US_imgsize)
 
-    def Capture_FrameGrabber(self):
+    def capture_framegrabber(self):
         _isFirstCapture = True
         _, frame = self.cap.read()
         self.frame = cv2.flip(frame, 1)
@@ -525,13 +530,13 @@ class UltraVisView(tk.Frame):
         if frame is None and _isFirstCapture:
             logging.warning("Empty Frame - No Device was found")
             self.USImgLabel["text"] = "EMPTY FRAME \n No Device was found"
-            self.USImgLabel.after(10000, self.Capture_FrameGrabber)
+            self.USImgLabel.after(10000, self.capture_framegrabber)
             return
         if (self.USImgFrame.winfo_height() == 1):
             cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
             img = Image.fromarray(cv2image)
             self.og_imgsize = img.size
-            self.USImgLabel.after(1500, self.Capture_FrameGrabber)
+            self.USImgLabel.after(1500, self.capture_framegrabber)
             return
 
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
@@ -544,13 +549,13 @@ class UltraVisView(tk.Frame):
         self.USImgLabel.configure(image=imgtk)
 
         self._FrameGrabberJob = self.USImgLabel.after(
-            10, self.Capture_FrameGrabber)
+            10, self.capture_framegrabber)
 
         # Slider window (slider controls stage position)
         # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
         # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
 
-    def calcUSImgSize(self):
+    def calculate_US_imgsize(self):
         # Get current Frame
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         img = Image.fromarray(cv2image)
@@ -568,9 +573,9 @@ class UltraVisView(tk.Frame):
             new_width = width / height * new_height
 
         self.img_size = ((int(new_width), int(new_height)))
-        self.refresh_savedImg()
+        self.refresh_saved_img()
 
-    def refresh_savedImg(self):
+    def refresh_saved_img(self):
         # Refresh Saved IMG more Image possible
         if (self.savedImg is not None):
             self.savedImg = self.savedImg.resize(
@@ -579,7 +584,7 @@ class UltraVisView(tk.Frame):
             self.savedImgLabel.imgtk = imgtk
             self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
 
-    def buildCoordinatesystem(self):
+    def build_coordinatesystem(self):
         plt.cla()
         self.ax.set_xlabel('X')
         self.ax.set_xlim(-230, 230)
@@ -600,17 +605,17 @@ class UltraVisView(tk.Frame):
                 s=70)
 
             self._Canvasjob = self.navCanvas._tkcanvas.after(
-                40, func=self.buildCoordinatesystem)
+                40, func=self.build_coordinatesystem)
 
         self.navCanvas.draw()
 
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         self.savedImg = Image.fromarray(cv2image)
-        self.refresh_savedImg()
+        self.refresh_saved_img()
 
-    @clearFrame
-    def buildSummaryFrame(self, master):
+    @clear_frame
+    def build_summary_frame(self, master):
         self.summaryFrame = tk.Frame(master)
         self.summaryFrame.rowconfigure(0, weight=5, uniform=1)
         self.summaryFrame.rowconfigure(1, weight=95, uniform=1)
@@ -621,10 +626,126 @@ class UltraVisView(tk.Frame):
 
         title_lb.grid(row=0, column=0, sticky=tk.NSEW)
         scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
-
         self.summaryFrame.grid(row=0, column=0, sticky=tk.NSEW)
 
-    def buildActionFrame(self, bFrame):
+    def build_exam_summary(self, master, exam):
+        ''' Builds an Exam Summary Frame
+        The Frame displays the Exam Object in 3 Column pairs.
+            Returns the appropriate tk.Frame Object.
+        '''
+        if (not isinstance(exam, Examination)):
+            raise TypeError(f'Expected {Examination} for parameter record \
+                              and got {type(exam)} instead.')
+        exam_summary = tk.Frame(master)
+        exam_summary.columnconfigure(0, weight=1,uniform=1)
+        exam_summary.columnconfigure(1, weight=2,uniform=1)
+        exam_summary.columnconfigure(2, weight=1,uniform=1)
+        exam_summary.columnconfigure(3, weight=2,uniform=1)
+        exam_summary.columnconfigure(4, weight=1,uniform=1)
+        exam_summary.columnconfigure(5, weight=2,uniform=1)
+        exam_summary.rowconfigure(0,weight=1)
+
+        exam_title = tk.Label(exam_summary,text=f'Examination - {exam.E_ID}')
+        exam_title.grid(row=0, column=0, columnspan=6, pady=SUM_TITLE_PADY)
+
+        row_i = 1
+        column_i = 0
+
+        #Display Examination Value
+        for item_index, pair in enumerate(exam.__dict__.items()):
+            key,value = pair
+            if item_index % 3  == 0:
+                row_i += 1
+                column_i = 0
+                exam_summary.rowconfigure(row_i, weight=1)
+
+            lb_key = tk.Label(exam_summary,text=str(key),bd=1)
+            ref_value = hp.get_readonly_widget(master=exam_summary, value=value, max_length=28, max_height=SUM_MAXHEIGHT)
+
+            lb_key.grid(row=row_i, column=column_i, sticky=tk.EW)
+            ref_value.grid(row=row_i, column=column_i+1, sticky=tk.EW)
+            column_i += 2
+
+        return exam_summary
+
+    def build_record_summary(self, master, record):
+        ''' Builds an Record Summary Frame
+        The Frame displays the Record Object in 3 Column pairs.
+        The Record image!!!!! Display.
+            Returns a tk.Frame Object.
+        '''
+        if (not isinstance(record, Record)):
+            raise TypeError(f'Expected {Record} for parameter record \
+                              and got {type(record)} instead.')
+        record_summary = tk.Frame(master)
+        record_summary.columnconfigure(0, weight=1,uniform=1)
+        record_summary.columnconfigure(1, weight=2,uniform=1)
+        record_summary.columnconfigure(2, weight=1,uniform=1)
+        record_summary.columnconfigure(3, weight=2,uniform=1)
+        record_summary.columnconfigure(4, weight=1,uniform=1)
+        record_summary.columnconfigure(5, weight=2,uniform=1)
+        record_summary.rowconfigure(0, weight=1)
+
+        r = record.__dict__
+        rec_title = tk.Label(record_summary,text=f'Record - {record.R_ID}')
+        rec_title.grid(row=0,column=0,columnspan=6, pady=SUM_TITLE_PADY)
+
+        row_i = 1
+        column_i = 0
+        for item_index,pair in enumerate(r.items()):
+            key,value = pair
+            if item_index % 3  == 0:
+                row_i += 1
+                column_i = 0
+                record_summary.rowconfigure(row_i, weight=1, uniform=1)
+
+            lb_key = tk.Label(record_summary, text=str(key), bd=1)
+            ref_value = hp.get_readonly_widget(master=record_summary, value=value, max_length=28, max_height=SUM_MAXHEIGHT)
+
+            lb_key.grid(row=row_i,column=column_i,sticky=tk.EW)
+            ref_value.grid(row=row_i,column=column_i+1,sticky=tk.EW)
+            column_i += 2
+
+        #image
+        image_lb = tk.Label(record_summary)
+        
+
+        return record_summary
+
+    def build_position_summary(self, master, position):
+        ''' Builds an Position Summary Frame
+        The Frame displays the 4 Handles / the Position in an table format.
+            Returns a tk.Frame Object.
+        '''
+        if (not (all(isinstance(h, Handle) for h in position))):
+            raise TypeError(f'Expected {Handle} for parameter position \
+                              and got {type(h) for h in position} instead.')
+        position_summary = tk.Frame(master)
+        position_summary.rowconfigure(0, weight=0, minsize=20)
+
+        col_len = len(position[0].__dict__)
+        pos_title = tk.Label(position_summary,text=f'Corresponding Position')
+        pos_title.grid(row=0,column=0,columnspan=col_len, pady=SUM_TITLE_PADY)
+
+        position_summary.rowconfigure(1, weight=0, minsize=10)
+        for i,key in enumerate(position[0].__dict__.keys()):
+                key = str(key)
+                title_lb = tk.Label(position_summary,text=key,bd=2)
+                position_summary.columnconfigure(i, weight=1,uniform=1)
+                title_lb.grid(row=1,column=i,sticky=tk.EW)
+
+        for j, handle in enumerate(position,start=2):
+
+            position_summary.rowconfigure(j,weight=1,uniform=1)
+
+            for k,val in enumerate(handle.__dict__.values()):
+                val = str(val)
+                handle_val = hp.get_readonly_widget(master=position_summary,value=val,max_length=15, max_height=SUM_MAXHEIGHT)
+                handle_val.grid(row=j,column=k,sticky=tk.EW)
+
+        return position_summary
+
+    def build_action_frame(self, bFrame):
 
         self.backBut = tk.Button(bFrame)
         self.backBut["text"] = "Zurueck"
@@ -638,6 +759,7 @@ class UltraVisView(tk.Frame):
 
         self.backBut.pack(side=tk.LEFT, padx=(0), pady=0, fill="both")
         self.nextBut.pack(side=tk.RIGHT, padx=(0), pady=0, fill="both")
+
 
     def buildTab2(self):
         # Tab2
@@ -800,7 +922,3 @@ class UltraVisView(tk.Frame):
 
         finally:
             return ImageTk.PhotoImage(tkimage)
-
-    def packChildren(self, childList, side, fill, padx, pady):
-        for child in childList:
-            child.pack(side=side, fill=fill, padx=padx, pady=pady)

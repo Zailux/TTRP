@@ -8,8 +8,11 @@ Available Classes
     Scrollable Frame Class
 """
 
+import logging
 import tkinter as tk
 from tkinter import ttk
+
+from PIL import Image, ImageTk
 
 
 class Helper():
@@ -24,19 +27,26 @@ class Helper():
 
     #Tkinter helper
 
-    def setRow(self,num):
+    def set_row(self,num):
         self.row = num
 
-    def getnextRow(self):
+    def get_next_row(self):
         nextRow = self.row
         self.row +=1
 
         return nextRow
 
     def get_readonly_widget(self, master, value, max_length, max_height=None):
+        '''Get a readonly text-based Widget.
+        Returns either a tk.Entry or a tk.Text widget with an readonly state.
+            max_length
+        If the input value length len(value) > max_length, the method will return
+        a tk.Text Widget. Else it will return an Entry widget.
+            max_height
+        The maximum height of the Text widget. This can of course be configured afterwards.
+        '''
         val = str(value)
         widget = None
-
 
         if(len(val)>max_length):
             widget = tk.Text(master,bd=3)
@@ -44,7 +54,6 @@ class Helper():
             widget.configure(state='disabled')
             if max_height is not None:
                 widget.configure(height=max_height)
-
         else:
             widget = tk.Entry(master,bd=3)
             widget.insert(0,str(value))
@@ -76,12 +85,30 @@ class Helper():
             child.pack(side=side,fill=fill,padx=padx,pady=pady)
 
 
+    def get_tk_image(self, filename):
+        # Opens Image and translates it to TK compatible file.
+        #filename = self.imgdir+filename
 
+        try:
+            tkimage = Image.open(filename)
+
+        except FileNotFoundError as err:
+            logging.exception("File was no found, Err Img replace\n" + err)
+           # tkimage = self.notfoundimg
+
+        finally:
+            return ImageTk.PhotoImage(tkimage)
+
+
+# https://stackoverflow.com/questions/17355902/python-tkinter-binding-mousewheel-to-scrollbar
+# Add mousewheel event to scrollbar.
 class ScrollableFrame(tk.Frame):
     """ScrollableFrame
     This Class instantiates an outer base_frame. Inside that frame, it
     utilizes tk.Canvas and tk.Scrollbar to create a acrollable frame.
     Use the 'contentframe' attribute to put widgets into it.
+    The 'contentframe' doesn't need to be packed, gridded or placed.
+    The SrollableFrame is sufficient.
     """
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
@@ -96,8 +123,8 @@ class ScrollableFrame(tk.Frame):
             )
         )
 
-        super().columnconfigure(0, weight=95)
-        super().columnconfigure(1, weight=5, minsize=15)
+        super().columnconfigure(0, weight=1)
+        super().columnconfigure(1, weight=0, minsize=15)
         super().rowconfigure(0, weight=1)
         canvas.grid(row=0, column=0, sticky=tk.NSEW, padx=(0,10))
         scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
@@ -119,7 +146,7 @@ class ScrollableFrame(tk.Frame):
             if self.contentframe.winfo_reqwidth() != canvas.winfo_width():
                 # update the canvas's width to fit the inner frame
                 canvas.config(width=self.contentframe.winfo_reqwidth())
-                #print(scrollbar.instate(statespec=['disabled']))
+
         self.contentframe.bind('<Configure>', _configure_interior)
 
         def _configure_canvas(event):
@@ -127,4 +154,3 @@ class ScrollableFrame(tk.Frame):
                 # update the inner frame's width to fill the canvas
                 canvas.itemconfigure(contentframe_id, width=canvas.winfo_width())
         canvas.bind('<Configure>', _configure_canvas)
-
