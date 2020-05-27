@@ -17,8 +17,9 @@ import matplotlib.animation
 import matplotlib.pyplot as plt
 import pandas as pd
 import serial
+from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
-from PIL import Image
+from PIL import Image, ImageTk
 
 #sys.path.insert(1, '..\\')
 from src.aurora import Aurora, Handle, HandleManager
@@ -45,17 +46,18 @@ class UltraVisController:
         self.root = tk.Tk()
 
         self.calibrator = Calibrator()
-
         self.model = UltraVisModel()
-        self.view = UltraVisView(self.root,debug_mode=debug_mode)
+        self.view = UltraVisView(self.root, debug_mode=debug_mode)
 
         #Controller Attributes
         self._debug = debug_mode
         self.hm = None
         self.aua = None
 
-        self.__initObservers()
-        self.__initBackgroundQueue()
+        self._initObservers()
+        self._initBackgroundQueue()
+
+
 
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
@@ -70,16 +72,16 @@ class UltraVisController:
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.initAurora(self.ser)
         self.initFunctionality()
-        self.root.protocol("WM_DELETE_WINDOW", self.__on_closing)
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
 
     #Closing Method and bind to root Window
-    def __on_closing(self):
+    def _on_closing(self):
 
-        if (hasattr(self.view,'appFrame')):
+        if (hasattr(self.view, 'examination_frame')):
              #Close FrameGrabber
-            self.view.USImgLabel.after_cancel(self.view._FrameGrabberJob)
-            self.view.cap.release()
+            self.view.USimg_lb.after_cancel(self._framegrabber_job)
+            self.cap.release()
 
             #Close Tracking + Matplotanimation
             if (self.aua_active):
@@ -103,7 +105,7 @@ class UltraVisController:
     def run (self):
         self.root.mainloop()
 
-    def __initBackgroundQueue(self):
+    def _initBackgroundQueue(self):
         self.q = queue.Queue(maxsize=8)
         self.quitEvent = threading.Event()
         def processQueue(self):
@@ -134,43 +136,40 @@ class UltraVisController:
         q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
         q_Thread.start()
 
-    def __initObservers(self):
+    def _initObservers(self):
+        self.model.register(key="set_current_workitem", observer=self.refreshWorkItem)
 
-        self.model.register(key="set_current_workitem",observer=self.refreshWorkItem)
-
-
+    def _init_framegrabber(self):
+        self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
 
     def initAurora(self,ser):
 
         logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
 
-
-
-        widgets = self.view.menuFrame.winfo_children()
+        widgets = self.view.menu_frame.winfo_children()
         self.aua_active = False
         try:
             self.aua = Aurora(ser)
-
         except serial.SerialException as e:
             logging.warning("serial.SerialException: "+str(e))
-            #self.disableWidgets(widgets)
-            self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
-            self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
+            #self.disable_widgets(widgets)
+            self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            self.view.reinit_aua_but["state"] = 'normal'
+            self.view.reinit_aua_but["command"] = lambda: self.initAurora(self.ser)
             return
         except Warning as w:
             logging.exception(str(w))
-            #self.disableWidgets(widgets)
-            self.view.reinitAuaBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
-            self.view.reinitAuaBut["state"] = 'normal'
-            self.view.reinitAuaBut["command"] = lambda: self.initAurora(self.ser)
+            #self.disable_widgets(widgets)
+            self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+            self.view.reinit_aua_but["state"] = 'normal'
+            self.view.reinit_aua_but["command"] = lambda: self.initAurora(self.ser)
             return
 
         self.aua_active = True
         logging.info("Connection success")
         self.aua.register("set_sysmode",self.refreshSysmode)
-        self.enableWidgets(widgets)
-        self.view.reinitAuaBut.grid_forget()
+        hp.enable_widgets(widgets)
+        self.view.reinit_aua_but.grid_forget()
 
         logging.info("Reset Aurorasystem")
         self.aua.reset_and_init_system()
@@ -224,7 +223,7 @@ class UltraVisController:
                 logging.warning(str(w))
                 success=False
                 #maybe solve via states in show menu Later
-                self.view.activateHandleBut.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
+                self.view.activate_handle_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
 
         logging.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
@@ -321,7 +320,7 @@ class UltraVisController:
 
         logging.debug(f'x values: {x}')
 
-        self.view.navCanvasData = (x,y,z,a,b,c,color)
+        self.view.navcanvas_data = (x,y,z,a,b,c,color)
 
     #Position is saving Record and Handles
     def saveRecord(self):
@@ -329,9 +328,12 @@ class UltraVisController:
             logging.info("This functionality is only available during tracking. Please Start Tracking")
             return
 
-        self.view.saveUSImg()
-        img = self.view.savedImg.copy()
-        img = img.resize(self.view.og_imgsize, Image.ANTIALIAS)
+        # Save the Image
+        cv2image = cv2.cvtColor(self.grabbed_frame, cv2.COLOR_BGR2RGBA)
+        self.view.saved_img = Image.fromarray(cv2image)
+        self.view.refresh_saved_img()
+        img = self.view.saved_img.copy()
+        img = img.resize(self.orignal_imgsize, Image.ANTIALIAS)
 
         dt = datetime.now()
         tmpstamp = dt.strftime("%a, %d-%b-%Y (%H:%M:%S)")
@@ -340,7 +342,7 @@ class UltraVisController:
         # Gets Current Workitem and accesses its Examination
         workitem = self.model.get_current_workitem()
         E_ID = workitem["Examination"].E_ID
-        rec = Record(date=tmpstamp,E_ID=E_ID)
+        rec = Record(date=tmpstamp, E_ID=E_ID)
         img_name = f'{rec.R_ID[4:]}_img'
         handles = self.hm.get_handles(real_copy=True)
 
@@ -349,7 +351,7 @@ class UltraVisController:
 
             #try saving image and the record
             try:
-                path = self.model.save_PIL_image(img=img,img_name=img_name)
+                path = self.model.save_PIL_image(img=img, img_name=img_name)
                 rec.US_img=path
                 self.model.save_record(record=rec)
             except IOError as e:
@@ -396,20 +398,19 @@ class UltraVisController:
 
         return validSave
 
-
     #----GUI Related ----#
 
     def new_examination(self):
-        self.view.build_newExam_frame(master=self.view.rightFrame)
+        self.view.build_newExam_frame(master=self.view.right_frame)
         self.view.show_menu(menu='new_examination')
-        self.view.continueBut["command"] = self.setup_handles
+        self.view.continue_but["command"] = self.setup_handles
 
     def validate_new_examination(self):
         #if there is future validation necessary e.g. Patient data is required, you need to implement it here
-        doctor = self.view.doctorEntry.get()
-        patient = self.view.patientEntry.get()
-        examitem = self.view.examItemTextbox.get("1.0",'end-1c')
-        created = self.view.createdEntry.get()
+        doctor = self.view.doctor_entry.get()
+        patient = self.view.patient_entry.get()
+        examitem = self.view.exam_item_textbox.get("1.0",'end-1c')
+        created = self.view.created_entry.get()
 
         params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem, "created":created}
         new_exam = Examination(**params)
@@ -423,20 +424,20 @@ class UltraVisController:
     def setup_handles(self):
 
         #save exam procudere should be actually somewhere else ...
-        validExam,new_exam = self.validate_new_examination()
+        validExam, new_exam = self.validate_new_examination()
         if (validExam):
             try:
                 self.model.save_examination(examination=new_exam)
                 self.model.set_current_workitem(obj=new_exam)
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
-                self.view.setInfoMessage(msg)
+                self.view.set_info_message(msg)
                 return
         else:
             logging.error(f'Invalid Examinationdata')
             return
 
-        self.view.build_setup_frame(master=self.view.rightFrame)
+        self.view.build_setup_frame(master=self.view.right_frame)
         self.view.show_menu(menu='setup')
         self.addSetupHandlesFunc()
 
@@ -452,7 +453,7 @@ class UltraVisController:
     def validate_setuphandles(self,handle_index=None):
 
         last_index = self.hm.get_numhandles() - 1 if self.hm is not None else 3
-        setuphandles = self.view.setupHandleFrames
+        setuphandles = self.view.setuphandle_frames
         isValid = None
         #Check all handles and start next App part
         if handle_index is None:
@@ -488,11 +489,11 @@ class UltraVisController:
             if (handle_index != last_index):
                 self.view.set_current_setuphandle(handle_index+1)
             else:
-                self.view.instructionLabel["bg"] = "SpringGreen"
+                self.view.instruction_lb["bg"] = "SpringGreen"
                 self.view.set_setup_instruction("Einrichtung der Spulen abgeschlossen. Sie können mit der Untersuchung beginnen :)")
                 setuphandle["frame"]["bg"] = 'white'
                 children = setuphandle["frame"].winfo_children()
-                hp.disableWidgets(children,disable_all=True)
+                hp.disable_widgets(children,disable_all=True)
                 isValid = True
                 return isValid
         else:
@@ -502,18 +503,61 @@ class UltraVisController:
         is_valid_setuphandles = self.validate_setuphandles()
         if (is_valid_setuphandles):
             handles = self.hm.get_handles().values()
-            setuphandles =self.view.setupHandleFrames
-            for i,pair in enumerate(zip(handles,setuphandles)):
-                handle,setuphandle = pair
+            setuphandles = self.view.setuphandle_frames
+            for i,pair in enumerate(zip(handles, setuphandles)):
+                handle, setuphandle = pair
                 entry = setuphandle["ref_entry"]
                 refname = entry.get()
-                handle.setReferenceName(refname)
+                handle.set_reference_name(refname)
 
-            self.view.build_app_frame(master=self.view.rightFrame)
-            self.view.show_menu(menu='app')
+            self.view.build_examination_frame(master=self.view.right_frame)
+            self.view.show_menu(menu='examination')
+            self._init_framegrabber()
+            self.capture_framegrabber(label=self.view.USimg_lb)
+            self.view.refresh_imgsize()
             self.view.continueBut = self.finalize_examination
         else:
             return
+
+    def capture_framegrabber(self, label, ms_delay=10):
+        ''' Continuously refreshes the given label, with the grabbed image.
+        The label must be a tk.Label object. For the delay the tk.Label.after() Method
+        is used.
+            Returns the scheduler_id for canceling the job with the after_cancel method.
+            MAYBE BNOT
+        '''
+        if (not isinstance(label, tk.Label)):
+            raise TypeError (f'Expected {tk.Label} for parameter label \
+                               but got {type(label)} instead.')
+
+        _, self.grabbed_frame = self.cap.read()
+        #self.frame = cv2.flip(frame, 1)
+        if self.grabbed_frame is None:
+            logging.warning("Empty Frame - No device was found")
+            label["text"] = "EMPTY FRAME \n No device was found"
+            label.after(10000, self.capture_framegrabber, label, ms_delay)
+            return
+        if (label.master.winfo_height() == 1):
+            cv2image = cv2.cvtColor(self.grabbed_frame, cv2.COLOR_BGR2RGBA)
+            img = Image.fromarray(cv2image)
+            self.orignal_imgsize = img.size
+            label.after(1500, self.capture_framegrabber, label, ms_delay)
+            return
+
+        cv2image = cv2.cvtColor(self.grabbed_frame, cv2.COLOR_BGR2RGBA)
+        img = Image.fromarray(cv2image)
+        if (self.view.img_size is not None):
+            img = img.resize(self.view.img_size, Image.ANTIALIAS)
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        label.imgtk = imgtk
+        label.configure(image=imgtk)
+
+        self._framegrabber_job = label.after(
+            ms_delay, self.capture_framegrabber, label, ms_delay)
+
+
+
 
 
     def setTargetPos(self,handles=None):
@@ -556,7 +600,7 @@ class UltraVisController:
     #Muss Logik einbauen, dass das System dabei auch resettet wird &
     # das GUI etc. korrekt gestoppt wird
     def cancel_examination(self, save=False):
-        self.view.build_mainscreen_frame(master=self.view.rightFrame)
+        self.view.build_mainscreen_frame(master=self.view.right_frame)
         self.view.show_menu()
 
     def validate_examination(self):
@@ -582,12 +626,12 @@ class UltraVisController:
                 new_E_ID = self.model.persist_workitem()
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
-                self.view.setInfoMessage(msg)
+                self.view.set_info_message(msg)
                 logging.error(str(e))
                 return
 
             self.model.load_workitem(new_E_ID)
-            self.view.build_summary_frame(master=self.view.rightFrame)
+            self.view.build_summary_frame(master=self.view.right_frame)
             self.view.show_menu(menu='summary')
             self.build_summary()
 
@@ -600,7 +644,7 @@ class UltraVisController:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
             logging.info(msg)
             print(msg)
-            self.view.setInfoMessage(msg=msg,type='ERROR')
+            self.view.set_info_message(msg=msg,type='ERROR')
             return
 
     def build_summary(self):
@@ -630,7 +674,7 @@ class UltraVisController:
 
     def _debugfunc(self):
         self.model.load_workitem('E-2')
-        self.view.build_summary_frame(master=self.view.rightFrame)
+        self.view.build_summary_frame(master=self.view.right_frame)
         self.view.show_menu(menu='summary')
         self.build_summary()
 
@@ -640,7 +684,7 @@ class UltraVisController:
 
 
     def open_examination(self):
-        self.view.build_openexam_frame(master=self.view.rightFrame)
+        self.view.build_openexam_frame(master=self.view.right_frame)
         self.view.show_menu(menu='open_examination')
         lastE_ID = self.model.t_examination.tail().index.tolist()
         self.view.lastE_IDs["text"] += '\n\n'+str(lastE_ID)
@@ -658,7 +702,7 @@ class UltraVisController:
             logging.info('E_ID Empty ! Please give correct input')
             return
 
-        self.view.buildNavigationFrame(master=self.view.rightFrame)
+        self.view.buildNavigationFrame(master=self.view.right_frame)
         self.view.show_menu(menu='navigation')
 
         logging.info(f'Loading Examination {E_ID} for Navigation')
@@ -687,45 +731,38 @@ class UltraVisController:
 
     def initFunctionality(self):
 
-        self.view.newExamiBut["command"] = self.new_examination
-        self.view.openExamiBut["command"] = self.open_examination
+        self.view.new_exam_but["command"] = self.new_examination
+        self.view.open_exam_but["command"] = self.open_examination
 
-        self.view.newExamiBut["command"] = self.new_examination
+        self.view.new_exam_but["command"] = self.new_examination
 
-        self.view.startExamiBut["command"] = self.start_examination
-        self.view.activateHandleBut["command"] =lambda: self.q.put(self.activateHandles)
+        self.view.start_exam_but["command"] = self.start_examination
+        self.view.activate_handle_but["command"] =lambda: self.q.put(self.activateHandles)
 
-        self.view.saveRecordBut["command"] = lambda: self.q.put(self.saveRecord)
-        self.view.trackBut["command"] = lambda: self.q.put(self.startstopTracking)
-        self.view.finishExamiBut["command"] = self.finalize_examination
+        self.view.save_record_but["command"] = lambda: self.q.put(self.saveRecord)
+        self.view.track_but["command"] = lambda: self.q.put(self.startstopTracking)
+        self.view.finish_exam_but["command"] = self.finalize_examination
 
-        self.view.mainMenuBut["command"] = self.cancel_examination
+        self.view.mainmenu_but["command"] = self.cancel_examination
 
-        self.view.startNaviBut["command"] = self.start_navigation
-        self.view.calibrateBut["command"] = self.calibrate_coordsys
-        self.view.targetBut["command"] = self.setTargetPos
+        self.view.start_navigation_but["command"] = self.start_navigation
+        self.view.calibrate_but["command"] = self.calibrate_coordsys
+        self.view.target_but["command"] = self.setTargetPos
 
-        self.view.cancelBut["command"] = self.cancel_examination
+        self.view.cancel_but["command"] = self.cancel_examination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
         #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
-
     def addSetupHandlesFunc(self):
 
-        frames = self.view.setupHandleFrames
+        frames = self.view.setuphandle_frames
         #Partial muss genutzt werden, weil der Parameter hochgezählt wird.
         for i,frame_data in enumerate(frames):
             #frame,handlename,ref_entry,button,valid = frame_data.values()
             button = frame_data["button"]
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
 
-
-    def _debugfunc(self):
-        self.model.load_workitem('E-2')
-        self.view.build_summary_frame(master=self.view.rightFrame)
-        self.view.show_menu(menu='summary')
-        self.build_summary()
 
     #----Debugging Related ----#
     def writeCmd2AUA(self,event):
@@ -767,37 +804,12 @@ class UltraVisController:
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
 
-
-
-
-    def enableWidgets(self,childList):
-        for child in childList:
-            if (child.winfo_class() == 'Frame'):
-                self.enableWidgets(child.winfo_children())
-                continue
-
-            if (child.winfo_class() in ['Button','Entry']):
-                child.configure(state='normal')
-
-    def disableWidgets(self,childList):
-        for child in childList:
-            if (child.winfo_class() == 'Frame'):
-                self.disableWidgets(child.winfo_children())
-                continue
-
-            if (child.winfo_class() in ['Button','Entry']):
-                child.configure(state='disabled')
-
-
-
-
-
     def refreshSysmode(self):
         if (hasattr(self.view,'sysmodeLabel')):
             mode = self.aua.get_sysmode()
             self.view.sysmodeLabel["text"] = "Operating Mode: "+str(mode)
         else:
-            self.view.rightFrame.after(2000,self.refreshSysmode)
+            self.view.right_frame.after(2000,self.refreshSysmode)
 
     # TODO WIP
     def refreshWorkItem(self):

@@ -1,5 +1,4 @@
-"""aurora module
-
+"""
 The aurora module, is a python implementation of
 NDI Aurora System API Revision 4. The guide is in the docs accessable.
 
@@ -64,9 +63,9 @@ class Aurora:
         with self._lock:
             if (len(self.apirev()) == 0):
                 raise Warning(
-                    "Empty Return Message during Initilization. Please ensure that the system is properly connected at " +
-                    self.ser.name +
-                    " and turned on.")
+                    ("Empty Return Message during Initilization. "
+                     "Please ensure that the system is properly "
+                    f"connected at {self.ser.name} and turned on."))
 
     # Observer Pattern - Add Observer Method / Callback Method
     def register(self, key, observer):
