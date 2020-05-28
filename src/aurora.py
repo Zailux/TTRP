@@ -442,6 +442,7 @@ class HandleManager:
                 misshandles.append(h_id)
         return misshandles
 
+    # TODO rework Tobi for the BX Method.
     def update_handlesBX(self, bx_header, bx_data):
         #print(len(bx_header))
         #print(len(bx_data))
@@ -490,7 +491,8 @@ class HandleManager:
                 port_state = handle_bytes[34:38]
                 frame_id = handle_bytes[38:42]
 
-                new_handle.setTXData(False,Q0, Qx, Qy, Qz,Tx,Ty,Tz,calc_Err,port_state,frame_id)
+                new_handle.set_tx_data(False, Q0, Qx, Qy, Qz, Tx, Ty, Tz,
+                                       calc_Err, port_state, frame_id)
                 self.handles[h_id] = new_handle
         return True
 
@@ -536,7 +538,7 @@ class HandleManager:
                     handle = handle[7:]
                     port_state = handle[0:8]
                     frame_id = handle[8:]
-                    new_handle.setTXData(
+                    new_handle.set_tx_data(
                         MISSING=True, port_state=port_state, frame_id=frame_id)
 
                 else:
@@ -551,7 +553,7 @@ class HandleManager:
                     port_state = handle[51:59]
                     frame_id = handle[59:67]
 
-                    new_handle.setTXData(
+                    new_handle.set_tx_data(
                         False,
                         Q0,
                         Qx,

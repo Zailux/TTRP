@@ -97,7 +97,8 @@ class UltraVisController:
 
         #Bug that plt.close also closes the TKinter Windows!
         if (hasattr(self.view,'fig')):
-            plt.close(fig=self.view.fig)
+            pass
+            #plt.close(fig=self.view.fig)
         logging.info("Good Night Cruel World :D")
         self.root.quit()
         self.root.destroy()
@@ -149,7 +150,7 @@ class UltraVisController:
         widgets = self.view.menu_frame.winfo_children()
         self.aua_active = False
         try:
-            self.aua = Aurora(ser)
+            self.aua = Aurora(ser, debug_mode=self._debug)
         except serial.SerialException as e:
             logging.warning("serial.SerialException: "+str(e))
             #self.disable_widgets(widgets)
@@ -169,7 +170,7 @@ class UltraVisController:
         logging.info("Connection success")
         self.aua.register("set_sysmode",self.refreshSysmode)
         hp.enable_widgets(widgets)
-        self.view.reinit_aua_but.grid_forget()
+        self.view.reinit_aua_but.pack_forget()
 
         logging.info("Reset Aurorasystem")
         self.aua.reset_and_init_system()
@@ -242,7 +243,8 @@ class UltraVisController:
             self.stopTracking = False
             self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
-            self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
+            self.view.build_position_summary
+            #self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
 
 
         elif(self.aua.get_sysmode()=='TRACKING'):
@@ -264,8 +266,8 @@ class UltraVisController:
         while(not self.stopTracking):
             t0 = datetime.now()
             with self.aua._lock:
-                #NEEDS TO BE FIXED
-                bx = True
+                #TODO NEEDS TO BE FIXED
+                bx = False
                 if bx:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
@@ -273,7 +275,10 @@ class UltraVisController:
                 else:
                     tx = self.aua.tx()
                     self.hm.update_handles(tx)
-                    self.setNavCanvasData()
+                    #self.setNavCanvasData()
+                    self.visualize_tracking()
+
+
             time.sleep(freq)
 
             t1 = datetime.now()
@@ -282,6 +287,29 @@ class UltraVisController:
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
 
+    # TODO DERP DERP TEXT VARIABLE 
+    def visualize_tracking(self):
+        av_color = ['yellow','red','green','blue']
+        color = []
+        num_handle = self.hm.get_numhandles()
+        if (num_handle is not 4):
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
+            color = color[:num_handle]
+
+        position = self.hm.get_handles(real_copy=True)
+        handle_rows = self.view.position_summary_widgets
+
+        for row, handle in zip(handle_rows, position):
+            for widget, value in zip(row, handle.__dict__.values()):
+                widget.configure()
+
+
+
+
+
+
+
+    #Example of using the hm data
     def setNavCanvasData(self):
         x,y,z,a,b,c = [],[],[],[],[],[]
         av_color = ['yellow','red','green','blue']
@@ -302,7 +330,7 @@ class UltraVisController:
             if (handle.MISSING is False):
                 # TODO only for uvis sensor
                 if (i == 0):
-                    transformed = self.calibrator.transform_backward([handle.Tx, handle.Ty, handle.Tz])
+                    transformed = self.calibrator.transform_backward([float(handle.Tx), float(handle.Ty), float(handle.Tz)])
                     x.append(transformed[0])
                     y.append(transformed[1])
                     z.append(transformed[2])
@@ -524,7 +552,6 @@ class UltraVisController:
         The label must be a tk.Label object. For the delay the tk.Label.after() Method
         is used.
             Returns the scheduler_id for canceling the job with the after_cancel method.
-            MAYBE BNOT
         '''
         if (not isinstance(label, tk.Label)):
             raise TypeError (f'Expected {tk.Label} for parameter label \
@@ -805,9 +832,9 @@ class UltraVisController:
 
 
     def refreshSysmode(self):
-        if (hasattr(self.view,'sysmodeLabel')):
+        if (hasattr(self.view,'sys_mode_lb')):
             mode = self.aua.get_sysmode()
-            self.view.sysmodeLabel["text"] = "Operating Mode: "+str(mode)
+            self.view.sysmode_lb["text"] = "Operating Mode: "+str(mode)
         else:
             self.view.right_frame.after(2000,self.refreshSysmode)
 

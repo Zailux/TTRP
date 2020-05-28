@@ -427,7 +427,7 @@ class UltraVisView(tk.Frame):
         self.cap = None
         self.navcanvas_data = ()
         self.img_size = None
-        self.savedImg = None
+        self.saved_img = None
 
         self.appFrame = tk.Frame(master, bg="black")
         self.appFrame.rowconfigure(0, weight=90, uniform=1)
@@ -435,43 +435,32 @@ class UltraVisView(tk.Frame):
         self.appFrame.columnconfigure(0, weight=1)
 
         # 2x2 Matrix of Application frame
-        self.gridFrame = tk.Frame(self.appFrame)
-        self.gridFrame.rowconfigure(0, weight=1, uniform=1)
-        self.gridFrame.rowconfigure(1, weight=1, uniform=1)
-        self.gridFrame.columnconfigure(0, weight=1, uniform=1)
-        self.gridFrame.columnconfigure(1, weight=1, uniform=1)
-        self.gridFrame.bind('<Configure>', self.refresh_imgsize)
+        self.grid_frame = tk.Frame(self.appFrame)
+        self.grid_frame.rowconfigure(0, weight=1, uniform=1)
+        self.grid_frame.rowconfigure(1, weight=1, uniform=1)
+        self.grid_frame.columnconfigure(0, weight=1, uniform=1)
+        self.grid_frame.columnconfigure(1, weight=1, uniform=1)
+        self.grid_frame.bind('<Configure>', self.refresh_imgsize)
 
         # Order of the US Frame, Saved Image and Navigationframe
-        self.USImgFrame = tk.Frame(self.gridFrame, bg="green")
-        self.USImgFrame.rowconfigure(0, weight=1)
-        self.USImgFrame.columnconfigure(0, weight=1)
-        self.savedImgFrame = tk.Frame(self.gridFrame, bg="green")
-        self.savedImgFrame.rowconfigure(0, weight=1)
-        self.savedImgFrame.columnconfigure(0, weight=1)
-        self.savedImgFrame.bind('<Configure>', self.refresh_saved_img)
-        self.navFrame = tk.Frame(self.gridFrame, bg="yellow")
+        self.USimg_frame = tk.Frame(self.grid_frame, bg="green")
+        self.USimg_frame.rowconfigure(0, weight=1)
+        self.USimg_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame = tk.Frame(self.grid_frame, bg="green")
+        self.saved_img_frame.rowconfigure(0, weight=1)
+        self.saved_img_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
+        self.navFrame = tk.Frame(self.grid_frame, bg="yellow")
         self.navFrame.rowconfigure(1, weight=1)
         self.navFrame.columnconfigure(0, weight=80)
         self.navFrame.columnconfigure(1, weight=20)
 
-        self.USImgFrame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
-        self.savedImgFrame.grid(
-            row=1,
-            column=0,
-            padx=5,
-            pady=2,
-            sticky=tk.NSEW)
-        self.navFrame.grid(
-            row=0,
-            column=1,
-            rowspan=2,
-            padx=5,
-            pady=2,
-            sticky=tk.NSEW)
+        self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.saved_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.navFrame.grid(row=0, column=1, rowspan=2, padx=5, pady=2, sticky=tk.NSEW)
 
         # Ultrasoundimage Content
-        self.USimg_lb = tk.Label(self.USImgFrame)
+        self.USimg_lb = tk.Label(self.USimg_frame)
         self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
         self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
         self.USimg_lb.grid_propagate(0)
@@ -480,29 +469,37 @@ class UltraVisView(tk.Frame):
         #self.capture_framegrabber()
 
         # Saved Image Content
-        self.savedImgLabel = tk.Label(self.savedImgFrame)
-        self.savedImgLabel["text"] = "Saved Image"
-        self.savedImgLabel.grid(row=0, column=0, sticky=tk.NSEW)
+        self.saved_img_lb = tk.Label(self.saved_img_frame)
+        self.saved_img_lb["text"] = "Saved Image"
+        self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
 
         # Navigation Frame Content
-        self.navLabel = tk.Label(self.navFrame)
-        self.navLabel["text"] = "Navigation GUI"
-        self.navLabel.grid(row=0, column=0, sticky=tk.NSEW)
-        self.sysmodeLabel = tk.Label(self.navFrame)
-        self.sysmodeLabel["text"] = "Operating Mode: - "
-        self.sysmodeLabel.grid(row=0, column=1, sticky=tk.NSEW)
+        self.nav_title_lb = tk.Label(self.navFrame)
+        self.nav_title_lb["text"] = "Navigation GUI"
+        self.nav_title_lb["font"] = ('Open Sans', 12)
+        self.nav_title_lb.grid(row=0, column=0, sticky=tk.NSEW)
+        self.sysmode_lb = tk.Label(self.navFrame)
+        self.sysmode_lb["text"] = "Operating Mode: - "
+        self.sysmode_lb["font"] = ('Open Sans', 12)
+        self.sysmode_lb.grid(row=0, column=1, sticky=tk.NSEW)
+        scroll_framing = ScrollableFrame(master=self.navFrame)
+        empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
+        self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty)
+        scroll_framing.grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
 
+        self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        '''
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
         self.ax.set_autoscale_on(False)
         self.navCanvas = FigureCanvasTkAgg(self.fig, self.navFrame)
 
+
         self.build_coordinatesystem()
 
         self.navCanvas.get_tk_widget().grid(
             row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
-        self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-
+        '''
 
         # Gallery Frame Content
         self.galleryFrame = tk.Frame(self.appFrame, bg="#99ffcc")
@@ -517,7 +514,7 @@ class UltraVisView(tk.Frame):
         self.appFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
     def refresh_imgsize(self, event=None):
-        self.gridFrame.after_idle(self.calculate_US_imgsize)
+        self.grid_frame.after_idle(self.calculate_US_imgsize)
 
     '''
     def capture_framegrabber(self):
@@ -530,7 +527,7 @@ class UltraVisView(tk.Frame):
             self.USimg_lb["text"] = "EMPTY FRAME \n No Device was found"
             self.USimg_lb.after(10000, self.capture_framegrabber)
             return
-        if (self.USImgFrame.winfo_height() == 1):
+        if (self.USimg_frame.winfo_height() == 1):
             cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
             img = Image.fromarray(cv2image)
             self.og_imgsize = img.size
@@ -568,12 +565,12 @@ class UltraVisView(tk.Frame):
         # Normalize Ratio of Pictures, Resize appropriatly - could be
         # optimized.
         img_ratio = height / width
-        frame_ratio = self.USImgFrame.winfo_height() / self.USImgFrame.winfo_width()
+        frame_ratio = self.USimg_frame.winfo_height() / self.USimg_frame.winfo_width()
         if (frame_ratio >= img_ratio):
-            new_width = (self.USImgFrame.winfo_width() - 5)
+            new_width = (self.USimg_frame.winfo_width() - 5)
             new_height = height / width * new_width
         else:
-            new_height = (self.USImgFrame.winfo_height() - 5)
+            new_height = (self.USimg_frame.winfo_height() - 5)
             new_width = width / height * new_height
 
         self.img_size = ((int(new_width), int(new_height)))
@@ -581,42 +578,45 @@ class UltraVisView(tk.Frame):
 
     def refresh_saved_img(self, event=None):
         # Refresh Saved IMG more Image possible
-        if (self.savedImg is not None):
-            self.savedImg = self.savedImg.resize(
+        if (self.saved_img is not None):
+            self.saved_img = self.saved_img.resize(
                 self.img_size, Image.ANTIALIAS)
-            imgtk = ImageTk.PhotoImage(image=self.savedImg)
-            self.savedImgLabel.imgtk = imgtk
-            self.savedImgLabel.configure(image=self.savedImgLabel.imgtk)
+            imgtk = ImageTk.PhotoImage(image=self.saved_img)
+            self.saved_img_lb.imgtk = imgtk
+            self.saved_img_lb.configure(image=self.saved_img_lb.imgtk)
+
+    def build_tracking_summary(self):
+
+        pass
 
     def build_coordinatesystem(self):
-        plt.cla()
-        self.ax.set_xlabel('X')
-        self.ax.set_xlim(-230, 230)
-        self.ax.set_ylabel('Y')
-        self.ax.set_ylim(-320, 320)
-        self.ax.set_zlabel('Z')
-        self.ax.set_zlim(0, -600)
+        #plt.cla()
+        #self.ax.set_xlabel('X')
+        #self.ax.set_xlim(-230, 230)
+        #self.ax.set_ylabel('Y')
+        #self.ax.set_ylim(-320, 320)
+        #self.ax.set_zlabel('Z')
+        #self.ax.set_zlim(0, -600)
+        if (not hasattr(self,'navigationvis')):
+            return
 
         if (len(self.navcanvas_data) is not 0):
-            x, y, z, color = self.navcanvas_data
-            Axes3D.scatter(
-                self.ax,
-                xs=x,
-                ys=y,
-                zs=z,
-                c=color,
-                edgecolors='black',
-                s=70)
+            x,y,z,a,b,c,color = self.navcanvas_data
+            self.navigationvis.set_pos(x[0], y[0])
+            self.navigationvis.set_ori(a[0],b[0],c[0])
+            self.navigationvis.update_All()
+            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
 
-            self._Canvasjob = self.navCanvas._tkcanvas.after(
-                40, func=self.build_coordinatesystem)
+            self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.build_coordinatesystem)
 
-        self.navCanvas.draw()
+        #self.navCanvas.draw()
 
+    '''
     def saveUSImg(self):
         cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-        self.savedImg = Image.fromarray(cv2image)
+        self.saved_img = Image.fromarray(cv2image)
         self.refresh_saved_img()
+    '''
 
     @clear_frame
     def build_summary_frame(self, master):
@@ -721,9 +721,20 @@ class UltraVisView(tk.Frame):
         The Frame displays the 4 Handles / the Position in an table format.
             Returns a tk.Frame Object.
         '''
+
+        if (isinstance(position, dict)):
+            as_list = []
+            for handle in position.values():
+                as_list.append(handle)
+            position.clear()
+            position = as_list
+
         if (not (all(isinstance(h, Handle) for h in position))):
             raise TypeError(f'Expected {Handle} for parameter position \
                               and got {type(h) for h in position} instead.')
+
+        self.position_summary_widgets = []
+
         position_summary = tk.Frame(master)
         position_summary.rowconfigure(0, weight=0, minsize=20)
 
@@ -741,11 +752,14 @@ class UltraVisView(tk.Frame):
         for j, handle in enumerate(position,start=2):
 
             position_summary.rowconfigure(j,weight=1,uniform=1)
-
-            for k,val in enumerate(handle.__dict__.values()):
+            widgets = []
+            for k, val in enumerate(handle.__dict__.values()):
                 val = str(val)
                 handle_val = hp.get_readonly_widget(master=position_summary,value=val,max_length=15, max_height=SUM_MAXHEIGHT)
                 handle_val.grid(row=j,column=k,sticky=tk.EW)
+                widgets.append(handle_val)
+
+            self.position_summary_widgets.append(widgets)
 
         return position_summary
 
@@ -771,18 +785,18 @@ class UltraVisView(tk.Frame):
         self.navigationFrame = tk.Frame(master)
 
         #Navigation Frame Content
-        self.navLabel = tk.Label(self.navFrame)
-        self.navLabel["text"] = "Navigation GUI"
-        self.navLabel.grid(row=0, column=0,sticky=tk.NSEW)
-        self.sysmodeLabel = tk.Label(self.navFrame)
-        self.sysmodeLabel["text"] = "Operating Mode: - "
-        self.sysmodeLabel.grid(row=0, column=1,sticky=tk.NSEW)
+        self.nav_title_lb = tk.Label(self.navFrame)
+        self.nav_title_lb["text"] = "Navigation GUI"
+        self.nav_title_lb.grid(row=0, column=0,sticky=tk.NSEW)
+        self.sysmode_lb = tk.Label(self.navFrame)
+        self.sysmode_lb["text"] = "Operating Mode: - "
+        self.sysmode_lb.grid(row=0, column=1,sticky=tk.NSEW)
 
         self.navigationvis = NavigationVisualizer(self.navFrame)
         self.navCanvas = self.navigationvis.canvas
         self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky=tk.NSEW)
-        self.gridFrame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        self.gridFrame.after_idle(self.calculate_US_imgsize)
+        self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.grid_frame.after_idle(self.calculate_US_imgsize)
 
         pass
 

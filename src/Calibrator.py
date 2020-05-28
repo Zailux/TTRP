@@ -24,7 +24,6 @@ class Calibrator:
             b: Becken links (pelvis, left)
             c: Brustbein (sternum, caudal)
         """
-
         # x
         m = np.multiply(0.5, np.add(a,b))
         x_axis = m
