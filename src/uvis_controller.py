@@ -249,7 +249,7 @@ class UltraVisController:
 
         elif(self.aua.get_sysmode()=='TRACKING'):
             self.stopTracking = True
-            self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+           # self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
 
             with self.aua._lock:
@@ -267,7 +267,7 @@ class UltraVisController:
             t0 = datetime.now()
             with self.aua._lock:
                 #TODO NEEDS TO BE FIXED
-                bx = False
+                bx = True
                 if bx:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
@@ -287,7 +287,7 @@ class UltraVisController:
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
 
-    # TODO DERP DERP TEXT VARIABLE 
+    # TODO DERP DERP TEXT VARIABLE
     def visualize_tracking(self):
         av_color = ['yellow','red','green','blue']
         color = []
@@ -299,7 +299,7 @@ class UltraVisController:
         position = self.hm.get_handles(real_copy=True)
         handle_rows = self.view.position_summary_widgets
 
-        for row, handle in zip(handle_rows, position):
+        for row, handle in zip(handle_rows, position.values()):
             for widget, value in zip(row, handle.__dict__.values()):
                 widget.configure()
 

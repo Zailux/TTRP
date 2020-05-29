@@ -484,7 +484,7 @@ class UltraVisView(tk.Frame):
         self.sysmode_lb.grid(row=0, column=1, sticky=tk.NSEW)
         scroll_framing = ScrollableFrame(master=self.navFrame)
         empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
-        self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty)
+        self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty_pos)
         scroll_framing.grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
 
         self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
@@ -607,7 +607,7 @@ class UltraVisView(tk.Frame):
             self.navigationvis.update_All()
             #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
 
-            self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.build_coordinatesystem)
+            #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.build_coordinatesystem)
 
         #self.navCanvas.draw()
 
