@@ -31,8 +31,8 @@ class Configuration(metaclass=Singleton):
         self.VID_INPUT = 0                      #defaults to 0
 
         #Logger
-        format = "%(asctime)s - %(threadName)s|%(levelname)s: %(message)s"
+        format = "%(asctime)s - %(threadName)s - %(levelname)s | %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
         self.LOGGER = logging.getLogger()
 
-        
+
