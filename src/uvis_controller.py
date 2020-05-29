@@ -70,7 +70,7 @@ class UltraVisController:
         self.ser.timeout = 2
 
         #Tries to initalize Aurora and Adds Functionaly based on state
-        self.initAurora(self.ser)
+        self.init_aurora(self.ser)
         self.initFunctionality()
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -87,7 +87,7 @@ class UltraVisController:
             if (self.aua_active):
                 if(self.aua.get_sysmode()=='TRACKING'):
                     self.stopTracking = True
-                    self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+                    #self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
                     with self.aua._lock:
                         self.aua.tstop()
 
@@ -143,7 +143,7 @@ class UltraVisController:
     def _init_framegrabber(self):
         self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
 
-    def initAurora(self,ser):
+    def init_aurora(self,ser):
 
         logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
 
@@ -156,19 +156,19 @@ class UltraVisController:
             #self.disable_widgets(widgets)
             self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinit_aua_but["state"] = 'normal'
-            self.view.reinit_aua_but["command"] = lambda: self.initAurora(self.ser)
+            self.view.reinit_aua_but["command"] = lambda: self.init_aurora(self.ser)
             return
         except Warning as w:
             logging.exception(str(w))
             #self.disable_widgets(widgets)
             self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinit_aua_but["state"] = 'normal'
-            self.view.reinit_aua_but["command"] = lambda: self.initAurora(self.ser)
+            self.view.reinit_aua_but["command"] = lambda: self.init_aurora(self.ser)
             return
 
         self.aua_active = True
         logging.info("Connection success")
-        self.aua.register("set_sysmode",self.refreshSysmode)
+        self.aua.register("set_sysmode", self.refresh_sysmode)
         hp.enable_widgets(widgets)
         self.view.reinit_aua_but.pack_forget()
 
@@ -272,6 +272,8 @@ class UltraVisController:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
                         self.setNavCanvasData()
+                        self.visualize_tracking()
+
                 else:
                     tx = self.aua.tx()
                     self.hm.update_handles(tx)
@@ -287,7 +289,7 @@ class UltraVisController:
         self.stopTracking = False
         logging.info(threading.current_thread().name+" has stopped!")
 
-    # TODO DERP DERP TEXT VARIABLE
+    # TODO next test
     def visualize_tracking(self):
         av_color = ['yellow','red','green','blue']
         color = []
@@ -301,10 +303,18 @@ class UltraVisController:
 
         for row, handle in zip(handle_rows, position.values()):
             for widget, value in zip(row, handle.__dict__.values()):
-                widget.configure()
 
-
-
+                value_text = tk.StringVar()
+                value_text.set(value)
+                if widget.winfo_class() == 'Entry':
+                    #widget.delete(0, tk.END)
+                    widget.configure(textvariable=value_text)
+                elif widget.winfo_class() == 'Text':
+                    widget.delete(0, tk.END)
+                    logging.info("Dumbass")
+                    widget.insert(0, value)
+                else:
+                    logging.debug(f'Wrong class? {widget.winfo_class()}')
 
 
 
@@ -483,6 +493,7 @@ class UltraVisController:
         last_index = self.hm.get_numhandles() - 1 if self.hm is not None else 3
         setuphandles = self.view.setuphandle_frames
         isValid = None
+
         #Check all handles and start next App part
         if handle_index is None:
 
@@ -490,7 +501,7 @@ class UltraVisController:
             for setuphandle in setuphandles:
                 valid_list.append(setuphandle['valid'])
 
-            if False in valid_list:
+            if False in valid_list and not self._debug:
                 self.view.set_setup_instruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
                 logging.info(f"Invalid Setuphandles. See List: {valid_list}")
                 isValid = False
@@ -543,7 +554,7 @@ class UltraVisController:
             self._init_framegrabber()
             self.capture_framegrabber(label=self.view.USimg_lb)
             self.view.refresh_imgsize()
-            self.view.continueBut = self.finalize_examination
+            self.view.continue_but = partial(self.q.put, self.finalize_examination)
         else:
             return
 
@@ -645,6 +656,8 @@ class UltraVisController:
 
         return isValid
 
+    # TODO Stop tracking when finalizing
+    # doppel klick soll verhindert werden, maybe über check, current menu
     def finalize_examination(self):
         isValidExam = self.validate_examination()
         if (isValidExam):
@@ -657,15 +670,12 @@ class UltraVisController:
                 logging.error(str(e))
                 return
 
+            if self.aua.get_sysmode() == "TRACKING":
+                self.startstopTracking()
             self.model.load_workitem(new_E_ID)
             self.view.build_summary_frame(master=self.view.right_frame)
             self.view.show_menu(menu='summary')
             self.build_summary()
-
-            # TODO THAT!
-            if self.aua.get_sysmode() == "TRACKING":
-                self.q.put(self.startstopTracking)
-                #ggf. rauskomment
 
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
@@ -700,10 +710,13 @@ class UltraVisController:
 
 
     def _debugfunc(self):
-        self.model.load_workitem('E-2')
-        self.view.build_summary_frame(master=self.view.right_frame)
-        self.view.show_menu(menu='summary')
-        self.build_summary()
+
+        self.view.build_examination_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='examination')
+        self._init_framegrabber()
+        self.capture_framegrabber(label=self.view.USimg_lb)
+        self.view.refresh_imgsize()
+        self.view.continue_but = self.finalize_examination
 
 
 
@@ -768,7 +781,7 @@ class UltraVisController:
 
         self.view.save_record_but["command"] = lambda: self.q.put(self.saveRecord)
         self.view.track_but["command"] = lambda: self.q.put(self.startstopTracking)
-        self.view.finish_exam_but["command"] = self.finalize_examination
+        self.view.finish_exam_but["command"] = lambda: self.q.put(self.finalize_examination)
 
         self.view.mainmenu_but["command"] = self.cancel_examination
 
@@ -831,12 +844,19 @@ class UltraVisController:
         self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
 
 
-    def refreshSysmode(self):
-        if (hasattr(self.view,'sys_mode_lb')):
+    def refresh_sysmode(self):
+        if (hasattr(self.view,'sysmode_lb')):
             mode = self.aua.get_sysmode()
-            self.view.sysmode_lb["text"] = "Operating Mode: "+str(mode)
+            color = 'black'
+            if (mode == 'SETUP'):
+                color = 'FloralWhite'
+            elif (mode == 'TRACKING'):
+                color = 'SpringGreen'
+            self.view.sysmode_lb.configure(
+                text="Operating Mode: "+str(mode),
+                bg=color)
         else:
-            self.view.right_frame.after(2000,self.refreshSysmode)
+            self.view.right_frame.after(2000,self.refresh_sysmode)
 
     # TODO WIP
     def refreshWorkItem(self):

@@ -10,6 +10,7 @@ import time
 import tkinter as tk
 from datetime import datetime
 from tkinter import ttk
+from tkinter.font import Font
 
 import matplotlib
 import matplotlib.animation
@@ -77,6 +78,8 @@ class UltraVisView(tk.Frame):
 
         self.start_time = time.time()
         self._debug = debug_mode
+        self.current_menu = None
+
         self.master = master
         self.master.title("TTR: Track To Reference")
         self.master.minsize(600, 350)
@@ -229,7 +232,7 @@ class UltraVisView(tk.Frame):
 
         for button in menu_buttons[menu]:
             button.pack(side=tk.TOP, pady=(0, 0), padx=(10), fill="both")
-
+        self.current_menu = menu
         if (self._debug):
             self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),
                                    padx=(10), fill="both")
@@ -429,13 +432,14 @@ class UltraVisView(tk.Frame):
         self.img_size = None
         self.saved_img = None
 
-        self.appFrame = tk.Frame(master, bg="black")
-        self.appFrame.rowconfigure(0, weight=90, uniform=1)
-        self.appFrame.rowconfigure(1, weight=10, minsize=125, uniform=1)
-        self.appFrame.columnconfigure(0, weight=1)
+        self.exam_frame = tk.Frame(master, bg="black")
+        self.exam_frame.rowconfigure(0, weight=1)
+        #self.exam_frame.rowconfigure(0, weight=90, uniform=1)
+        #self.exam_frame.rowconfigure(1, weight=10, minsize=125, uniform=1)
+        self.exam_frame.columnconfigure(0, weight=1)
 
         # 2x2 Matrix of Application frame
-        self.grid_frame = tk.Frame(self.appFrame)
+        self.grid_frame = tk.Frame(self.exam_frame)
         self.grid_frame.rowconfigure(0, weight=1, uniform=1)
         self.grid_frame.rowconfigure(1, weight=1, uniform=1)
         self.grid_frame.columnconfigure(0, weight=1, uniform=1)
@@ -443,75 +447,58 @@ class UltraVisView(tk.Frame):
         self.grid_frame.bind('<Configure>', self.refresh_imgsize)
 
         # Order of the US Frame, Saved Image and Navigationframe
-        self.USimg_frame = tk.Frame(self.grid_frame, bg="green")
+        self.USimg_frame = tk.Frame(self.grid_frame)
         self.USimg_frame.rowconfigure(0, weight=1)
         self.USimg_frame.columnconfigure(0, weight=1)
-        self.saved_img_frame = tk.Frame(self.grid_frame, bg="green")
+        self.saved_img_frame = tk.Frame(self.grid_frame)
         self.saved_img_frame.rowconfigure(0, weight=1)
         self.saved_img_frame.columnconfigure(0, weight=1)
         self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
-        self.navFrame = tk.Frame(self.grid_frame, bg="yellow")
-        self.navFrame.rowconfigure(1, weight=1)
-        self.navFrame.columnconfigure(0, weight=80)
-        self.navFrame.columnconfigure(1, weight=20)
+        self.exam_data_frame = tk.Frame(self.grid_frame)
+        self.exam_data_frame.rowconfigure(0, weight=0)
+        self.exam_data_frame.rowconfigure(1, weight=1)
+        self.exam_data_frame.columnconfigure(0, weight=1)
 
         self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
-        self.saved_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
-        self.navFrame.grid(row=0, column=1, rowspan=2, padx=5, pady=2, sticky=tk.NSEW)
+        self.saved_img_frame.grid(row=0, column=1, padx=5, pady=2, sticky=tk.NSEW)
+        self.exam_data_frame.grid(row=1, column=0, columnspan=2, padx=5, pady=2, sticky=tk.NSEW)
 
         # Ultrasoundimage Content
-        self.USimg_lb = tk.Label(self.USimg_frame)
+        self.USimg_lb = tk.Label(self.USimg_frame) #LABEL for controller frame_grabber
         self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
         self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
         self.USimg_lb.grid_propagate(0)
-
-        #self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
-        #self.capture_framegrabber()
 
         # Saved Image Content
         self.saved_img_lb = tk.Label(self.saved_img_frame)
         self.saved_img_lb["text"] = "Saved Image"
         self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
 
-        # Navigation Frame Content
-        self.nav_title_lb = tk.Label(self.navFrame)
-        self.nav_title_lb["text"] = "Navigation GUI"
-        self.nav_title_lb["font"] = ('Open Sans', 12)
-        self.nav_title_lb.grid(row=0, column=0, sticky=tk.NSEW)
-        self.sysmode_lb = tk.Label(self.navFrame)
+        # Examinationdata Frame Content
+        self.sysmode_lb = tk.Label(self.exam_data_frame)
         self.sysmode_lb["text"] = "Operating Mode: - "
-        self.sysmode_lb["font"] = ('Open Sans', 12)
-        self.sysmode_lb.grid(row=0, column=1, sticky=tk.NSEW)
-        scroll_framing = ScrollableFrame(master=self.navFrame)
+        self.sysmode_lb["font"] = ('Open Sans', 10)
+        self.sysmode_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
+        #self.sysmode_icon_lb = tk.Label(self.exam_data_frame)
+        scroll_framing = ScrollableFrame(master=self.exam_data_frame)
+        scroll_framing.contentframe.columnconfigure(0, weight=1)
+        scroll_framing.contentframe.rowconfigure(0, weight=1)
         empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
+
         self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty_pos)
-        scroll_framing.grid(row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
+
+       # scroll_framing.contentframe.grid()
+        self.tracking_data_frame.grid(row=0,column=0, pady=10, padx=10, sticky=tk.NSEW)
+        scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
 
         self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        '''
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_autoscale_on(False)
-        self.navCanvas = FigureCanvasTkAgg(self.fig, self.navFrame)
 
-
-        self.build_coordinatesystem()
-
-        self.navCanvas.get_tk_widget().grid(
-            row=1, column=0, columnspan=2, pady=8, sticky=tk.NSEW)
-        '''
-
-        # Gallery Frame Content
-        self.galleryFrame = tk.Frame(self.appFrame, bg="#99ffcc")
-
-        self.galleryLb = tk.Label(self.galleryFrame, text="a gallery")
-        self.galleryLb.pack()
-
-        self.galleryFrame.grid(
-            row=1, column=0, pady=(
-                0, 8), padx=8, sticky=tk.NSEW)
-
-        self.appFrame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
+        # Gallery Frame Content #TODO?
+        self.gallery_frame = tk.Frame(self.exam_frame, bg="#99ffcc")
+        self.gallery_lb = tk.Label(self.gallery_frame, text="a gallery")
+        self.gallery_lb.pack()
+        #self.gallery_frame.grid(row=1, column=0, pady=(0, 8), padx=8, sticky=tk.NSEW)
+        self.exam_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
     def refresh_imgsize(self, event=None):
         self.grid_frame.after_idle(self.calculate_US_imgsize)
@@ -590,13 +577,7 @@ class UltraVisView(tk.Frame):
         pass
 
     def build_coordinatesystem(self):
-        #plt.cla()
-        #self.ax.set_xlabel('X')
-        #self.ax.set_xlim(-230, 230)
-        #self.ax.set_ylabel('Y')
-        #self.ax.set_ylim(-320, 320)
-        #self.ax.set_zlabel('Z')
-        #self.ax.set_zlim(0, -600)
+
         if (not hasattr(self,'navigationvis')):
             return
 
@@ -605,7 +586,6 @@ class UltraVisView(tk.Frame):
             self.navigationvis.set_pos(x[0], y[0])
             self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
-            #Axes3D.scatter(self.ax,xs=x,ys=y,zs=z,c=color,edgecolors='black',s=70)
 
             #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.build_coordinatesystem)
 
@@ -745,12 +725,13 @@ class UltraVisView(tk.Frame):
         position_summary.rowconfigure(1, weight=0, minsize=10)
         for i,key in enumerate(position[0].__dict__.keys()):
                 key = str(key)
-                title_lb = tk.Label(position_summary,text=key,bd=2)
+                title_lb = tk.Label(position_summary,text=key,bd=2,
+                                    font=(Font(family='Open Sans', size=9 ,weight='bold')))
                 position_summary.columnconfigure(i, weight=1,uniform=1)
                 title_lb.grid(row=1,column=i,sticky=tk.EW)
 
         for j, handle in enumerate(position,start=2):
-
+            #TODO changed to 0
             position_summary.rowconfigure(j,weight=1,uniform=1)
             widgets = []
             for k, val in enumerate(handle.__dict__.values()):
