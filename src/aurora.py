@@ -619,6 +619,14 @@ class Handle:
         copy_handle.__dict__.update(self.__dict__)
         return copy_handle
 
+    def get_trans_data(self):
+        ''' Return Translational Data as list x,y,z in mm'''
+        return [self.Tx, self.Ty, self.Tz]
+
+    def get_orient_data(self):
+        ''' Return Translational Data as list Q0,Qx,Qy,Qz in quarternion'''
+        return [self.Q0, self.Qx, self.Qy, self.Qz]
+
     def set_reference_name(self, refname):
         if (isinstance(refname, str)):
             self.refname = refname
