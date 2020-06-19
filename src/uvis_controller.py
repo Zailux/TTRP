@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+from tkinter.font import Font
 from datetime import datetime
 from functools import partial, wraps
 
@@ -140,6 +141,8 @@ class UltraVisController:
     def _initObservers(self):
         self.model.register(key="set_current_workitem", observer=self.refreshWorkItem)
 
+    #TODO Stopping the framegrabber in certain situation !
+    #       should be a method
     def _init_framegrabber(self):
         self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
 
@@ -241,7 +244,7 @@ class UltraVisController:
 
             #Thread starte Thread und gebe den AppFrame GUI die Daten
             self.stopTracking = False
-            self.tracking_Thread = threading.Thread(target=self.trackHandles,daemon=True,name="tracking_Thread")
+            self.tracking_Thread = threading.Thread(target=self.track_handles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
             self.view.build_position_summary
             #self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
@@ -255,7 +258,7 @@ class UltraVisController:
             with self.aua._lock:
                 self.aua.tstop()
 
-    def trackHandles(self):
+    def track_handles(self):
 
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
@@ -267,18 +270,18 @@ class UltraVisController:
             t0 = datetime.now()
             with self.aua._lock:
                 #TODO NEEDS TO BE FIXED
-                bx = True
+                bx = False
                 if bx:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
                         self.setNavCanvasData()
-                        self.visualize_tracking()
+                        self.refresh_position_data()
 
                 else:
                     tx = self.aua.tx()
                     self.hm.update_handles(tx)
                     #self.setNavCanvasData()
-                    self.visualize_tracking()
+                    self.refresh_position_data()
 
 
             time.sleep(freq)
@@ -290,7 +293,7 @@ class UltraVisController:
         logging.info(threading.current_thread().name+" has stopped!")
 
     # TODO next test
-    def visualize_tracking(self):
+    def refresh_position_data(self):
         av_color = ['yellow','red','green','blue']
         color = []
         num_handle = self.hm.get_numhandles()
@@ -553,8 +556,8 @@ class UltraVisController:
             self.view.show_menu(menu='examination')
             self._init_framegrabber()
             self.capture_framegrabber(label=self.view.USimg_lb)
-            self.view.refresh_imgsize()
-            self.view.continue_but = partial(self.q.put, self.finalize_examination)
+            self.view.refresh_imgsize(self.view.grid_frame)
+            self.view.continue_but["command"] = partial(self.q.put, self.finalize_examination)
         else:
             return
 
@@ -595,10 +598,7 @@ class UltraVisController:
             ms_delay, self.capture_framegrabber, label, ms_delay)
 
 
-
-
-
-    def setTargetPos(self,handles=None):
+    def set_target_pos(self,handles=None):
         logging.info("Set Target Position")
         pos = [0.0, 0.0, 0.0]
 
@@ -656,7 +656,7 @@ class UltraVisController:
 
         return isValid
 
-    # TODO Stop tracking when finalizing
+
     # doppel klick soll verhindert werden, maybe über check, current menu
     def finalize_examination(self):
         isValidExam = self.validate_examination()
@@ -708,21 +708,6 @@ class UltraVisController:
             position_summary = self.view.build_position_summary(master=summary_frame, position=handles[i])
             position_summary.grid(row=row,column=0, sticky=tk.NSEW, pady=5, ipadx=5)
 
-
-    def _debugfunc(self):
-
-        self.view.build_examination_frame(master=self.view.right_frame)
-        self.view.show_menu(menu='examination')
-        self._init_framegrabber()
-        self.capture_framegrabber(label=self.view.USimg_lb)
-        self.view.refresh_imgsize()
-        self.view.continue_but = self.finalize_examination
-
-
-
-
-
-
     def open_examination(self):
         self.view.build_openexam_frame(master=self.view.right_frame)
         self.view.show_menu(menu='open_examination')
@@ -735,21 +720,18 @@ class UltraVisController:
 
     # TODO wurde für präsentation mal erstellt, soltle aber nochmal überarbeitet und
     # dokumentiert werden.
-    def start_navigation(self,event=None):
+    def start_navigation(self, event=None):
+        print(event)
         E_ID = str(self.view.examID_entry.get())
-
         if not E_ID:
-            logging.info('E_ID Empty ! Please give correct input')
+            logging.error('E_ID Empty ! Please use a valid E_ID')
             return
-
-        self.view.buildNavigationFrame(master=self.view.right_frame)
+        self.view.build_navigation_frame(master=self.view.right_frame)
         self.view.show_menu(menu='navigation')
 
         logging.info(f'Loading Examination {E_ID} for Navigation')
         self.model.load_workitem(E_ID)
-
         workitem = self.model.get_current_workitem()
-
         exam_object, records_list, positions_list = workitem.values()
 
         #Loads first Position
@@ -759,7 +741,6 @@ class UltraVisController:
         self.loadPositiontoNavigation(position=pos)
 
         #Recalibrate for current position difference
-
         logging.info("Navigation is ready. Please start Tracking and calibrating")
 
     # TODO!
@@ -767,7 +748,7 @@ class UltraVisController:
         #Important use the dict Version of the Position
         logging.debug("Calibrate and transform data before saving")
         self.calibrate_coordsys(handles=position)
-        self.setTargetPos(handles=position)
+        self.set_target_pos(handles=position)
 
     def initFunctionality(self):
 
@@ -787,7 +768,7 @@ class UltraVisController:
 
         self.view.start_navigation_but["command"] = self.start_navigation
         self.view.calibrate_but["command"] = self.calibrate_coordsys
-        self.view.target_but["command"] = self.setTargetPos
+        self.view.target_but["command"] = self.set_target_pos
 
         self.view.cancel_but["command"] = self.cancel_examination
 
@@ -802,6 +783,16 @@ class UltraVisController:
             #frame,handlename,ref_entry,button,valid = frame_data.values()
             button = frame_data["button"]
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
+
+    def _debugfunc(self):
+
+        self.view.build_examination_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='examination')
+        self._init_framegrabber()
+        self.capture_framegrabber(label=self.view.USimg_lb)
+        self.view.refresh_imgsize(self.view.grid_frame)
+        self.view.continue_but = self.finalize_examination
+
 
 
     #----Debugging Related ----#

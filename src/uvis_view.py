@@ -37,6 +37,8 @@ _cfg = Configuration()
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
+BUTTON_FONT = {'family':'Open Sans', 'size':10}
+DEFAULT_FONT_OPTIONS = {'family':'Open Sans'}
 SUM_MAXHEIGHT = 4
 SUM_TITLE_PADY = 5
 
@@ -79,6 +81,9 @@ class UltraVisView(tk.Frame):
         self.start_time = time.time()
         self._debug = debug_mode
         self.current_menu = None
+        default_font = tk.font.nametofont("TkDefaultFont")
+        default_font.configure(**DEFAULT_FONT_OPTIONS)
+        super().option_add("*Font", default_font)
 
         self.master = master
         self.master.title("TTR: Track To Reference")
@@ -117,8 +122,8 @@ class UltraVisView(tk.Frame):
         self.t1_main_frame.columnconfigure(0, weight=20, uniform=1)
         self.t1_main_frame.columnconfigure(1, weight=80, uniform=1)
         self.left_frame = tk.Frame(self.t1_main_frame, bg="#196666")
-        self.left_frame.rowconfigure(0, weight=1, uniform=1)
-        self.left_frame.rowconfigure(1, weight=1, uniform=1)
+        self.left_frame.rowconfigure(0, weight=60, uniform=1)
+        self.left_frame.rowconfigure(1, weight=40, uniform=1)
         self.left_frame.columnconfigure(0, weight=1)
         self.right_frame = tk.Frame(self.t1_main_frame, bg="#196666")
         self.right_frame.rowconfigure(0, weight=1, uniform=1)
@@ -137,14 +142,15 @@ class UltraVisView(tk.Frame):
     def build_menu_frame(self, lFrame):
         '''Build the menu frame and adds the buttons to the application'''
         self.menu_frame = tk.Frame(lFrame)
-        self.menu_title_lb = tk.Label(self.menu_frame, text="Menu")
+        self.menu_title_lb = tk.Label(self.menu_frame, text="Menu",
+                                    font=Font(family='Open Sans', size=12))
 
         # Main Menu
         self.new_exam_but = tk.Button(self.menu_frame)
         self.new_exam_but["text"] = "Neue Untersuchung"
         self.open_exam_but = tk.Button(self.menu_frame)
         self.open_exam_but["text"] = "Untersuchung \u00F6ffnen"
-        self.open_exam_but["state"] = 'disabled'
+        self.open_exam_but["state"] = 'disabled' if not self._debug else 'normal'
 
         # Setup Menu
         self.start_exam_but = tk.Button(self.menu_frame)
@@ -160,11 +166,13 @@ class UltraVisView(tk.Frame):
         self.finish_exam_but = tk.Button(self.menu_frame)
         self.finish_exam_but["text"] = "Untersuchung abschließen"
 
-         #Navigation Menu
+        #Navigation Menu
         self.calibrate_but = tk.Button(self.menu_frame)
-        self.calibrate_but["text"] = "Calibrate"
+        self.calibrate_but["text"] = "Koordinatensystem kalibrieren"
         self.target_but = tk.Button(self.menu_frame)
-        self.target_but["text"] = "Set Target"
+        self.target_but["text"] = "Zielpunkt wählen"
+        self.accept_record_but = tk.Button(self.menu_frame)
+        self.accept_record_but["text"] = "Aufzeichnung akzeptieren"
 
         #Start Navigation
         self.start_navigation_but = tk.Button(self.menu_frame)
@@ -186,6 +194,10 @@ class UltraVisView(tk.Frame):
         self.reinit_aua_but = tk.Button(self.menu_frame)
         self.reinit_aua_but["text"] = "Reinitialize Aurora"
         self.NOBUTTONSYET = tk.Button(self.menu_frame, text="Secret Blowup Button")
+
+        for widget in self.menu_frame.winfo_children():
+            if widget.winfo_class() == 'Button':
+                widget["font"] = Font(**BUTTON_FONT)
 
         self.menu_title_lb.pack(side=tk.TOP, pady=(10, 2), fill="both")
         self.menu_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
@@ -209,7 +221,7 @@ class UltraVisView(tk.Frame):
         '''
         # Idea to use a state "table of 0 and 1 to enable / disable Button"
         MENUES = ['main', 'new_examination', 'setup', 'examination',
-                  'summary', 'navigation',
+                  'summary', 'open_examination', 'navigation',
                   'all_debug']
         if menu not in MENUES:
             raise ValueError(
@@ -224,10 +236,10 @@ class UltraVisView(tk.Frame):
             'new_examination': [self.continue_but, self.cancel_but],
             'setup': [self.start_exam_but, self.cancel_but],
             'examination': [self.track_but, self.save_record_but, self.finish_exam_but, self.cancel_but],
-            'summary': [self.mainmenu_but, self.save_edit_but, self.cancel_but],
+            'summary': [self.mainmenu_but, self.cancel_but], #self.save_edit_but,
             'open_examination': [self.start_navigation_but, self.cancel_but],
-            'navigation': [self.track_but, self.calibrate_but, self.save_record_but,
-                           self.finish_exam_but, self.cancel_but]
+            'navigation': [self.track_but, self.calibrate_but, self.target_but, self.save_record_but,
+                           self.accept_record_but, self.finish_exam_but, self.cancel_but]
         }
 
         for button in menu_buttons[menu]:
@@ -426,8 +438,6 @@ class UltraVisView(tk.Frame):
     def build_examination_frame(self, master):
 
         # Init of AppFrame Attributes
-
-        self.cap = None
         self.navcanvas_data = ()
         self.img_size = None
         self.saved_img = None
@@ -444,7 +454,7 @@ class UltraVisView(tk.Frame):
         self.grid_frame.rowconfigure(1, weight=1, uniform=1)
         self.grid_frame.columnconfigure(0, weight=1, uniform=1)
         self.grid_frame.columnconfigure(1, weight=1, uniform=1)
-        self.grid_frame.bind('<Configure>', self.refresh_imgsize)
+        self.grid_frame.bind('<Configure>', lambda ref_lamb: self.refresh_imgsize(frame=self.grid_frame))
 
         # Order of the US Frame, Saved Image and Navigationframe
         self.USimg_frame = tk.Frame(self.grid_frame)
@@ -484,10 +494,7 @@ class UltraVisView(tk.Frame):
         scroll_framing.contentframe.columnconfigure(0, weight=1)
         scroll_framing.contentframe.rowconfigure(0, weight=1)
         empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
-
         self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty_pos)
-
-       # scroll_framing.contentframe.grid()
         self.tracking_data_frame.grid(row=0,column=0, pady=10, padx=10, sticky=tk.NSEW)
         scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
 
@@ -500,8 +507,9 @@ class UltraVisView(tk.Frame):
         #self.gallery_frame.grid(row=1, column=0, pady=(0, 8), padx=8, sticky=tk.NSEW)
         self.exam_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-    def refresh_imgsize(self, event=None):
-        self.grid_frame.after_idle(self.calculate_US_imgsize)
+    def refresh_imgsize(self, frame, event=None):
+        frame.after_idle(self.calculate_US_imgsize)
+        #self.grid_frame.after_idle(self.calculate_US_imgsize)
 
     '''
     def capture_framegrabber(self):
@@ -587,9 +595,9 @@ class UltraVisView(tk.Frame):
             self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
 
-            #self._Canvasjob = self.navCanvas._tkcanvas.after(40,func=self.build_coordinatesystem)
+            #self._Canvasjob = self.nav_canvas._tkcanvas.after(40,func=self.build_coordinatesystem)
 
-        #self.navCanvas.draw()
+        #self.nav_canvas.draw()
 
     '''
     def saveUSImg(self):
@@ -762,24 +770,146 @@ class UltraVisView(tk.Frame):
 
     # TODO reusage with Appframe, for navigation etc.
     @clear_frame
-    def buildNavigationFrame(self,master):
-        self.navigationFrame = tk.Frame(master)
+    def build_navigation_frame(self, master):
+        self.navcanvas_data = ()
+        self.img_size = None
+        self.saved_img = None
 
-        #Navigation Frame Content
-        self.nav_title_lb = tk.Label(self.navFrame)
-        self.nav_title_lb["text"] = "Navigation GUI"
-        self.nav_title_lb.grid(row=0, column=0,sticky=tk.NSEW)
-        self.sysmode_lb = tk.Label(self.navFrame)
+        scroll = ScrollableFrame(master=master, bg="red")
+        self.navigation_frame = scroll.contentframe
+        self.navigation_frame.rowconfigure(0, weight=1)
+        self.navigation_frame.rowconfigure(1, weight=0)
+        self.navigation_frame.rowconfigure(2, weight=1)
+        self.navigation_frame.columnconfigure(0, weight=1)
+
+        # 2x2 Matrix of Navgrid frame
+        self.navgrid_frame = tk.Frame(self.navigation_frame)
+        self.navgrid_frame.rowconfigure(0, weight=1, uniform=1)
+        self.navgrid_frame.rowconfigure(1, weight=1, uniform=1)
+        self.navgrid_frame.columnconfigure(0, weight=1, uniform=1)
+        self.navgrid_frame.columnconfigure(1, weight=1, uniform=1)
+        self.navgrid_frame.bind('<Configure>', lambda ref_lamb: self.refresh_imgsize(frame=self.navgrid_frame))
+        # Order of the US Frame, Saved Image and Navigationframe
+        self.USimg_frame = tk.Frame(self.navgrid_frame)
+        self.USimg_frame.rowconfigure(0, weight=1)
+        self.USimg_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame = tk.Frame(self.navgrid_frame)
+        self.saved_img_frame.rowconfigure(0, weight=1)
+        self.saved_img_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
+
+        # Ultrasoundimage Content
+        self.USimg_lb = tk.Label(self.USimg_frame) #LABEL for controller frame_grabber
+        self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
+        self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
+        self.USimg_lb.grid_propagate(0)
+        # Saved Image Content
+        self.saved_img_lb = tk.Label(self.saved_img_frame)
+        self.saved_img_lb["text"] = "Saved Image"
+        self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
+        #Nav Visualizer Content
+        self.navigationvis = NavigationVisualizer(self.navgrid_frame)
+        self.nav_canvas = self.navigationvis.canvas
+
+        self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.saved_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.nav_canvas.get_tk_widget().grid(row=0, column=1, rowspan=2, sticky=tk.NSEW)
+
+
+        self.navgrid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
+        self.navgrid_frame.after_idle(self.calculate_US_imgsize)
+
+        self.exam_data_frame = tk.Frame(self.navigation_frame, bg='green')
+        self.exam_data_frame.rowconfigure(0, weight=0)
+        self.exam_data_frame.rowconfigure(1, weight=0)
+        self.exam_data_frame.columnconfigure(0, weight=1)
+
+        # Examinationdata Frame Content
+        self.sysmode_lb = tk.Label(self.exam_data_frame)
         self.sysmode_lb["text"] = "Operating Mode: - "
-        self.sysmode_lb.grid(row=0, column=1,sticky=tk.NSEW)
+        self.sysmode_lb["font"] = ('Open Sans', 10)
+        self.sysmode_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
+        #self.sysmode_icon_lb = tk.Label(self.exam_data_frame)
 
-        self.navigationvis = NavigationVisualizer(self.navFrame)
-        self.navCanvas = self.navigationvis.canvas
-        self.navCanvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky=tk.NSEW)
+        empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
+        self.tracking_data_frame = self.build_position_summary(master=self.exam_data_frame, position=empty_pos)
+        self.tracking_data_frame.grid(row=1,column=0, padx=10, sticky=tk.NSEW)
+
+        self.exam_data_frame.grid(row=1, column=0, padx=2, pady=2, sticky=tk.NSEW)
+
+        self.statistic_frame = self.get_statistics_table(self.navigation_frame, "R-Uno und R-Duo")
+        self.statistic_frame.grid(row=2, column=0, sticky=tk.NSEW)
+
+        scroll.grid(row=0, column=0,sticky=tk.NSEW)
+
+    def get_statistics_table(self, master, title_id):
+        frame = tk.Frame(master=master, bg='yellow')
+        frame.rowconfigure(0, weight=0)
+        frame.columnconfigure(0, weight=1)
+
+        title_lb = tk.Label(frame)
+        title_lb["text"] = f"Statistic for Comparing {title_id}"
+        title_lb["font"] = ('Open Sans', 10)
+
+        title_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
+
+        return frame
+
+      '''  '''
+
+        # Order of the US Frame, Saved Image and Navigationframe
+        self.USimg_frame = tk.Frame(self.grid_frame)
+        self.USimg_frame.rowconfigure(0, weight=1)
+        self.USimg_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame = tk.Frame(self.grid_frame)
+        self.saved_img_frame.rowconfigure(0, weight=1)
+        self.saved_img_frame.columnconfigure(0, weight=1)
+        self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
+        self.exam_data_frame = tk.Frame(self.grid_frame)
+        self.exam_data_frame.rowconfigure(0, weight=0)
+        self.exam_data_frame.rowconfigure(1, weight=1)
+        self.exam_data_frame.columnconfigure(0, weight=1)
+
+        self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.saved_img_frame.grid(row=0, column=1, padx=5, pady=2, sticky=tk.NSEW)
+        self.exam_data_frame.grid(row=1, column=0, columnspan=2, padx=5, pady=2, sticky=tk.NSEW)
+
+        # Ultrasoundimage Content
+        self.USimg_lb = tk.Label(self.USimg_frame) #LABEL for controller frame_grabber
+        self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
+        self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
+        self.USimg_lb.grid_propagate(0)
+
+        # Saved Image Content
+        self.saved_img_lb = tk.Label(self.saved_img_frame)
+        self.saved_img_lb["text"] = "Saved Image"
+        self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
+
+        # Examinationdata Frame Content
+        self.sysmode_lb = tk.Label(self.exam_data_frame)
+        self.sysmode_lb["text"] = "Operating Mode: - "
+        self.sysmode_lb["font"] = ('Open Sans', 10)
+        self.sysmode_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
+        #self.sysmode_icon_lb = tk.Label(self.exam_data_frame)
+        scroll_framing = ScrollableFrame(master=self.exam_data_frame)
+        scroll_framing.contentframe.columnconfigure(0, weight=1)
+        scroll_framing.contentframe.rowconfigure(0, weight=1)
+        empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
+        self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty_pos)
+        self.tracking_data_frame.grid(row=0,column=0, pady=10, padx=10, sticky=tk.NSEW)
+        scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
+
         self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        self.grid_frame.after_idle(self.calculate_US_imgsize)
+        '''
+        # Gallery Frame Content #TODO?
+        self.gallery_frame = tk.Frame(self.exam_frame, bg="#99ffcc")
+        self.gallery_lb = tk.Label(self.gallery_frame, text="a gallery")
+        self.gallery_lb.pack()
+        #self.gallery_frame.grid(row=1, column=0, pady=(0, 8), padx=8, sticky=tk.NSEW)
+        self.exam_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-        pass
+        '''
+
 
     def build_action_frame(self, bFrame):
 

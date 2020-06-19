@@ -31,7 +31,7 @@ class NavigationVisualizer:
         self.fig = plt.Figure()
 
         self.fig.set_dpi(100)
-        self.fig.set_size_inches(7, 6.5)
+        self.fig.set_size_inches(7, 5.5)
         self.ax = self.fig.add_subplot(xlim=(-1, 1), ylim=(-1, 1))
         self.ax.set_facecolor("black")
 

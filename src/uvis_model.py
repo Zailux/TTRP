@@ -24,6 +24,7 @@ from PIL import Image, ImageTk
 from src.aurora import Handle
 from src.config import Configuration
 from src.helper import Helper
+from src.Calibrator import Calibrator
 
 global hp
 global _cfg
@@ -55,6 +56,9 @@ class UltraVisModel:
             #disable saving functions!
         self._observers = {}
         self._curr_workitem = {"Examination":None, "Records":[], "Handles":[]}
+
+    def set_trial_data(self):
+        pass
 
     def register(self, key, observer):
         """Implementation of observer pattern.
@@ -315,29 +319,12 @@ class UltraVisModel:
         R_ID = str(R_ID)
         try:
             position = []
-
             df = self.t_handles[self.t_handles["R_ID"] == R_ID]
-            index = df.index.tolist()
+            del df['R_ID']
+            temp = df.to_dict(orient='records')
 
-            for i in index:
-                h = self.t_handles.loc[i]
-                init_dict = {
-                    'ID' : h.ID,
-                    'handle_state' : h.handle_state,
-                    'refname' : h.refname,
-                    'MISSING' : h.MISSING,
-                    'Q0' : h.Q0,
-                    'Qx' : h.Qx,
-                    'Qy' : h.Qy,
-                    'Qz' : h.Qz,
-                    'Tx' : h.Tx,
-                    'Ty' : h.Ty,
-                    'Tz' : h.Tz,
-                    'calc_Err' : h.calc_Err,
-                    'port_state' : h.port_state,
-                    'frame_id' : h.frame_id
-                }
-                handle = Handle(**init_dict)
+            for h_dict in temp:
+                handle = Handle(**h_dict)
                 position.append(handle)
 
             return position
@@ -363,6 +350,21 @@ class UltraVisModel:
         except ValueError as e:
             logging.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))
+
+    # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
+    def pos_to_calibrator(self, position):
+        cali = Calibrator()
+        handle_HR = position[1]
+        handle_LR = position[2]
+        handle_B = position[3]
+        a = [handle_HR.Tx, handle_HR.Ty, handle_HR.Tz] # becken rechts
+        b = [handle_LR.Tx, handle_LR.Ty, handle_LR.Tz] # becken links
+        c = [handle_B.Tx, handle_B.Ty, handle_B.Tz] # brustbein
+
+        cali.set_trafo_matrix(a,b,c)
+
+        return cali
+
 
     def get_tk_image(self, filename):
         # Opens Image and translates it to TK compatible file.
