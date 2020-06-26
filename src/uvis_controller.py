@@ -47,6 +47,7 @@ class UltraVisController:
         self.root = tk.Tk()
 
         self.calibrator = Calibrator()
+        self.target_calibrator = Calibrator()
         self.model = UltraVisModel()
         self.view = UltraVisView(self.root, debug_mode=debug_mode)
 
@@ -57,8 +58,6 @@ class UltraVisController:
 
         self._initObservers()
         self._initBackgroundQueue()
-
-
 
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
@@ -237,7 +236,6 @@ class UltraVisController:
     def startstopTracking(self):
         #Bug self.aua can't deal with concurrent calls !
 
-
         if (self.aua.get_sysmode()=='SETUP'):
             with self.aua._lock:
                 self.aua.tstart(40)
@@ -247,19 +245,19 @@ class UltraVisController:
             self.tracking_Thread = threading.Thread(target=self.track_handles,daemon=True,name="tracking_Thread")
             self.tracking_Thread.start()
             self.view.build_position_summary
-            #self.view._Canvasjob = self.view.navCanvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
-
+            if hasattr(self.view, 'nav_canvas'):
+                self.view._Canvasjob = self.view.nav_canvas._tkcanvas.after(2000,func=self.view.build_coordinatesystem)
 
         elif(self.aua.get_sysmode()=='TRACKING'):
             self.stopTracking = True
-           # self.view.navCanvas._tkcanvas.after_cancel(self.view._Canvasjob)
+            if hasattr(self.view, 'nav_canvas'):
+                self.view.nav_canvas._tkcanvas.after_cancel(self.view._Canvasjob)
             self.tracking_Thread.join()
 
             with self.aua._lock:
                 self.aua.tstop()
 
     def track_handles(self):
-
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
 
@@ -270,7 +268,7 @@ class UltraVisController:
             t0 = datetime.now()
             with self.aua._lock:
                 #TODO NEEDS TO BE FIXED
-                bx = False
+                bx = True
                 if bx:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
@@ -280,9 +278,8 @@ class UltraVisController:
                 else:
                     tx = self.aua.tx()
                     self.hm.update_handles(tx)
-                    #self.setNavCanvasData()
+                    self.setNavCanvasData()
                     self.refresh_position_data()
-
 
             time.sleep(freq)
 
@@ -320,8 +317,6 @@ class UltraVisController:
                     logging.debug(f'Wrong class? {widget.winfo_class()}')
 
 
-
-
     #Example of using the hm data
     def setNavCanvasData(self):
         x,y,z,a,b,c = [],[],[],[],[],[]
@@ -337,7 +332,7 @@ class UltraVisController:
 
         for i,handle in enumerate(handles.values()):
             if (handle.MISSING is None):
-                print("asdfasdfadfs")
+                logging.debug("Please check.")
                 break
 
             if (handle.MISSING is False):
@@ -597,31 +592,12 @@ class UltraVisController:
         self._framegrabber_job = label.after(
             ms_delay, self.capture_framegrabber, label, ms_delay)
 
+    def calibrate_coordsys(self, calibrator=None, handles=None):
+        '''Calibrates by default the reference coordinate system.
+        An individual Calibrator object can also be given'''
 
-    def set_target_pos(self,handles=None):
-        logging.info("Set Target Position")
-        pos = [0.0, 0.0, 0.0]
-
-        num_handle = self.hm.get_numhandles()
-        if (num_handle is not 4):
-            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
-        else:
-            handles = self.hm.get_handles() if not handles else handles
-            current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
-            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-            #print(current_ori)
-
-            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-
-            pos = self.calibrator.transform_backward(current_pos)
-
-            self.view.navigationvis.set_target_pos(pos[0], pos[1])
-            self.view.navigationvis.set_target_ori(a, b, c)
-
-
-    def calibrate_coordsys(self,handles = None):
-        logging.info("Calibrate Coordination System")
-
+        logging.info("Calibrate Coordinate System")
+        cali = self.calibrator if not calibrator else calibrator
         handles = self.hm.get_handles() if not handles else handles
 
         num_handle = self.hm.get_numhandles()
@@ -632,8 +608,33 @@ class UltraVisController:
             b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
             c = [handles['0D'].Tx, handles['0D'].Ty, handles['0D'].Tz] # brustbein
 
-            self.calibrator.set_trafo_matrix(a,b,c)
+            trafo_param = [a,b,c]
+            for i, vector in enumerate(trafo_param):
+                trafo_param[i] = hp.to_float(vector)
+            cali.set_trafo_matrix(a,b,c)
 
+    def set_target_pos(self, calibrator=None, handles=None):
+        '''By default it sets a target for the current reference coordinate system.'''
+        logging.info("Set Target Position")
+        pos = [0.0, 0.0, 0.0]
+        cali = self.calibrator if not calibrator else calibrator
+        handles = self.hm.get_handles() if not handles else handles
+
+        num_handle = self.hm.get_numhandles()
+        if (num_handle is not 4):
+            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
+        else:
+
+            current_pos = hp.to_float([handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz])
+            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            #print(current_ori)
+
+            a, b, c = cali.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+
+            pos = cali.transform_backward(current_pos)
+
+            self.view.navigationvis.set_target_pos(pos[0], pos[1])
+            self.view.navigationvis.set_target_ori(a, b, c)
 
     #Muss Logik einbauen, dass das System dabei auch resettet wird &
     # das GUI etc. korrekt gestoppt wird
@@ -655,7 +656,6 @@ class UltraVisController:
             isValid = True
 
         return isValid
-
 
     # doppel klick soll verhindert werden, maybe über check, current menu
     def finalize_examination(self):
@@ -736,19 +736,28 @@ class UltraVisController:
 
         #Loads first Position
         R_ID = records_list[0].R_ID
-        pos = self.model.get_position(R_ID)
-        logging.debug(pos)
-        self.loadPositiontoNavigation(position=pos)
+        self.set_target_from_record(R_ID)
 
+        #Initialize Framegrabber
+        '''
+        self._init_framegrabber()
+        self.capture_framegrabber(label=self.view.USimg_lb)
+        self.view.refresh_imgsize(self.view.navgrid_frame)
+        #    self.view.continue_but["command"] = partial(self.q.put, self.finalize_examination)
+        '''
         #Recalibrate for current position difference
         logging.info("Navigation is ready. Please start Tracking and calibrating")
 
     # TODO!
-    def loadPositiontoNavigation(self,position):
+    def set_target_from_record(self, R_ID):
+
+        handles = self.model.get_position(R_ID, as_dict=True)
+        logging.debug(handles)
+
         #Important use the dict Version of the Position
         logging.debug("Calibrate and transform data before saving")
-        self.calibrate_coordsys(handles=position)
-        self.set_target_pos(handles=position)
+        self.calibrate_coordsys(calibrator=self.target_calibrator, handles=handles)
+        self.set_target_pos(calibrator=self.target_calibrator, handles=handles)
 
     def initFunctionality(self):
 

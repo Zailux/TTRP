@@ -314,11 +314,12 @@ class UltraVisModel:
 
         logging.info("Succesfully saved record "+str(rec["R_ID"]))
 
-    def get_position(self, R_ID=None):
+    def get_position(self, R_ID=None, as_dict=False):
         """Return the position as list with the 4 handle objects. Else it returns None."""
         R_ID = str(R_ID)
         try:
             position = []
+            position_dict = {}
             df = self.t_handles[self.t_handles["R_ID"] == R_ID]
             del df['R_ID']
             temp = df.to_dict(orient='records')
@@ -326,8 +327,9 @@ class UltraVisModel:
             for h_dict in temp:
                 handle = Handle(**h_dict)
                 position.append(handle)
+                position_dict[handle.ID] = handle
 
-            return position
+            return position if not as_dict else position_dict
 
         except KeyError as e:
             logging.debug(str(e))

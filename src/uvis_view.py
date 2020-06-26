@@ -595,7 +595,7 @@ class UltraVisView(tk.Frame):
             self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
 
-            #self._Canvasjob = self.nav_canvas._tkcanvas.after(40,func=self.build_coordinatesystem)
+            self._Canvasjob = self.nav_canvas._tkcanvas.after(20,func=self.build_coordinatesystem)
 
         #self.nav_canvas.draw()
 
@@ -855,7 +855,7 @@ class UltraVisView(tk.Frame):
 
         return frame
 
-      '''  '''
+        '''  '''
 
         # Order of the US Frame, Saved Image and Navigationframe
         self.USimg_frame = tk.Frame(self.grid_frame)
