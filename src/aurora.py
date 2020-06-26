@@ -32,6 +32,8 @@ from decimal import Decimal
 import struct
 import serial
 
+from bitstring import BitArray, Bits
+
 SYSMODES = ['SETUP', 'TRACKING']
 
 
@@ -278,6 +280,7 @@ class Aurora:
 
         if (self.read_serial().startswith(b'OKAY')):
             self.set_sysmode('SETUP')
+
     def bx(self, option=None):
         if(option == None):
             self.ser.write(b'BX \r')
@@ -446,6 +449,19 @@ class HandleManager:
     def update_handlesBX(self, bx_header, bx_data):
         #print(len(bx_header))
         #print(len(bx_data))
+        #
+        ''' <Reply Option 0001 Data> = <Q0><Qx><Qy><Qz><Tx><Ty><Tz><Indicator Value>
+            <Port Status><Frame Number>
+            or
+            <Reply Option 0001 Data> = <Port Status><Frame Number>
+
+        42 Byte vollständiger Handle. Ansonsten 10 Byte der Handle
+        '''
+
+        # 4 Spulen
+        # b'\n\x01D,\x11<\xc3N\xa3>>hr?\xf0\xd2!\xbd\xde\x9d\x80\xc1\xe8\xd8\xbd\xc2\xe2\xcf\x81\xc3\x1d(\\<=\x00\x02\x00\x90G\x00\x00\x0b\x01\x7f\xe3\x83=\xbf!\x83>\xeazv?\xf4ti\xbd\xf4\x9c\xd3\xc2\xaa\x97R\xc3uad\xc3\x1d\xae\xd5=9\x00\x02\x00\x90G\x00\x00\x0c\x01\x8e\xd2]>\x0cj\xce=\xf4&7\xbf\x05\x14(\xbftxaB\x00\xfaX\xc3P\xc6c\xc3:\x82\x90;?\x00\x02\x00\x90G\x00\x00\r\x01\xa5f\x8b>\x17\xcd\x10?\xfb\xb4\xfb>\xfd\x80\x1a?`\xdfD\xc1\x87\x12\xf7B\x1axe\xc3\xeaY\xc1=?\x00\x02\x00\x90G\x00\x00\x00\x00\x85\x04'
+
+        # b'\n\x01\xb6\x9eY<\x1f\xdd.\xbf\xf1\xdc:?~q\xad\xbc\xfd\xce\xd5\xc1\x042~\xc2\xac\xe5\x81\xc3\x7f\x0f^<=\x00\x02\x00XA\x00\x00\x0b\x01m\xb1\x88=\x04\xaa\x82>\x1f\x86v?=Ec\xbdd\xa9\xd2\xc2\x14\tS\xc3\xdd\x82d\xc3\xf3Rf=9\x00\x02\x00XA\x00\x00\x0c\x01\xb5bD>\xfe\x0c\xe3=\x9a\xd2:\xbf\xf7\x94%\xbf\xd0\xa6cB0\xd2Y\xc32\xb9d\xc3\x07\xc6\x10<?\x00\x02\x00XA\x00\x00\r\x02?\x00\x02\x00XA\x00\x00\x00\x00@\xa6'
 
         # header
         start_seq = int.from_bytes(bx_header[0:2], 'little')
@@ -456,48 +472,67 @@ class HandleManager:
         #print("Handles: " + str(n_handles))
         #print("repl_length: " + str(repl_length))
 
-        if repl_length < 42*n_handles:
-            print("data missing from bx")
-            return False
-        else:
-            handle_bytes = []
-            for i in range(n_handles):
-                handle_bytes = bx_data[i*42:(i*42)+42]
 
-                h_id_int = handle_bytes[0]
-                h_id = ''
-                if (h_id_int == 10):
-                    h_id = '0A'
-                elif (h_id_int == 11):
-                    h_id = '0B'
-                elif (h_id_int == 12):
-                    h_id = '0C'
-                elif (h_id_int == 13):
-                    h_id = '0D'
-                new_handle = self.handles[h_id]
+        handle_bytes = []
+        VALID, MISSING, DISABLED = [1,2,4] #Handle Status Values
+        index = 0
+        for i in range(n_handles):
+            #handle_bytes = bx_data[i*42:(i*42)+42]
+            handle_bytes = bx_data[index:index+2]
+            h_id_int = handle_bytes[0]
+            h_id = ''
+            if (h_id_int == 10):
+                h_id = '0A'
+            elif (h_id_int == 11):
+                h_id = '0B'
+            elif (h_id_int == 12):
+                h_id = '0C'
+            elif (h_id_int == 13):
+                h_id = '0D'
+            new_handle = self.handles[h_id]
 
-                #print(int.from_bytes(h_id, 'little'))
-                status = handle_bytes[1:2]
+            #print(int.from_bytes(h_id, 'little'))
+            handle_status =BitArray(handle_bytes[1:2]).int
+            index+=2
 
-                Q0, =  struct.unpack('<f', handle_bytes[2:6])
-                Qx, =  struct.unpack('<f', handle_bytes[6:10])
-                Qy, =  struct.unpack('<f', handle_bytes[10:14])
-                Qz, =  struct.unpack('<f', handle_bytes[14:18])
-                Tx, =  struct.unpack('<f', handle_bytes[18:22])
-                Ty, =  struct.unpack('<f', handle_bytes[22:26])
-                Tz, =  struct.unpack('<f', handle_bytes[26:30])
+            if (handle_status == VALID):
+                is_missing=False
+                handle_data_bytes = bx_data[index:index+32]
+                Q0, =  struct.unpack('<f', handle_data_bytes[0:4])
+                Qx, =  struct.unpack('<f', handle_data_bytes[4:8])
+                Qy, =  struct.unpack('<f', handle_data_bytes[8:12])
+                Qz, =  struct.unpack('<f', handle_data_bytes[12:16])
+                Tx, =  struct.unpack('<f', handle_data_bytes[16:20])
+                Ty, =  struct.unpack('<f', handle_data_bytes[20:24])
+                Tz, =  struct.unpack('<f', handle_data_bytes[24:28])
+                calc_Err = struct.unpack('<f', handle_data_bytes[28:32])
 
-                calc_Err = handle_bytes[30:34]
-                port_state = handle_bytes[34:38]
-                frame_id = handle_bytes[38:42]
+                index += 32
+            elif handle_status in [MISSING, DISABLED]:
+                is_missing=True
 
-                new_handle.set_tx_data(False, Q0, Qx, Qy, Qz, Tx, Ty, Tz,
-                                       calc_Err, port_state, frame_id)
-                self.handles[h_id] = new_handle
-        return True
+            handle_bytes = bx_data[index:index+8]
+            port_state = handle_bytes[0:4]
+            frame_id = self._hex_to_string(handle_bytes[4:8])
+            index +=8
+
+            if (handle_status == VALID):
+                new_handle.set_tx_data(is_missing, Q0, Qx, Qy, Qz, Tx, Ty, Tz,
+                                        calc_Err, port_state, frame_id)
+            elif handle_status in [MISSING, DISABLED]:
+                new_handle.set_tx_data(MISSING=is_missing, port_state=port_state, frame_id=frame_id)
+            else:
+                logging.error("Error. Please Debug this issue")
+            self.handles[h_id] = new_handle
+
+        return False if len(bx_data) < (42*n_handles) else True
 
 
+    def _hex_to_string(self, hex_val):
+        #Example input b'\x90G\x00\x00' ^= 90470000
+        hex_val = str(BitArray(hex_val).hex).upper()
 
+        return hex_val
 
 
     def update_handles(self, tx_str):
@@ -572,6 +607,38 @@ class HandleManager:
         s = string[:separator_index] + '.' + string[separator_index:]
         f = round(Decimal(s), round_to)
         return f
+
+#TODO
+class Port():
+    def __init__(self):
+        self.OCCUPIED = None
+        self.GPIO_1 = None
+        self.GPIO_2 = None
+        self.GPIO_3 = None
+        self.INITIALIZED = None
+        self.ENABLE = None
+        self.OUT_OF_VOLUME = None
+        self.PARTIALLY_OUT_OF_VOLUME = None
+        self.BROKEN_SENSOR = None
+        self.PROCESS_EXCEPTION = None
+
+    def from_string(self, string):
+        pass
+
+    def from_bitarray(self, bit_array):
+        # Expect an Bitarray. From DB it can be created like BitArray(b'?\x00\x02\x00').bin
+        self.OCCUPIED = bit_array[0]
+        self.GPIO_1 = bit_array[1]
+        self.GPIO_2 = bit_array[2]
+        self.GPIO_3 = bit_array[3]
+        self.INITIALIZED = bit_array[4]
+        self.ENABLE = bit_array[5]
+        self.OUT_OF_VOLUME = bit_array[6]
+        self.PARTIALLY_OUT_OF_VOLUME = bit_array[7]
+        self.BROKEN_SENSOR = bit_array[8]
+        self.PROCESS_EXCEPTION = bit_array[11]
+
+
 
 
 class Handle:

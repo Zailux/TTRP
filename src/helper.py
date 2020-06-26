@@ -97,6 +97,11 @@ class Helper():
         finally:
             return ImageTk.PhotoImage(tkimage)
 
+    def to_float(self, number_list):
+        '''Converts each item of a list to float and returns the list'''
+        for i, item in enumerate(number_list):
+            number_list[i] = float(item)
+        return number_list
 
 # TODO https://stackoverflow.com/questions/17355902/python-tkinter-binding-mousewheel-to-scrollbar
 # Add mousewheel event to scrollbar.
