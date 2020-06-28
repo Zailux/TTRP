@@ -33,6 +33,8 @@ class Configuration(metaclass=Singleton):
         #Logger
         format = "%(asctime)s - %(threadName)s - %(levelname)s | %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
-        self.LOGGER = logging.getLogger()
+        self.LOGGER = logging.getLogger('uvis_logger')
+        if self.DEBUG:
+            self.LOGGER.setLevel(logging.DEBUG)
 
 
