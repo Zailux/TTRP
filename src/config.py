@@ -34,7 +34,10 @@ class Configuration(metaclass=Singleton):
         format = "%(asctime)s - %(threadName)s - %(levelname)s | %(message)s"
         logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
         self.LOGGER = logging.getLogger('uvis_logger')
+        self.Q_LOGGER = logging.getLogger('uvis_queue_logger')
+
         if self.DEBUG:
             self.LOGGER.setLevel(logging.DEBUG)
+            self.Q_LOGGER.setLevel(logging.DEBUG)
 
 
