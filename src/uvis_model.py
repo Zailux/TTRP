@@ -30,7 +30,7 @@ global hp
 global _cfg
 hp = Helper()
 _cfg = Configuration()
-
+logger = _cfg.LOGGER
 
 class UltraVisModel:
     """ The UltraVisModel class provides
@@ -52,7 +52,7 @@ class UltraVisModel:
             self.t_records = pd.read_csv(self.RECORDS_PATH, index_col=0)
             self.t_handles = pd.read_csv(self.HANDLE_PATH, index_col=0)
         except FileNotFoundError as e:
-            logging.error(e)
+            logger.error(e)
             #disable saving functions!
         self._observers = {}
         self._curr_workitem = {"Examination":None, "Records":[], "Handles":[]}
@@ -78,7 +78,7 @@ class UltraVisModel:
         """Calls the observers methods, based on the methodkey of UltraVisModel method."""
         key = str(key)
         if (key in self._observers):
-            logging.debug(f'{self.__class__}: Callback for "{key}" - {self._observers[key]}')
+            logger.debug(f'{self.__class__}: Callback for "{key}" - {self._observers[key]}')
             for observer_method in self._observers[key]:
                 observer_method()
 
@@ -110,8 +110,8 @@ class UltraVisModel:
     # then tries to find all corresponding data (records & handles) and then refreshes just once afterwards
     def set_current_workitem(self, obj, as_instance=True):
         """Set the current workitem for the UvisModel.
-        You can either set single instances of an Examination Object, Record Object
-        or a Position (a list object with 4 Handle Objects).
+        You can either append single instances of an Examination Object, Record Object
+        or a Position (a list object with 4 Handle Objects) to the workitem.
         Alternatively you can set a whole workitem, as a tuple (Examination, [Record,...], [Handle,...]).
         """
         if (as_instance):
@@ -176,7 +176,7 @@ class UltraVisModel:
             df2 = self.t_handles
             df2['R_ID'].where(df2['R_ID'] != old_R_ID,new_R_ID,True)
             if old_R_ID != new_R_ID:
-                logging.debug(f'Replaced tempID: {old_R_ID} with new ID: {new_R_ID} \
+                logger.debug(f'Replaced tempID: {old_R_ID} with new ID: {new_R_ID} \
                                 (in Records and Handles Table)')
 
         #write changes to tables
@@ -195,7 +195,7 @@ class UltraVisModel:
         positions = []
 
         if not exam:
-            logging.error(f"Can't load Examination with {E_ID}")
+            logger.error(f"Can't load Examination with {E_ID}")
             return
 
         records = self.get_record(E_ID=E_ID)
@@ -231,8 +231,8 @@ class UltraVisModel:
             return examination
 
         except KeyError as e:
-            logging.debug(str(e))
-            logging.error(f'Record with key "{E_ID}" could not be found.')
+            logger.debug(str(e))
+            logger.error(f'Record with key "{E_ID}" could not be found.')
             return None
 
     def save_examination(self, examination, persistant=False):
@@ -240,7 +240,7 @@ class UltraVisModel:
         if (not(isinstance(examination,Examination))):
             raise TypeError(f'Invalid Object of type: {type(examination)}". \
                               Please use a correct {Examination} Object.')
-        logging.debug('Trying to write data:')
+        logger.debug('Trying to write data:')
 
         if (persistant):
             '''
@@ -253,15 +253,15 @@ class UltraVisModel:
         exam = examination.__dict__
         df = pd.DataFrame(data=exam,index=[0])
         df = df.set_index('E_ID')
-        logging.debug(df)
+        logger.debug(df)
         try:
             new_exam = self.t_examination.append(df,verify_integrity=True)
             new_exam.to_csv(self.EXAMINATION_PATH)
             self.t_examination = new_exam
         except ValueError as e:
-            logging.error("Could not save record. Errormsg - "+str(e))
+            logger.error("Could not save record. Errormsg - "+str(e))
             raise ValueError(str(e))
-        logging.info("Succesfully saved record "+str(exam["E_ID"]))
+        logger.info("Succesfully saved record "+str(exam["E_ID"]))
 
     def get_record(self, R_ID=None, E_ID=None):
         """Returns an Record object or Record object list from the csv.
@@ -278,8 +278,8 @@ class UltraVisModel:
                 rec = Record(R_ID=R_ID, descr=r.descr, date=r.date,US_img=r.US_img,E_ID=r.E_ID)
                 return rec
             except KeyError as e:
-                logging.debug(str(e))
-                logging.error(f'Record with key "{R_ID}" could not be found.')
+                logger.debug(str(e))
+                logger.error(f'Record with key "{R_ID}" could not be found.')
                 return None
 
         if E_ID is not None:
@@ -295,7 +295,7 @@ class UltraVisModel:
         if (not(isinstance(record,Record))):
             raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
 
-        logging.debug('Trying to write data:')
+        logger.debug('Trying to write data:')
         if (persistant):
             #here kommt noch was
             pass
@@ -303,16 +303,16 @@ class UltraVisModel:
         rec = record.__dict__
         df = pd.DataFrame(data=rec,index=[0])
         df = df.set_index('R_ID')
-        logging.debug(df)
+        logger.debug(df)
         try:
             new_record = self.t_records.append(df,verify_integrity=True)
             new_record.to_csv(self.RECORDS_PATH)
             self.t_records = new_record
         except ValueError as e:
-            logging.error("Could not save record. Errormsg - "+str(e))
+            logger.error("Could not save record. Errormsg - "+str(e))
             raise ValueError(str(e))
 
-        logging.info("Succesfully saved record "+str(rec["R_ID"]))
+        logger.info("Succesfully saved record "+str(rec["R_ID"]))
 
     def get_position(self, R_ID=None, as_dict=False):
         """Return the position as list with the 4 handle objects. Else it returns None."""
@@ -332,8 +332,8 @@ class UltraVisModel:
             return position if not as_dict else position_dict
 
         except KeyError as e:
-            logging.debug(str(e))
-            logging.error(f'Record with Key "{R_ID}" could not be found.')
+            logger.debug(str(e))
+            logger.error(f'Record with Key "{R_ID}" could not be found.')
             return None
 
     def save_position(self, R_ID,handles):
@@ -346,11 +346,11 @@ class UltraVisModel:
                 handle_data = h
                 new_df = pd.DataFrame(data=handle_data,index=[len(temp_data.index)])
                 temp_data = temp_data.append(new_df,verify_integrity=True)
-            logging.debug(str(temp_data))
+            logger.debug(str(temp_data))
             temp_data.to_csv(self.HANDLE_PATH)
             self.t_handles = temp_data
         except ValueError as e:
-            logging.error("Could not save Position. Errormsg - "+str(e))
+            logger.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
@@ -368,19 +368,17 @@ class UltraVisModel:
         return cali
 
 
-    def get_tk_image(self, filename):
+    def get_img(self, filename, asPILimage=True):
         # Opens Image and translates it to TK compatible file.
         #filename = self.imgdir+filename
 
         try:
-            tkimage = Image.open(filename)
-
+            img = Image.open(filename)
         except FileNotFoundError as err:
-            logging.exception("File was no found, Err Img replace\n" + err)
-           # tkimage = self.notfoundimg
-
+            logger.exception("File was no found, Err Img replace\n" + err)
+            #tkimage = self.notfoundimg
         finally:
-            return ImageTk.PhotoImage(tkimage)
+            return img if asPILimage else ImageTk.PhotoImage(img)
 
     def save_PIL_image(self,img,img_name,filetype='.png'):
         """Saves an PIL Image to the _cfg defined DATAPATH.

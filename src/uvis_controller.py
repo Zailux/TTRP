@@ -12,7 +12,7 @@ import time
 import tkinter as tk
 from tkinter.font import Font
 from datetime import datetime
-from functools import partial, wraps
+from functools import partial
 
 import matplotlib.animation
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ global hp
 global _cfg
 hp = Helper()
 _cfg = Configuration()
-
+logger = _cfg.LOGGER
 
 SUM_MAXHEIGHT = 4
 SUM_TITLE_PADY = 5
@@ -74,7 +74,6 @@ class UltraVisController:
         self.initFunctionality()
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
-
     #Closing Method and bind to root Window
     def _on_closing(self):
 
@@ -99,7 +98,7 @@ class UltraVisController:
         if (hasattr(self.view,'fig')):
             pass
             #plt.close(fig=self.view.fig)
-        logging.info("Good Night Cruel World :D")
+        logger.info("Good Night Cruel World :D")
         self.root.quit()
         self.root.destroy()
 
@@ -110,13 +109,13 @@ class UltraVisController:
         self.q = queue.Queue(maxsize=8)
         self.quitEvent = threading.Event()
         def processQueue(self):
-            logging.info("Initialize Queue")
+            logger.info("Initialize Queue")
             x = 0
             while (not self.quitEvent.is_set() or not self.q.empty()):
 
                 if (self.q.empty()):
-                    if (x%5==0):
-                        logging.debug("Waiting for Event")
+                    #if (x%5==0):
+                        #logger.debug("Waiting for Event")
                     x += 1
                     time.sleep(1.5)
                     continue
@@ -124,15 +123,15 @@ class UltraVisController:
                 func = self.q.get()
                 thread = threading.Thread(target=func)
 
-                logging.info(f"Start {thread.getName()}: process {func.__name__}()")
+                logger.info(f"Start {thread.getName()}: process {func.__name__}()")
                 time.sleep(0.25)
                 thread.start()
                 thread.join()
                 self.q.task_done()
-                logging.info(thread.getName()+" is finished - Alive: "+str(thread.is_alive()))
-                logging.debug(f'Current pipeline: {self.q.qsize()} items')
+                logger.info(thread.getName()+" is finished - Alive: "+str(thread.is_alive()))
+                logger.debug(f'Current pipeline: {self.q.qsize()} items')
 
-            logging.info("Queue is closed")
+            logger.info("Queue is closed")
 
         q_Thread = threading.Thread(target=processQueue,daemon=True,args=(self,),name="Q-Thread")
         q_Thread.start()
@@ -147,21 +146,21 @@ class UltraVisController:
 
     def init_aurora(self,ser):
 
-        logging.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
+        logger.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
 
         widgets = self.view.menu_frame.winfo_children()
         self.aua_active = False
         try:
             self.aua = Aurora(ser, debug_mode=self._debug)
         except serial.SerialException as e:
-            logging.warning("serial.SerialException: "+str(e))
+            logger.warning("serial.SerialException: "+str(e))
             #self.disable_widgets(widgets)
             self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinit_aua_but["state"] = 'normal'
             self.view.reinit_aua_but["command"] = lambda: self.init_aurora(self.ser)
             return
         except Warning as w:
-            logging.exception(str(w))
+            logger.exception(str(w))
             #self.disable_widgets(widgets)
             self.view.reinit_aua_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
             self.view.reinit_aua_but["state"] = 'normal'
@@ -169,17 +168,17 @@ class UltraVisController:
             return
 
         self.aua_active = True
-        logging.info("Connection success")
+        logger.info("Connection success")
         self.aua.register("set_sysmode", self.refresh_sysmode)
         hp.enable_widgets(widgets)
         self.view.reinit_aua_but.pack_forget()
 
-        logging.info("Reset Aurorasystem")
+        logger.info("Reset Aurorasystem")
         self.aua.reset_and_init_system()
 
         self.addFuncDebug()
 
-        logging.info("Initialize Aurorasystem - done")
+        logger.info("Initialize Aurorasystem - done")
 
 
 
@@ -188,12 +187,12 @@ class UltraVisController:
 
     def activateHandles(self):
         # todo Gesamtprozess nach Guide (siehe Aurora API)
-        logging.info("Activate Handles - Acquiring Lock")
+        logger.info("Activate Handles - Acquiring Lock")
 
         success = True
         with self.aua._lock:
             try:
-                logging.info("All allocated Ports")
+                logger.info("All allocated Ports")
                 phsr_string = self.aua.phsr()
 
                 self.hm = HandleManager(phsr_string)
@@ -205,8 +204,8 @@ class UltraVisController:
 
                 # Alle Port-Handles Initialisieren
                 # Alle Port-Hanldes aktivieren
-                logging.info(str(self.hm.get_numhandles())+" Handles identified")
-                logging.info("Initializing Port-Handles")
+                logger.info(str(self.hm.get_numhandles())+" Handles identified")
+                logger.info("Initializing Port-Handles")
 
 
                 for h_id in handles :
@@ -223,12 +222,12 @@ class UltraVisController:
                 time.sleep(0.5)
 
             except Warning as w:
-                logging.warning(str(w))
+                logger.warning(str(w))
                 success=False
                 #maybe solve via states in show menu Later
                 self.view.activate_handle_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
 
-        logging.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
+        logger.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
 
     #---- App Frame functionality tracking and saving----#
@@ -261,46 +260,49 @@ class UltraVisController:
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
 
-        logging.info(threading.current_thread().name+" has started tracking")
-
+        logger.info(threading.current_thread().name+" has started tracking")
+        perma_plot = False
         freq = 0.01
         while(not self.stopTracking):
             t0 = datetime.now()
             with self.aua._lock:
-                #TODO NEEDS TO BE FIXED
                 bx = True
                 if bx:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
                         self.setNavCanvasData()
-                        self.refresh_position_data()
-
+                    else:
+                        miss = self.hm.get_missing_handles()
+                        logger.info(f"MISSING HANDLE! {miss}")
+                    if perma_plot:
+                        self.refresh_position_data() # TODO Takes HALF A SECOND !!! Performance Killer
                 else:
+                    #TX can be removed for readability. BX is better generally speakin
                     tx = self.aua.tx()
                     self.hm.update_handles(tx)
                     self.setNavCanvasData()
                     self.refresh_position_data()
-
-            time.sleep(freq)
-
+            #time.sleep(freq)
             t1 = datetime.now()
-            #print (t1-t0)
+            #logger.debug(t1-t0)
 
         self.stopTracking = False
-        logging.info(threading.current_thread().name+" has stopped!")
+        logger.info(threading.current_thread().name+" has stopped!")
 
     # TODO next test
     def refresh_position_data(self):
-        av_color = ['yellow','red','green','blue']
-        color = []
-        num_handle = self.hm.get_numhandles()
-        if (num_handle is not 4):
-            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
-            color = color[:num_handle]
+        #av_color = ['yellow','red','green','blue']
+        #color = []
+        #num_handle = self.hm.get_numhandles()
+        #if (num_handle is not 4):
+            #logger.warning(f'There are {num_handle} handles identified. Is that correct?')
+            #color = color[:num_handle]
+        t0=datetime.now()
 
         position = self.hm.get_handles(real_copy=True)
         handle_rows = self.view.position_summary_widgets
 
+        # TODO das iterieren durch die Objekte kostet mega viel Zeit
         for row, handle in zip(handle_rows, position.values()):
             for widget, value in zip(row, handle.__dict__.values()):
 
@@ -311,10 +313,14 @@ class UltraVisController:
                     widget.configure(textvariable=value_text)
                 elif widget.winfo_class() == 'Text':
                     widget.delete(0, tk.END)
-                    logging.info("Dumbass")
+                    logger.info("Dumbass")
                     widget.insert(0, value)
                 else:
-                    logging.debug(f'Wrong class? {widget.winfo_class()}')
+                    logger.debug(f'Wrong class? {widget.winfo_class()}')
+        t2= datetime.now()
+
+
+        #logger.debug(f'Display shit {(t2-t0)}')
 
 
     #Example of using the hm data
@@ -324,7 +330,7 @@ class UltraVisController:
         color = []
         num_handle = self.hm.get_numhandles()
         if (num_handle is not 4):
-            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
+            logger.warning(f'There are {num_handle} handles identified. Is that correct?')
             color = color[:num_handle]
 
         handles = self.hm.get_handles()
@@ -332,7 +338,7 @@ class UltraVisController:
 
         for i,handle in enumerate(handles.values()):
             if (handle.MISSING is None):
-                logging.debug("Please check.")
+                logger.debug("Please check.")
                 break
 
             if (handle.MISSING is False):
@@ -354,14 +360,14 @@ class UltraVisController:
 
                 color.append(av_color[i])
 
-        logging.debug(f'x values: {x}')
+        #logger.debug(f'x values: {x}')
 
         self.view.navcanvas_data = (x,y,z,a,b,c,color)
 
     #Position is saving Record and Handles
     def saveRecord(self):
         if (not self.aua.get_sysmode()=='TRACKING'):
-            logging.info("This functionality is only available during tracking. Please Start Tracking")
+            logger.info("This functionality is only available during tracking. Please Start Tracking")
             return
 
         # Save the Image
@@ -407,31 +413,22 @@ class UltraVisController:
             self.model.set_current_workitem(handles.values())
 
     def validatePosition(self, handles):
-        #Validate Handles for saving
-        #Check for Missing Handles, check for correct frameID
+        '''Validates 4 Handles (Position) and checks the frameID and Missing Handles'''
         handles = handles
-
         validSave = True
         missID = []
         frameID = []
-
         for h_id in handles:
             h = handles[h_id]
-
             if(h.MISSING):
                 validSave = False
                 missID.append(h_id)
-
             #check for ID and frameID must not be empty
             if ((h.frame_id not in frameID) and not not frameID):
                 validSave = False
-
             frameID.append(h.frame_id)
-
-
         if (not validSave):
-            logging.error("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
-
+            logger.error("Trying to save Position with missing Handles: "+str(missID)+". Please use valid Data")
         return validSave
 
     #----GUI Related ----#
@@ -450,7 +447,7 @@ class UltraVisController:
 
         params = {"E_ID" :None, "doctor":doctor, "patient":patient, "examitem":examitem, "created":created}
         new_exam = Examination(**params)
-        logging.debug(f'Exam Data - {new_exam}')
+        logger.debug(f'Exam Data - {new_exam}')
 
         #Due to no validation as of now,
         validExam = True
@@ -470,7 +467,7 @@ class UltraVisController:
                 self.view.set_info_message(msg)
                 return
         else:
-            logging.error(f'Invalid Examinationdata')
+            logger.error(f'Invalid Examinationdata')
             return
 
         self.view.build_setup_frame(master=self.view.right_frame)
@@ -501,7 +498,7 @@ class UltraVisController:
 
             if False in valid_list and not self._debug:
                 self.view.set_setup_instruction("Sie müssen zuerst alle Spulen anschließen bevor Sie Untersuchung beginnen können")
-                logging.info(f"Invalid Setuphandles. See List: {valid_list}")
+                logger.info(f"Invalid Setuphandles. See List: {valid_list}")
                 isValid = False
             else:
                 isValid = True
@@ -549,6 +546,7 @@ class UltraVisController:
 
             self.view.build_examination_frame(master=self.view.right_frame)
             self.view.show_menu(menu='examination')
+            #self.target_img_frame.bind('<Configure>', lambda refr: self.refresh_img_for_lb(frame=self.navgrid_frame))
             self._init_framegrabber()
             self.capture_framegrabber(label=self.view.USimg_lb)
             self.view.refresh_imgsize(self.view.grid_frame)
@@ -556,7 +554,7 @@ class UltraVisController:
         else:
             return
 
-    def capture_framegrabber(self, label, ms_delay=10):
+    def capture_framegrabber(self, label, ms_delay=35):
         ''' Continuously refreshes the given label, with the grabbed image.
         The label must be a tk.Label object. For the delay the tk.Label.after() Method
         is used.
@@ -569,7 +567,7 @@ class UltraVisController:
         _, self.grabbed_frame = self.cap.read()
         #self.frame = cv2.flip(frame, 1)
         if self.grabbed_frame is None:
-            logging.warning("Empty Frame - No device was found")
+            logger.warning("Empty Frame - No device was found")
             label["text"] = "EMPTY FRAME \n No device was found"
             label.after(10000, self.capture_framegrabber, label, ms_delay)
             return
@@ -596,13 +594,13 @@ class UltraVisController:
         '''Calibrates by default the reference coordinate system.
         An individual Calibrator object can also be given'''
 
-        logging.info("Calibrate Coordinate System")
+        logger.info("Calibrate Coordinate System")
         cali = self.calibrator if not calibrator else calibrator
         handles = self.hm.get_handles() if not handles else handles
 
         num_handle = self.hm.get_numhandles()
         if (num_handle != 4):
-            logging.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!')
+            logger.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!')
         else:
             a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
             b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
@@ -615,14 +613,14 @@ class UltraVisController:
 
     def set_target_pos(self, calibrator=None, handles=None):
         '''By default it sets a target for the current reference coordinate system.'''
-        logging.info("Set Target Position")
+        logger.info("Set Target Position")
         pos = [0.0, 0.0, 0.0]
         cali = self.calibrator if not calibrator else calibrator
         handles = self.hm.get_handles() if not handles else handles
 
         num_handle = self.hm.get_numhandles()
         if (num_handle is not 4):
-            logging.warning(f'There are {num_handle} handles identified. Is that correct?')
+            logger.warning(f'There are {num_handle} handles identified. Is that correct?')
         else:
 
             current_pos = hp.to_float([handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz])
@@ -667,7 +665,7 @@ class UltraVisController:
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.set_info_message(msg)
-                logging.error(str(e))
+                logger.error(str(e))
                 return
 
             if self.aua.get_sysmode() == "TRACKING":
@@ -679,8 +677,7 @@ class UltraVisController:
 
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
-            logging.info(msg)
-            print(msg)
+            logger.info(msg)
             self.view.set_info_message(msg=msg,type='ERROR')
             return
 
@@ -718,46 +715,76 @@ class UltraVisController:
         if self.aua.get_sysmode() == 'SETUP':
             self.q.put(self.activateHandles)
 
-    # TODO wurde für präsentation mal erstellt, soltle aber nochmal überarbeitet und
-    # dokumentiert werden.
     def start_navigation(self, event=None):
-        print(event)
         E_ID = str(self.view.examID_entry.get())
         if not E_ID:
-            logging.error('E_ID Empty ! Please use a valid E_ID')
+            logger.error('E_ID Empty ! Please use a valid E_ID')
             return
+
         self.view.build_navigation_frame(master=self.view.right_frame)
         self.view.show_menu(menu='navigation')
 
-        logging.info(f'Loading Examination {E_ID} for Navigation')
+        logger.info(f'Initialize frame grabber for navigation')
+        self._init_framegrabber()
+        self.capture_framegrabber(label=self.view.USimg_lb)
+        self.view.refresh_imgsize(self.view.navgrid_frame)
+
+        logger.info(f'Loading Examination {E_ID} for Navigation')
         self.model.load_workitem(E_ID)
         workitem = self.model.get_current_workitem()
         exam_object, records_list, positions_list = workitem.values()
 
-        #Loads first Position
-        R_ID = records_list[0].R_ID
-        self.set_target_from_record(R_ID)
+        menu_list = []
+        for rec in records_list:
+            menu_list.append(rec.R_ID)
+        self.view.set_target_menu(menu_list)
 
-        #Initialize Framegrabber
-        '''
-        self._init_framegrabber()
-        self.capture_framegrabber(label=self.view.USimg_lb)
-        self.view.refresh_imgsize(self.view.navgrid_frame)
-        #    self.view.continue_but["command"] = partial(self.q.put, self.finalize_examination)
-        '''
+        #Loads the first record it found for the Examination
+        self.set_target_from_record(record=records_list[0])
+
         #Recalibrate for current position difference
-        logging.info("Navigation is ready. Please start Tracking and calibrating")
+        logger.info("Navigation is ready. Please start Tracking and calibrating")
 
-    # TODO!
-    def set_target_from_record(self, R_ID):
+    def set_target_from_record(self, record=None, R_ID=None):
+        '''Sets the target for an navigation based on an record. As input it can either
+        use the R-ID or an Record Object.
 
-        handles = self.model.get_position(R_ID, as_dict=True)
-        logging.debug(handles)
+        Param:'''
 
-        #Important use the dict Version of the Position
-        logging.debug("Calibrate and transform data before saving")
+        if not(isinstance(record, Record)) and R_ID is not None:
+            if hasattr(R_ID, '__call__'):
+                R_ID = R_ID()
+            record = self.model.get_record(R_ID=R_ID)
+            if not record:
+                raise ValueError(f'Could not find Record with R_ID {R_ID}')
+
+        logger.info(f'Set Target from record {record.R_ID}')
+        handles = self.model.get_position(record.R_ID, as_dict=True)
+        logger.debug(handles)
+        #Important use the dict Version of the Position / Handles
         self.calibrate_coordsys(calibrator=self.target_calibrator, handles=handles)
         self.set_target_pos(calibrator=self.target_calibrator, handles=handles)
+
+        #Load Target Image
+        filename = record.US_img
+        img = self.model.get_img(filename=filename)
+        self.view.refresh_img_for_lb(img=img, lb=self.view.target_img_lb)
+
+    def nav_save_record(self):
+        self.saveRecord()
+        self.refresh_position_data()
+        if self.view.USimg_frame.winfo_ismapped():
+            self.view.switch_imgsrc()
+
+
+    def nav_accept_record(self):
+        '''
+        model save record
+        compare data
+        display compared data'''
+
+
+        pass
 
     def initFunctionality(self):
 
@@ -777,7 +804,9 @@ class UltraVisController:
 
         self.view.start_navigation_but["command"] = self.start_navigation
         self.view.calibrate_but["command"] = self.calibrate_coordsys
-        self.view.target_but["command"] = self.set_target_pos
+        self.view.target_but["command"] = partial(self.set_target_from_record, R_ID=self.view.target_var.get)
+        self.view.switch_imgsrc_but["command"] = self.view.switch_imgsrc
+        self.view.nav_save_record_but["command"] = lambda: self.q.put(self.nav_save_record)
 
         self.view.cancel_but["command"] = self.cancel_examination
 
@@ -794,13 +823,8 @@ class UltraVisController:
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
 
     def _debugfunc(self):
+        self.view.switch_imgsrc()
 
-        self.view.build_examination_frame(master=self.view.right_frame)
-        self.view.show_menu(menu='examination')
-        self._init_framegrabber()
-        self.capture_framegrabber(label=self.view.USimg_lb)
-        self.view.refresh_imgsize(self.view.grid_frame)
-        self.view.continue_but = self.finalize_examination
 
 
 
@@ -815,12 +839,12 @@ class UltraVisController:
             else:
                 a = self.view.expec.get()
 
-            logging.debug("Execute command: "+command)
+            logger.debug("Execute command: "+command)
             self.aua.write_cmd(command,expect=a)
             self.view.cmdEntry.delete(0, 'end')
 
         except Warning as e:
-            logging.exception("An FATAL occured: "+str(e))
+            logger.exception("An FATAL occured: "+str(e))
 
     def testFunction(self):
         with self.aua._lock:

@@ -3,12 +3,12 @@
 This module does stuff.
 """
 
-import functools
 import logging
 import threading
 import time
 import tkinter as tk
 from datetime import datetime
+from functools import partial, wraps
 from tkinter import ttk
 from tkinter.font import Font
 
@@ -34,6 +34,7 @@ global hp
 hp = Helper()
 global _cfg
 _cfg = Configuration()
+logger = _cfg.LOGGER
 
 global BUTTON_WIDTH
 BUTTON_WIDTH = 25
@@ -57,11 +58,11 @@ def clear_frame(func):
     The build_frame method must be called with the 'master' keyword.
         Example: myframe = self.build_frame(master=parent_frame).
     '''
-    @functools.wraps(func)
+    @wraps(func)
     def buildFrame_wrapper(*args, **kwargs):
         master = kwargs['master']
         if (not isinstance(master, tk.Frame)):
-            logging.critical(
+            logger.critical(
                 f"Misusage of clear_frame Decorator. Objecttype {type(master)} is incorrect.\nDebuginfo {args, kwargs}")
             return func(*args, **kwargs)
         else:
@@ -169,8 +170,18 @@ class UltraVisView(tk.Frame):
         #Navigation Menu
         self.calibrate_but = tk.Button(self.menu_frame)
         self.calibrate_but["text"] = "Koordinatensystem kalibrieren"
-        self.target_but = tk.Button(self.menu_frame)
-        self.target_but["text"] = "Zielpunkt wählen"
+        self.target_menu_frame = tk.Frame(self.menu_frame)
+        self.target_but = tk.Button(self.target_menu_frame)
+        self.target_but["text"] = "Lade Zielpunkt"
+        self.target_var = tk.StringVar()
+        self.target_var.set('')
+        self.target_option_menu = tk.OptionMenu(self.target_menu_frame, self.target_var, ' ')
+
+        self.nav_save_record_but = tk.Button(self.menu_frame)
+        self.nav_save_record_but["text"] = "Aufnehmen"
+        self.switch_imgsrc_but = tk.Button(self.menu_frame)
+        self.switch_imgsrc_but["text"] = "Video-zu-Aufnahme wechseln"
+        self.switch_imgsrc_but["state"] = 'disabled'
         self.accept_record_but = tk.Button(self.menu_frame)
         self.accept_record_but["text"] = "Aufzeichnung akzeptieren"
 
@@ -207,9 +218,9 @@ class UltraVisView(tk.Frame):
         for child in childList:
             if (child.winfo_class() == 'Frame'):
                 self.clean_menu(child.winfo_children())
+                child.forget()
                 continue
-
-            if (child.winfo_class() in ['Button'] and child.winfo_ismapped()):
+            if (child.winfo_class() in ['Button', 'Menubutton'] and child.winfo_ismapped()):
                 child.pack_forget()
 
     def show_menu(self, menu='main', states=None):
@@ -238,16 +249,28 @@ class UltraVisView(tk.Frame):
             'examination': [self.track_but, self.save_record_but, self.finish_exam_but, self.cancel_but],
             'summary': [self.mainmenu_but, self.cancel_but], #self.save_edit_but,
             'open_examination': [self.start_navigation_but, self.cancel_but],
-            'navigation': [self.track_but, self.calibrate_but, self.target_but, self.save_record_but,
-                           self.accept_record_but, self.finish_exam_but, self.cancel_but]
+            'navigation': [self.track_but, self.calibrate_but, self.target_menu_frame, self.nav_save_record_but,
+                           self.switch_imgsrc_but, self.accept_record_but, self.finish_exam_but, self.cancel_but]
         }
 
-        for button in menu_buttons[menu]:
-            button.pack(side=tk.TOP, pady=(0, 0), padx=(10), fill="both")
+        for item in menu_buttons[menu]:
+            item.pack(side=tk.TOP, pady=(0, 0), padx=(10), fill="both")
+            if item.winfo_class() == 'Frame':
+                children = item.winfo_children()
+                for child in children:
+                    child.pack(side=tk.LEFT, fill="both")
         self.current_menu = menu
         if (self._debug):
             self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),
                                    padx=(10), fill="both")
+
+    def set_target_menu(self, records_list):
+        ''' Sets the target_menu for the navigation menu. Param records_list should hold R_ID which shall be loaded'''
+        self.target_var.set(records_list[0])
+        self.target_option_menu['menu'].delete(0, 'end')
+        for value in records_list:
+            self.target_option_menu['menu'].add_command(label=value, command=tk._setit(self.target_var, value))
+
 
     def build_details_frame(self, lFrame):
         '''Builds the scrollable details_frame (ScrollableFrame object).'''
@@ -511,41 +534,6 @@ class UltraVisView(tk.Frame):
         frame.after_idle(self.calculate_US_imgsize)
         #self.grid_frame.after_idle(self.calculate_US_imgsize)
 
-    '''
-    def capture_framegrabber(self):
-        _isFirstCapture = True
-        _, frame = self.cap.read()
-        self.frame = cv2.flip(frame, 1)
-
-        if frame is None and _isFirstCapture:
-            logging.warning("Empty Frame - No Device was found")
-            self.USimg_lb["text"] = "EMPTY FRAME \n No Device was found"
-            self.USimg_lb.after(10000, self.capture_framegrabber)
-            return
-        if (self.USimg_frame.winfo_height() == 1):
-            cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-            img = Image.fromarray(cv2image)
-            self.og_imgsize = img.size
-            self.USimg_lb.after(1500, self.capture_framegrabber)
-            return
-
-        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        if (self.img_size is not None):
-            img = img.resize(self.img_size, Image.ANTIALIAS)
-        imgtk = ImageTk.PhotoImage(image=img)
-
-        self.USimg_lb.imgtk = imgtk
-        self.USimg_lb.configure(image=imgtk)
-
-        self._FrameGrabberJob = self.USimg_lb.after(
-            10, self.capture_framegrabber)
-
-        # Slider window (slider controls stage position)
-        # self.sliderFrame = tk.Frame(self.upperFrameLeft, width=600, height=100)
-        # self.sliderFrame.grid(row=600, column=0, padx=10, pady=2)
-    '''
-
     def calculate_US_imgsize(self):
         # Get current Frame
         #cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
@@ -580,6 +568,17 @@ class UltraVisView(tk.Frame):
             self.saved_img_lb.imgtk = imgtk
             self.saved_img_lb.configure(image=self.saved_img_lb.imgtk)
 
+    def refresh_img_for_lb(self, event=None, img=None, lb=None):
+        if not self.img_size:
+            logger.debug("img_size still empty")
+            lb.after(1000, self.refresh_img_for_lb, None, img, lb)
+            return
+        img = img.resize(self.img_size, Image.ANTIALIAS)
+        imgtk = ImageTk.PhotoImage(image=img)
+        lb.imgtk = imgtk
+        lb.configure(image=imgtk)
+
+
     def build_tracking_summary(self):
 
         pass
@@ -595,7 +594,7 @@ class UltraVisView(tk.Frame):
             self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
 
-            self._Canvasjob = self.nav_canvas._tkcanvas.after(20,func=self.build_coordinatesystem)
+            self._Canvasjob = self.nav_canvas._tkcanvas.after(25,func=self.build_coordinatesystem)
 
         #self.nav_canvas.draw()
 
@@ -797,22 +796,32 @@ class UltraVisView(tk.Frame):
         self.saved_img_frame.rowconfigure(0, weight=1)
         self.saved_img_frame.columnconfigure(0, weight=1)
         self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
+        self.target_img_frame = tk.Frame(self.navgrid_frame)
+        self.target_img_frame.rowconfigure(0, weight=1)
+        self.target_img_frame.columnconfigure(0, weight=1)
 
-        # Ultrasoundimage Content
+
+        # Ultrasoundimage Content / Current Image
         self.USimg_lb = tk.Label(self.USimg_frame) #LABEL for controller frame_grabber
-        self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
+        self.USimg_lb["text"] = "INITIALIZING INPUT IMAGE"
         self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
         self.USimg_lb.grid_propagate(0)
-        # Saved Image Content
+        # TBD not suare yet
         self.saved_img_lb = tk.Label(self.saved_img_frame)
-        self.saved_img_lb["text"] = "Saved Image"
+        self.saved_img_lb["text"] = "Recorded Image"
         self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
+        # Target Image Content although the variable name is the same
+        self.target_img_lb = tk.Label(self.target_img_frame)
+        self.target_img_lb["text"] = "Target Image"
+        self.target_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
         #Nav Visualizer Content
         self.navigationvis = NavigationVisualizer(self.navgrid_frame)
         self.nav_canvas = self.navigationvis.canvas
 
         self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
-        self.saved_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        #self.saved_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+        self.target_img_frame.grid(row=1, column=0, padx=5, pady=2, sticky=tk.NSEW)
+
         self.nav_canvas.get_tk_widget().grid(row=0, column=1, rowspan=2, sticky=tk.NSEW)
 
 
@@ -837,10 +846,11 @@ class UltraVisView(tk.Frame):
 
         self.exam_data_frame.grid(row=1, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-        self.statistic_frame = self.get_statistics_table(self.navigation_frame, "R-Uno und R-Duo")
+        self.statistic_frame = self.get_statistics_table(self.navigation_frame, None)
         self.statistic_frame.grid(row=2, column=0, sticky=tk.NSEW)
 
         scroll.grid(row=0, column=0,sticky=tk.NSEW)
+
 
     def get_statistics_table(self, master, title_id):
         frame = tk.Frame(master=master, bg='yellow')
@@ -855,60 +865,21 @@ class UltraVisView(tk.Frame):
 
         return frame
 
-        '''  '''
-
-        # Order of the US Frame, Saved Image and Navigationframe
-        self.USimg_frame = tk.Frame(self.grid_frame)
-        self.USimg_frame.rowconfigure(0, weight=1)
-        self.USimg_frame.columnconfigure(0, weight=1)
-        self.saved_img_frame = tk.Frame(self.grid_frame)
-        self.saved_img_frame.rowconfigure(0, weight=1)
-        self.saved_img_frame.columnconfigure(0, weight=1)
-        self.saved_img_frame.bind('<Configure>', self.refresh_saved_img)
-        self.exam_data_frame = tk.Frame(self.grid_frame)
-        self.exam_data_frame.rowconfigure(0, weight=0)
-        self.exam_data_frame.rowconfigure(1, weight=1)
-        self.exam_data_frame.columnconfigure(0, weight=1)
-
-        self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
-        self.saved_img_frame.grid(row=0, column=1, padx=5, pady=2, sticky=tk.NSEW)
-        self.exam_data_frame.grid(row=1, column=0, columnspan=2, padx=5, pady=2, sticky=tk.NSEW)
-
-        # Ultrasoundimage Content
-        self.USimg_lb = tk.Label(self.USimg_frame) #LABEL for controller frame_grabber
-        self.USimg_lb["text"] = "INITIALIZING VIDEOINPUT"
-        self.USimg_lb.grid(row=0, column=0, sticky=tk.NSEW)
-        self.USimg_lb.grid_propagate(0)
-
-        # Saved Image Content
-        self.saved_img_lb = tk.Label(self.saved_img_frame)
-        self.saved_img_lb["text"] = "Saved Image"
-        self.saved_img_lb.grid(row=0, column=0, sticky=tk.NSEW)
-
-        # Examinationdata Frame Content
-        self.sysmode_lb = tk.Label(self.exam_data_frame)
-        self.sysmode_lb["text"] = "Operating Mode: - "
-        self.sysmode_lb["font"] = ('Open Sans', 10)
-        self.sysmode_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
-        #self.sysmode_icon_lb = tk.Label(self.exam_data_frame)
-        scroll_framing = ScrollableFrame(master=self.exam_data_frame)
-        scroll_framing.contentframe.columnconfigure(0, weight=1)
-        scroll_framing.contentframe.rowconfigure(0, weight=1)
-        empty_pos = [Handle('',''), Handle('',''), Handle('',''), Handle('','')]
-        self.tracking_data_frame = self.build_position_summary(master=scroll_framing.contentframe, position=empty_pos)
-        self.tracking_data_frame.grid(row=0,column=0, pady=10, padx=10, sticky=tk.NSEW)
-        scroll_framing.grid(row=1, column=0, sticky=tk.NSEW)
-
-        self.grid_frame.grid(row=0, pady=8, padx=8, sticky=tk.NSEW)
-        '''
-        # Gallery Frame Content #TODO?
-        self.gallery_frame = tk.Frame(self.exam_frame, bg="#99ffcc")
-        self.gallery_lb = tk.Label(self.gallery_frame, text="a gallery")
-        self.gallery_lb.pack()
-        #self.gallery_frame.grid(row=1, column=0, pady=(0, 8), padx=8, sticky=tk.NSEW)
-        self.exam_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
-
-        '''
+    def switch_imgsrc(self):
+        '''Switches between the VideoinputSource and the savedimaged frame'''
+        self.switch_imgsrc_but["state"] = 'normal'
+        if self.USimg_frame.winfo_ismapped():
+            logger.debug("Switched to SavedImgFrame")
+            self.USimg_frame.grid_forget()
+            self.saved_img_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
+            self.switch_imgsrc_but["text"] = "Wechsel zu Video"
+        elif self.saved_img_frame.winfo_ismapped():
+            logger.debug("Switched to USimgframe")
+            self.saved_img_frame.grid_forget()
+            self.USimg_frame.grid(row=0, column=0, padx=5, pady=2, sticky=tk.NSEW)
+            self.switch_imgsrc_but["text"] = "Wechsel zu Aufnahme"
+        else:
+            logger.debug("No Switcheruu today. Please check the call!")
 
 
     def build_action_frame(self, bFrame):
@@ -1017,65 +988,65 @@ class UltraVisView(tk.Frame):
         self.notfoundimg = imgdir + "not-found-image.jpg"
 
         # Bilder f�r x-Achse
-        self.x_links_orange = self.getTKImage("x-links-orange.jpg")
-        self.x_links_rot = self.getTKImage("x-links-rot.jpg")
-        self.x_rechts_orange = self.getTKImage("x-rechts-orange.jpg")
-        self.x_rechts_rot = self.getTKImage("x-rechts-rot.jpg")
+        self.x_links_orange = self.getImage_fromfile("x-links-orange.jpg")
+        self.x_links_rot = self.getImage_fromfile("x-links-rot.jpg")
+        self.x_rechts_orange = self.getImage_fromfile("x-rechts-orange.jpg")
+        self.x_rechts_rot = self.getImage_fromfile("x-rechts-rot.jpg")
 
         # Bilder f�r Rotation auf x-Achse
-        self.x_achse_kippen_links_orange = self.getTKImage(
+        self.x_achse_kippen_links_orange = self.getImage_fromfile(
             "x-achse-kippen-links-orange.jpg")
-        self.x_achse_kippen_links_rot = self.getTKImage(
+        self.x_achse_kippen_links_rot = self.getImage_fromfile(
             "x-achse-kippen-links-rot.jpg")
-        self.x_achse_kippen_rechts_orange = self.getTKImage(
+        self.x_achse_kippen_rechts_orange = self.getImage_fromfile(
             "x-achse-kippen-rechts-orange.jpg")
-        self.x_achse_kippen_rechts_rot = self.getTKImage(
+        self.x_achse_kippen_rechts_rot = self.getImage_fromfile(
             "x-achse-kippen-rechts-rot.jpg")
 
         # Bilder f�r y-Achse
-        self.y_vorne_orange = self.getTKImage("y-vorne-orange.jpg")
-        self.y_vorne_rot = self.getTKImage("y-vorne-rot.jpg")
-        self.y_hinten_orange = self.getTKImage("y-hinten-orange.jpg")
-        self.y_hinten_rot = self.getTKImage("y-hinten-rot.jpg")
+        self.y_vorne_orange = self.getImage_fromfile("y-vorne-orange.jpg")
+        self.y_vorne_rot = self.getImage_fromfile("y-vorne-rot.jpg")
+        self.y_hinten_orange = self.getImage_fromfile("y-hinten-orange.jpg")
+        self.y_hinten_rot = self.getImage_fromfile("y-hinten-rot.jpg")
 
         # Bilder f�r Rotation auf y-Achse
-        self.y_achse_kippen_links_orange = self.getTKImage(
+        self.y_achse_kippen_links_orange = self.getImage_fromfile(
             "y-achse-kippen-links-orange.jpg")
-        self.y_achse_kippen_links_rot = self.getTKImage(
+        self.y_achse_kippen_links_rot = self.getImage_fromfile(
             "y-achse-kippen-links-rot.jpg")
-        self.y_achse_kippen_rechts_orange = self.getTKImage(
+        self.y_achse_kippen_rechts_orange = self.getImage_fromfile(
             "y-achse-kippen-rechts-orange.jpg")
-        self.y_achse_kippen_rechts_rot = self.getTKImage(
+        self.y_achse_kippen_rechts_rot = self.getImage_fromfile(
             "y-achse-kippen-rechts-rot.jpg")
 
         # Bilder f�r z-Achse
-        self.z_oben_orange = self.getTKImage("z-oben-orange.jpg")
-        self.z_oben_rot = self.getTKImage("z-oben-rot.jpg")
-        self.z_unten_orange = self.getTKImage("z-unten-orange.jpg")
-        self.z_unten_rot = self.getTKImage("z-unten-rot.jpg")
+        self.z_oben_orange = self.getImage_fromfile("z-oben-orange.jpg")
+        self.z_oben_rot = self.getImage_fromfile("z-oben-rot.jpg")
+        self.z_unten_orange = self.getImage_fromfile("z-unten-orange.jpg")
+        self.z_unten_rot = self.getImage_fromfile("z-unten-rot.jpg")
 
         # Bilder f�r Rotation auf z-Achse
-        self.z_achse_kippen_links_orange = self.getTKImage(
+        self.z_achse_kippen_links_orange = self.getImage_fromfile(
             "z-achse-kippen-links-orange.jpg")
-        self.z_achse_kippen_links_rot = self.getTKImage(
+        self.z_achse_kippen_links_rot = self.getImage_fromfile(
             "z-achse-kippen-links-rot.jpg")
-        self.z_achse_kippen_rechts_orange = self.getTKImage(
+        self.z_achse_kippen_rechts_orange = self.getImage_fromfile(
             "z-achse-kippen-rechts-orange.jpg")
-        self.z_achse_kippen_rechts_rot = self.getTKImage(
+        self.z_achse_kippen_rechts_rot = self.getImage_fromfile(
             "z-achse-kippen-rechts-rot.jpg")
 
         # Bilder f�r Eigen-Rotation
-        self.self_rot_links_orange = self.getTKImage(
+        self.self_rot_links_orange = self.getImage_fromfile(
             "self-rot-links-orange.jpg")
-        self.self_rot_links_rot = self.getTKImage("self-rot-links-rot.jpg")
-        self.self_rot_rechts_orange = self.getTKImage(
+        self.self_rot_links_rot = self.getImage_fromfile("self-rot-links-rot.jpg")
+        self.self_rot_rechts_orange = self.getImage_fromfile(
             "self-rot-rechts-orange.jpg")
-        self.self_rot_rechts_rot = self.getTKImage("self-rot-rechts-rot.jpg")
+        self.self_rot_rechts_rot = self.getImage_fromfile("self-rot-rechts-rot.jpg")
 
         # Bild als Ziel
-        self.ziel = self.getTKImage("ziel.jpg")
+        self.ziel = self.getImage_fromfile("ziel.jpg")
 
-    def getTKImage(self, filename):
+    def getImage_fromfile(self, filename, asTKImage=True):
         # Opens Image and translates it to TK compatible file.
         #filename = self.imgdir+filename
 
@@ -1083,8 +1054,8 @@ class UltraVisView(tk.Frame):
             tkimage = Image.open(filename)
 
         except FileNotFoundError as err:
-            logging.exception("File was no found, Err Img replace\n" + err)
+            logger.exception("File was no found, Err Img replace\n" + err)
             tkimage = self.notfoundimg
 
         finally:
-            return ImageTk.PhotoImage(tkimage)
+            return ImageTk.PhotoImage(tkimage) if asTKImage else tkimage
