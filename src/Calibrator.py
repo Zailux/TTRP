@@ -2,7 +2,8 @@ import logging
 
 import numpy as np
 from pyquaternion import Quaternion
-
+import logging
+import math
 
 class Calibrator:
     """ builds transformation matrices """
@@ -82,42 +83,58 @@ class Calibrator:
         print("scale:")
         print(self.scale)
 
-        """
-        print(self.scale)
-        print("TEST")
-        test_a = self.transform_backward(a)
-        print(test_a)
-        test_a = np.multiply(self.scale, test_a)
-        print(test_a)
+    def quaternion_to_rpy(self, qw, qx, qy, qz):
+        vx, vy, vz = self.__quaternion_to_unit_vectors(qw, qx, qy, qz)
 
-        v_test = [0.0,0.0,0.0,1.0]
-        test = np.dot(self.trafo_matrix, v_test)
-        print("test")
-        print(test)
+        print(vx)
 
-        test = np.dot(self.trafo_matrix_inv, test)
-        print("test")
-        print(test)
 
-        print("Trafo Matix:")
-        print(self.trafo_matrix)
+        #temp_z = [vz[0], vz[1], vz[2]]
+        #vz = [vx[0], vx[1], vx[2]]
+        #vx = [-temp_z[0], -temp_z[1], -temp_z[2]]
 
-        print("z_axis: " + str(z_axis))
-        print("y_axis: " + str(y_axis))
-        print("x_axis: " + str(x_axis))
+        #vx = self.rotate_backward(vx) # kopf 0, -1, 0 / links 1, 0, 0 / oben 0, 0, 1
+        #vy = self.rotate_backward(vy)
+        #vz = self.rotate_backward(vz)
 
-        print("z_axis_origin: " + str(z_axis_origin))
-        print("y_axis_origin: " + str(y_axis_origin))
-        print("x_axis_origin: " + str(x_axis_origin))
+        m = self.__vectors_to_matrix(vz, -1*vy, vx)
+        #print(m)
+        #transformed = self.rotate_backward(m)
+        #print(transformed)
+        a,b,c = self.__rpy_from_matrix(m)
+        #print("r: " + str(a) + ", p: " + str(b) + ", y: " + str(c))
+        
+        #b = vx[2]
+        #print("---")
+        #print(str(a) + ", " + str(b) + ", " + str(c))
+        
+        return c,b,a
 
-        # check. all should be 90deg
-        print("angle xy: " + str(np.degrees(self.__angle_between(x_axis_origin, y_axis_origin))))
-        print("angle xz: " + str(np.degrees(self.__angle_between(x_axis_origin, z_axis_origin))))
-        print("angle yz: " + str(np.degrees(self.__angle_between(y_axis_origin, z_axis_origin))))
-        """
+    def __rpy_from_matrix(self, m):
+        #yaw = math.atan2(m[1][0], m[0][0])
+        #pitch = math.atan2(-m[2][0], np.sqrt(np.power(m[2][1], 2) + np.power(m[2][2], 2)))
+        #roll = math.atan2(m[2][1], m[2][2])
+        #return roll, pitch, yaw
 
-    def quaternion_to_rotation_matrix(self, qw, qx, qy, qz):
-        """ builds rotation matrix from quaternion """
+        b = math.atan2(-m[2][0], np.sqrt(np.power(m[0][0],2)+np.power(m[1][0],2)))
+
+        if b == (np.pi/2):
+            a = 0.0
+            c = math.atan2(m[0][1],m[1][1])
+        elif b == (-np.pi/2):
+            a = 0.0
+            c = -math.atan2(m[0][1],m[1][1])
+        else:
+            a = math.atan2(m[1][0]/np.cos(b), m[0][0]/np.cos(b))
+            c = math.atan2(m[2][1]/np.cos(b), m[2][2]/np.cos(b))
+
+        return a,b,c
+
+
+        
+
+    def __quaternion_to_unit_vectors(self, qw, qx, qy, qz):
+        """ rotates unit vectors with input quaternion """
         # unit vectors
         vx = [1,0,0]
         vy = [0,1,0]
@@ -128,6 +145,10 @@ class Calibrator:
         vx = q.rotate(vx)
         vy = q.rotate(vy)
         vz = q.rotate(vz)
+        return np.asarray(vx), np.asarray(vy), np.asarray(vz)
+
+    def __vectors_to_matrix(self, vx, vy, vz):
+        """ builds rotation matrix from quaternion """
         # build matrix
         m = [ \
             [vx[0], vy[0], vz[0], 0.0], \
@@ -136,8 +157,59 @@ class Calibrator:
             [0.0, 0.0, 0.0, 1.0]]
         return m
 
+    def rotations_from_vectors(self, vx, vy, vz):
+        """ TODO """
+        # unit vectors of the coordinate system
+        ux = [1,0,0]
+        uy = [0,1,0]
+        uz = [0,0,1]
+
+        # 2d projections of input vectors
+        z_on_xz = [vz[0], vz[2]]
+        z_on_yz = [vz[1], vz[2]]
+        #x_on_xy = [vx[0], vx[1]]
+
+        pitch = self.__angle_between(z_on_xz, [0.0, 1.0])
+        yaw = self.__angle_between(z_on_yz, [0.0, 1.0])
+        
+        rotated_x = [[vx[0], vx[1], vx[2]]]
+
+        
+        #roll = self.__angle_between(x_on_xy, )
+
+
+
+    def quaternion_to_rotations(self, w, x, y, z):
+        """
+        Source:
+        https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
+        """
+        
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = math.atan2(sinr_cosp, cosr_cosp)
+
+        # pitch (y-axis rotation)
+        sinp = 2 * (w * y - z * x)
+        pitch = 0
+        if (abs(sinp) >= 1):
+            pitch = math.copysign(math.pi / 2, sinp) # use 90 degrees if out of range
+        else:
+            pitch = math.asin(sinp)
+
+        # yaw (z-axis rotation)
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+
+        #print("r: " + str(-yaw) + ", p: " + str(pitch) + ", y: " + str(-roll))
+
+        #return -roll, pitch, -yaw
+        return -yaw, pitch, -roll
+
+    """
     def quaternion_to_rotations(self, qw, qx, qy, qz):
-        """ builds rotation matrix from quaternion """
+        # builds rotation matrix from quaternion 
         if (qw is None)or(qx is None)or(qy is None)or(qz is None):
             return 0.0, 0.0, 0.0
         # unit vectors
@@ -183,7 +255,7 @@ class Calibrator:
 
         #print("Orientations: " + str([a_yz, a_xz, 0.0]))
         return a_yz, a_xz, rot_angle
-
+    """
 
 
     def transform_forward(self, vector):
@@ -194,12 +266,23 @@ class Calibrator:
         result = np.multiply(1/self.scale, result)
         return [result[0], result[1], result[2]]
 
-    def transform_backward(self, vector):
+    def transform_backward(self, vector, do_scale=True):
         """ transform vector using inverse matrix """
         if len(vector) == 3:
             vector.append(1.0)
         result = np.dot(self.trafo_matrix_inv, vector)
-        result = np.multiply(self.scale, result)
+        if do_scale:
+            result = np.multiply(self.scale, result)
+        return [result[0], result[1], result[2]]
+        
+    def rotate_backward(self, m):
+        rot_m = [ \
+            [self.trafo_matrix_inv[0][0], self.trafo_matrix_inv[0][1], self.trafo_matrix_inv[0][2], 0.0],
+            [self.trafo_matrix_inv[1][0], self.trafo_matrix_inv[1][1], self.trafo_matrix_inv[1][2], 0.0],
+            [self.trafo_matrix_inv[2][0], self.trafo_matrix_inv[2][1], self.trafo_matrix_inv[2][2], 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
+    
+        result = np.dot(rot_m, m)
         return [result[0], result[1], result[2]]
 
     def __dist_ab(self, a, b):
