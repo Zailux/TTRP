@@ -8,3 +8,4 @@ __pycache__/*
 __pycache__/
 *.cpp
 data/img/*
+test_src
