@@ -67,7 +67,7 @@ class UltraVisController:
         
         #Init Aurorasystem + Serial COnfig
         self.ser = serial.Serial()
-        self.ser.port = 'COM3'
+        self.ser.port = 'COM4'
         self.ser.baudrate = 9600
         self.ser.parity = serial.PARITY_NONE
         self.ser.bytesize = serial.EIGHTBITS
@@ -316,7 +316,9 @@ class UltraVisController:
                     y.append(transformed[1])
                     z.append(transformed[2])
 
-                    temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rotations(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    #temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rotations(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rpy(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+
                     a.append(temp_a)
                     b.append(temp_b)
                     c.append(temp_c)
@@ -549,11 +551,9 @@ class UltraVisController:
         else:
             handles = self.hm.getHandles() if not handles else handles
             current_pos = [handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz]
-            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)            
-            #print(current_ori)
 
-            a, b, c = self.calibrator.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-            
+            a, b, c = self.calibrator.quaternion_to_rpy(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+         
             pos = self.calibrator.transform_backward(current_pos)
 
             self.view.navigationvis.set_target_pos(pos[0], pos[1])

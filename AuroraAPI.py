@@ -393,6 +393,7 @@ class HandleManager:
             print("data missing from bx")
             return False
         else:
+            print("data OK")
             handle_bytes = []
             for i in range(n_handles):
                 handle_bytes = bx_data[i*42:(i*42)+42]

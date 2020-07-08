@@ -58,6 +58,23 @@ class NavigationVisualizer:
         self.__initAll()
         self.__animateAll(0)
 
+        #self.test3d()
+
+    def test3d(self):
+
+
+        soa = np.array([[0, 0, 1, 1, -2, 0], [0, 0, 2, 1, 1, 0],
+                        [0, 0, 3, 2, 1, 0], [0, 0, 4, 0.5, 0.7, 0]])
+
+        X, Y, Z, U, V, W = zip(*soa)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.quiver(X, Y, Z, U, V, W)
+        ax.set_xlim([-1, 0.5])
+        ax.set_ylim([-1, 1.5])
+        ax.set_zlim([-1, 8])
+        plt.show()
+
         
         # animation funtion
         #self.anim = animation.FuncAnimation(self.fig, self.__animateAll, 
@@ -84,6 +101,7 @@ class NavigationVisualizer:
         self.target_pos_y = y
 
     def set_target_ori(self, x, y, z):
+        #return
         self.target_ori_x = x
         self.target_ori_y = y
         self.target_ori_z = z
@@ -101,8 +119,25 @@ class NavigationVisualizer:
         """
         target circle animation
         """
-        correction_ori_x = self.ori_x - self.target_ori_x
-        correction_ori_y = self.ori_y - self.target_ori_y
+        #print("---")
+        #print("ori_x " + str(self.ori_x) + ", target_ori_x " + str(self.target_ori_x))
+        #print("ori_y " + str(self.ori_y) + ", target_ori_y " + str(self.target_ori_y))
+        #print("ori_z " + str(self.ori_z) + ", target_ori_z " + str(self.target_ori_z))
+        
+        #correction_ori_x = self.ori_x - self.target_ori_x
+        #correction_ori_y = self.ori_y - self.target_ori_y
+
+
+        #correction_ori_x = ((self.ori_x+np.pi) - (self.target_ori_x+np.pi) % (np.pi*2))-np.pi
+        #correction_ori_y = ((self.ori_y+np.pi) - (self.target_ori_y+np.pi) % (np.pi*2))-np.pi
+
+        #print("cor_a: " + str(correction_ori_x))
+
+        correction_ori_x = -self.ori_x
+        correction_ori_y = self.ori_y
+
+        #print("cor_a: " + str(correction_ori_x))
+
 
         color = "red"
         if ((abs(correction_ori_x)<self.target_tollerance)and(abs(correction_ori_y)<self.target_tollerance)):
