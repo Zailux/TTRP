@@ -180,10 +180,8 @@ class UltraVisModel:
                                 (in Records and Handles Table)')
 
         #write changes to tables
-        self.t_examination.to_csv(self.EXAMINATION_PATH)
-        self.t_records.to_csv(self.RECORDS_PATH)
-        self.t_handles.to_csv(self.HANDLE_PATH)
-
+        self._dataset_to_csv()
+        logger.info(f'Successfully persist workitem {E_ID}')
         return new_E_ID
 
     def load_workitem(self, E_ID):
@@ -295,11 +293,25 @@ class UltraVisModel:
         if (not(isinstance(record,Record))):
             raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
 
-        logger.debug('Trying to write data:')
         if (persistant):
-            #here kommt noch was
-            pass
+            df = self.t_records
+            old_R_ID = record.R_ID
+            new_index = self._getnextID(df)
+            new_R_ID = 'R-'+str(new_index) if str(old_R_ID).startswith('temp') else old_R_ID
+            as_list = df.index.tolist()
+            idx = as_list.index(old_R_ID)
+            as_list[idx] = new_R_ID
+            df.index = as_list
 
+            #Persist corresponding Position
+            df2 = self.t_handles
+            df2['R_ID'].where(cond=(df2['R_ID'] != old_R_ID), other=new_R_ID, inplace=True)
+            if old_R_ID != new_R_ID:
+                logger.debug(f'Successfully persisted tempID: {old_R_ID} with new ID: {new_R_ID} \
+                (in Records and Handles Table)')
+            return
+
+        logger.debug('Trying to write data:')
         rec = record.__dict__
         df = pd.DataFrame(data=rec,index=[0])
         df = df.set_index('R_ID')
@@ -336,22 +348,49 @@ class UltraVisModel:
             logger.error(f'Record with Key "{R_ID}" could not be found.')
             return None
 
-    def save_position(self, R_ID,handles):
+    def save_position(self, R_ID, handles):
 
         try:
-            temp_data = self.t_handles
+            df = self.t_handles
+
             for h in handles.values():
                 h = h.__dict__
                 h['R_ID'] = R_ID
                 handle_data = h
-                new_df = pd.DataFrame(data=handle_data,index=[len(temp_data.index)])
-                temp_data = temp_data.append(new_df,verify_integrity=True)
-            logger.debug(str(temp_data))
-            temp_data.to_csv(self.HANDLE_PATH)
-            self.t_handles = temp_data
+                new_handle_df = pd.DataFrame(data=handle_data,index=[len(df.index)])
+                df = df.append(new_handle_df,verify_integrity=True)
+            logger.debug(str(df))
+            df.to_csv(self.HANDLE_PATH)
+            self.t_handles = df
         except ValueError as e:
             logger.error("Could not save Position. Errormsg - "+str(e))
             raise ValueError(str(e))
+
+    def clear_temp_data(self):
+        df1 = [self.t_examination, self.t_records]
+        df2 = self.t_handles
+
+        for df in df1:
+            index_list = df.index.tolist()
+            match_index = df.index.str.match('temp').tolist()
+            drop_index_list = df.loc[match_index].index.to_list()
+            df.drop(drop_index_list, inplace=True)
+
+
+        match_array = df2['R_ID'].str.match('temp').to_list()
+        drop_index_list= df2.loc[match_array].index.to_list()
+        df2.drop(drop_index_list, inplace=True)
+
+        self._dataset_to_csv()
+
+
+    def _dataset_to_csv(self):
+        '''Writes the dataframes to the csv files. Locking could be implemented'''
+        self.t_examination.to_csv(self.EXAMINATION_PATH)
+        self.t_records.to_csv(self.RECORDS_PATH)
+        self.t_handles.to_csv(self.HANDLE_PATH)
+
+
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
     def pos_to_calibrator(self, position):
