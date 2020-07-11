@@ -116,6 +116,27 @@ class NavigationVisualizer:
             self.ax.add_patch(patch)
         return self.circles+[self.line1,self.line2]
 
+    def is_orientation_in_tolerance():
+        correction_ori_x = self.ori_x - self.target_ori_x
+        correction_ori_y = self.ori_y - self.target_ori_y
+        correction_ori_z = self.ori_z - self.target_ori_z
+
+        if ((abs(correction_ori_x)<self.target_tollerance)and(abs(correction_ori_y)<self.target_tollerance)and(abs(correction_ori_z)<self.target_tollerance)):
+            return True
+        else:
+            return False
+
+        
+
+    def is_position_in_tolerance():
+        correction_x = self.pos_x - self.target_pos_x
+        correction_y = self.pos_y - self.target_pos_y
+
+        if ((abs(correction_x)<self.target_tollerance)and(abs(correction_y)<self.target_tollerance)):
+            return True
+        else:
+            return False
+
     def __animateCircles(self):
         """
         target circle animation
@@ -125,8 +146,8 @@ class NavigationVisualizer:
         #print("ori_y " + str(self.ori_y) + ", target_ori_y " + str(self.target_ori_y))
         #print("ori_z " + str(self.ori_z) + ", target_ori_z " + str(self.target_ori_z))
         
-        #correction_ori_x = self.ori_x - self.target_ori_x
-        #correction_ori_y = self.ori_y - self.target_ori_y
+        correction_ori_x = self.ori_x - self.target_ori_x
+        correction_ori_y = self.ori_y - self.target_ori_y
 
 
         #correction_ori_x = ((self.ori_x+np.pi) - (self.target_ori_x+np.pi) % (np.pi*2))-np.pi
@@ -134,8 +155,8 @@ class NavigationVisualizer:
 
         #print("cor_a: " + str(correction_ori_x))
 
-        correction_ori_x = -self.ori_x
-        correction_ori_y = self.ori_y
+        #correction_ori_x = -self.ori_x
+        #correction_ori_y = self.ori_y
 
         #print("cor_a: " + str(correction_ori_x))
 
