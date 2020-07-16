@@ -17,20 +17,101 @@ import logging
 import sys
 import uuid
 
+import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk
 
 #sys.path.insert(1, '..\\')
 from src.aurora import Handle
+from src.Calibrator import Calibrator
 from src.config import Configuration
 from src.helper import Helper
-from src.Calibrator import Calibrator
 
 global hp
 global _cfg
 hp = Helper()
 _cfg = Configuration()
 logger = _cfg.LOGGER
+
+# ------------------------------#
+# ---- DATA MODEL INSTANCES ----#
+# ------------------------------#
+
+class Examination():
+    """The data model of an examination.
+    If no E_ID is given at the instantitation, it will generate a tempID with uuid4():
+    'tempE-5d51171a-eae6-4b93-b4dd-abadecda3976'.
+
+    Attributes
+        Will be documented at the end.
+    """
+    def __init__(self, E_ID=None, doctor=None, patient=None, examitem=None, created=None):
+
+        self.E_ID = E_ID
+        self.doctor = doctor
+        self.patient = patient
+        self.examitem = examitem
+        self.created = created
+        if (E_ID is None):
+            uid = uuid.uuid4()
+            self.E_ID = 'tempE-'+str(uid)
+
+
+class Record():
+    """The data model of an record.
+    If no R_ID is given at the instantitation, it will generate a tempID with uuid4():
+    'tempR-5d51171a-eae6-4b93-b4dd-abadecda3976'.
+
+    Attributes
+        Will be documented at the end.
+    """
+    def __init__(self, E_ID, R_ID=None, descr=None, date=None, US_img=None):
+
+        self.R_ID = R_ID
+        self.descr = descr
+        self.date = date
+        self.US_img = US_img
+        self.E_ID = E_ID
+        if (R_ID is None):
+            uid = uuid.uuid4()
+            self.R_ID = 'tempR-'+str(uid)
+
+
+class Comparison():
+    """The object for comparing two records
+
+    Attributes
+        Will be documented at the end.
+    """
+    def __init__(self, R_ID_base=None, R_ID_nav=None, vec_base=None,
+                 vec_nav=None, acc_t=None, acc_o=None, calc_errors=None,
+                 doc_eval=None, E_ID=None):
+
+        self.R_ID_base = R_ID_base
+        self.R_ID_nav = R_ID_nav
+        self.vec_base = vec_base
+        self.vec_nav = vec_nav
+        self.acc_t = acc_t
+        self.acc_o = acc_o
+        self.calc_errors = calc_errors
+        self.doc_eval = doc_eval
+        self.E_ID = E_ID
+
+    def set_values_from_records(self, tgt_rec:Record, nav_rec:Record):
+        self.R_ID_base = tgt_rec.R_ID
+        self.R_ID_nav = nav_rec.R_ID
+
+
+        pass
+
+
+class Evaluation():
+    pass
+
+
+# ------------------------------#
+# ---- MAIN MODEL CLASS     ----#
+# ------------------------------#
 
 class UltraVisModel:
     """ The UltraVisModel class provides
@@ -47,10 +128,15 @@ class UltraVisModel:
         self.EXAMINATION_PATH = datapath+'examination.csv'
         self.RECORDS_PATH = datapath+'record.csv'
         self.HANDLE_PATH = datapath+'handles.csv'
+        self.COMPARISON_PATH = datapath+'comparison.csv'
+        self.EVALUATION_PATH = datapath+'evaluation.csv'
+
         try:
             self.t_examination = pd.read_csv(self.EXAMINATION_PATH, index_col=0)
             self.t_records = pd.read_csv(self.RECORDS_PATH, index_col=0)
             self.t_handles = pd.read_csv(self.HANDLE_PATH, index_col=0)
+            self.t_comparison = pd.read_csv(self.COMPARISON_PATH, index_col=0)
+            self.t_evaluation = pd.read_csv(self.EVALUATION_PATH, index_col=0)
         except FileNotFoundError as e:
             logger.error(e)
             #disable saving functions!
@@ -181,7 +267,7 @@ class UltraVisModel:
 
         #write changes to tables
         self._dataset_to_csv()
-        logger.info(f'Successfully persist workitem {E_ID}')
+        logger.info(f'Successfully persist workitem {new_E_ID}')
         return new_E_ID
 
     def load_workitem(self, E_ID):
@@ -241,12 +327,12 @@ class UltraVisModel:
         logger.debug('Trying to write data:')
 
         if (persistant):
-            '''
+            """
             as_list = df.index.tolist()
             idx = as_list.index('Republic of Korea')
             as_list[idx] = 'South Korea'
             df.index = as_list
-            ''' #here kommt noch was
+            """ #here kommt noch was
             pass
         exam = examination.__dict__
         df = pd.DataFrame(data=exam,index=[0])
@@ -309,15 +395,16 @@ class UltraVisModel:
             if old_R_ID != new_R_ID:
                 logger.debug(f'Successfully persisted tempID: {old_R_ID} with new ID: {new_R_ID} \
                 (in Records and Handles Table)')
-            return
+                return new_R_ID
+            return None
 
         logger.debug('Trying to write data:')
         rec = record.__dict__
-        df = pd.DataFrame(data=rec,index=[0])
+        df = pd.DataFrame(data=rec, index=[0])
         df = df.set_index('R_ID')
         logger.debug(df)
         try:
-            new_record = self.t_records.append(df,verify_integrity=True)
+            new_record = self.t_records.append(df, verify_integrity=True)
             new_record.to_csv(self.RECORDS_PATH)
             self.t_records = new_record
         except ValueError as e:
@@ -325,6 +412,7 @@ class UltraVisModel:
             raise ValueError(str(e))
 
         logger.info("Succesfully saved record "+str(rec["R_ID"]))
+        return rec["R_ID"]
 
     def get_position(self, R_ID=None, as_dict=False):
         """Return the position as list with the 4 handle objects. Else it returns None."""
@@ -385,26 +473,102 @@ class UltraVisModel:
 
 
     def _dataset_to_csv(self):
-        '''Writes the dataframes to the csv files. Locking could be implemented'''
+        """Writes the dataframes to the csv files. Locking could be implemented"""
         self.t_examination.to_csv(self.EXAMINATION_PATH)
         self.t_records.to_csv(self.RECORDS_PATH)
         self.t_handles.to_csv(self.HANDLE_PATH)
 
 
+    def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None):
+        """Compares two records and creates an Comparison object with calculated values"""
+        R_ID_base = tgt_rec.R_ID  # Target R_ID
+        R_ID_nav = nav_rec.R_ID   # Navigated R_ID or rather saved one
+        h_base = self.get_position(R_ID=R_ID_base)
+        h_nav = self.get_position(R_ID=R_ID_nav)
+
+        pos1, ori1 = self.pos_to_transformed_data(h_base)
+        pos2, ori2 = self.pos_to_transformed_data(h_nav)
+        print(pos1)
+        print(pos2)
+
+        vec_base = np.array(pos1, dtype=float)
+        vec_nav = np.array(pos2, dtype=float)
+        dist_vec = np.subtract(vec_nav, vec_base)
+
+        #Distance in mm overall
+        distance = np.linalg.norm(dist_vec)
+        # Distance for each dimension
+        x_dif, y_dif, z_dif = np.absolute(dist_vec)
+        acc_t = np.array([x_dif, y_dif, z_dif, distance])
+
+        # Pessimistic comparing.
+        calc_errors = np.array([self._get_max_calcerror(h_base), self._get_max_calcerror(h_nav)])
+
+        #acc_o TODO bzw. TBD wegen Tobi mit ori1 und ori2
+        # doc_eval TBD
+
+        E_ID = tgt_rec.E_ID if E_ID is None else E_ID
+
+        input_dict = {"R_ID_base": R_ID_base,
+                      "R_ID_nav": R_ID_nav,
+                      "vec_base": vec_base,
+                      "vec_nav": vec_nav,
+                      "acc_t": acc_t,
+                      "acc_o":None,
+                      "calc_errors":calc_errors,
+                      "doc_eval":None,
+                      "E_ID": E_ID}
+
+        df = pd.DataFrame(data=[input_dict], index=[len(self.t_comparison.index)])
+
+        return self._insert_comparison(df)
+
+    def _insert_comparison(self, df:pd.DataFrame):
+        try:
+            self.t_comparison = self.t_comparison.append(df, verify_integrity=True)
+            self.t_comparison.to_csv(self.COMPARISON_PATH)
+        except ValueError as e:
+            logger.error("Could not insert comparison row. Errormsg - "+str(e))
+            raise ValueError(str(e))
+        c = df.iloc[0]
+        logger.info(f"Succesfully saved comparison of {c.R_ID_base} and {c.R_ID_nav}")
+        return True
+
+    
+
+
+    def calculate_baseline(self):
+        # Calculate average position, etc. of a fixed baseline measurement --> what is the avg position.
+        # How much do the values vary in such measurements
+        pass
+
+    def _get_max_calcerror(self, position:list):
+        """Checks the calculation errors for 4 handles and return the highest calculation error."""
+        errors = []
+        for handle in position:
+            errors.append(handle.calc_Err)
+        return max(errors)
+
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
-    def pos_to_calibrator(self, position):
+    def pos_to_transformed_data(self, position):
         cali = Calibrator()
+        handle_US = position[0]
         handle_HR = position[1]
         handle_LR = position[2]
         handle_B = position[3]
-        a = [handle_HR.Tx, handle_HR.Ty, handle_HR.Tz] # becken rechts
-        b = [handle_LR.Tx, handle_LR.Ty, handle_LR.Tz] # becken links
-        c = [handle_B.Tx, handle_B.Ty, handle_B.Tz] # brustbein
+        a = handle_HR.get_trans_data() # becken rechts
+        b = handle_LR.get_trans_data() # becken links
+        c = handle_B.get_trans_data() # brustbein
 
         cali.set_trafo_matrix(a,b,c)
 
-        return cali
+        trans_pos = cali.transform_backward(handle_US.get_trans_data())
+        q0,x,y,z = handle_US.get_orient_data()
+        yaw, pitch, roll = cali.quaternion_to_rotations(q0,x,y,z)
+        trans_ori = [yaw, pitch, roll]  #TODO sobald Orientierung funzt
+
+        return trans_pos, trans_ori
 
 
     def get_img(self, filename, asPILimage=True):
@@ -433,52 +597,6 @@ class UltraVisModel:
             return image_path
         except IOError as e:
             raise IOError(str(e))
-
-
-
-
-# ------------------------------#
-# ---- DATA MODEL INSTANCES ----#
-# ------------------------------#
-
-class Examination():
-    """The data model of an examination.
-    If no E_ID is given at the instantitation, it will generate a tempID with uuid4():
-    'tempE-5d51171a-eae6-4b93-b4dd-abadecda3976'.
-
-    Attributes
-        Will be documented at the end.
-    """
-    def __init__(self, E_ID=None, doctor=None, patient=None, examitem=None, created=None):
-
-        self.E_ID = E_ID
-        self.doctor = doctor
-        self.patient = patient
-        self.examitem = examitem
-        self.created = created
-        if (E_ID is None):
-            uid = uuid.uuid4()
-            self.E_ID = 'tempE-'+str(uid)
-
-
-class Record():
-    """The data model of an record.
-    If no R_ID is given at the instantitation, it will generate a tempID with uuid4():
-    'tempR-5d51171a-eae6-4b93-b4dd-abadecda3976'.
-
-    Attributes
-        Will be documented at the end.
-    """
-    def __init__(self, E_ID, R_ID=None, descr=None, date=None, US_img=None):
-
-        self.R_ID = R_ID
-        self.descr = descr
-        self.date = date
-        self.US_img = US_img
-        self.E_ID = E_ID
-        if (R_ID is None):
-            uid = uuid.uuid4()
-            self.R_ID = 'tempR-'+str(uid)
 
 
 

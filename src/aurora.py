@@ -378,7 +378,7 @@ class Aurora:
             '18': 'Invalid command',
             '19': 'Invalid command',
             '1A': 'Invalid command'
-            # REST TODO !!!!
+            # TODO not all Commands are maintained yet.
         }
 
         # Check for Reserved Error Codes
@@ -521,13 +521,11 @@ class HandleManager:
 
         return False if len(bx_data) < (42*n_handles) else True
 
-
     def _hex_to_string(self, hex_val):
         #Example input b'\x90G\x00\x00' ^= 90470000
         hex_val = str(BitArray(hex_val).hex).upper()
 
         return hex_val
-
 
     def update_handles(self, tx_str):
         # expects the outpout from tx decoded tx string.
@@ -602,7 +600,7 @@ class HandleManager:
         f = round(Decimal(s), round_to)
         return f
 
-#TODO
+# TODO empty class for interpreting Port bits. Not integrated yet
 class Port():
     def __init__(self):
         self.OCCUPIED = None
@@ -631,8 +629,6 @@ class Port():
         self.PARTIALLY_OUT_OF_VOLUME = bit_array[7]
         self.BROKEN_SENSOR = bit_array[8]
         self.PROCESS_EXCEPTION = bit_array[11]
-
-
 
 
 class Handle:

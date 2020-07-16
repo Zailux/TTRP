@@ -16,9 +16,11 @@ import matplotlib
 import matplotlib.animation
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from cv2 import cv2
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D
+from pandastable import Table
 from PIL import Image, ImageTk
 
 from src.aurora import Handle
@@ -152,6 +154,8 @@ class UltraVisView(tk.Frame):
         self.open_exam_but = tk.Button(self.menu_frame)
         self.open_exam_but["text"] = "Untersuchung \u00F6ffnen"
         self.open_exam_but["state"] = 'disabled' if not self._debug else 'normal'
+        self.open_eval_but = tk.Button(self.menu_frame)
+        self.open_eval_but["text"] = "Datensatz auswerten"
 
         # Setup Menu
         self.start_exam_but = tk.Button(self.menu_frame)
@@ -184,6 +188,7 @@ class UltraVisView(tk.Frame):
         self.switch_imgsrc_but["state"] = 'disabled'
         self.accept_record_but = tk.Button(self.menu_frame)
         self.accept_record_but["text"] = "Aufzeichnung akzeptieren"
+        self.accept_record_but["state"] = 'disabled'
 
         #Start Navigation
         self.start_navigation_but = tk.Button(self.menu_frame)
@@ -243,7 +248,7 @@ class UltraVisView(tk.Frame):
 
         # potentially add activatehandles button
         menu_buttons = {
-            'main': [self.new_exam_but, self.open_exam_but],
+            'main': [self.new_exam_but, self.open_exam_but, self.open_eval_but],
             'new_examination': [self.continue_but, self.cancel_but],
             'setup': [self.start_exam_but, self.cancel_but],
             'examination': [self.track_but, self.save_record_but, self.finish_exam_but, self.cancel_but],
@@ -578,11 +583,6 @@ class UltraVisView(tk.Frame):
         lb.imgtk = imgtk
         lb.configure(image=imgtk)
 
-
-    def build_tracking_summary(self):
-
-        pass
-
     def build_coordinatesystem(self):
 
         if (not hasattr(self,'navigationvis')):
@@ -706,7 +706,7 @@ class UltraVisView(tk.Frame):
     def build_position_summary(self, master, position):
         ''' Builds an Position Summary Frame
         The Frame displays the 4 Handles / the Position in an table format.
-            Returns a tk.Frame Object.
+        Returns a tk.Frame Object.
         '''
 
         if (isinstance(position, dict)):
@@ -767,7 +767,7 @@ class UltraVisView(tk.Frame):
         self.openExamFrame.grid(row=0, column=0,sticky=tk.NSEW)
 
 
-    # TODO reusage with Appframe, for navigation etc.
+    # TODO bad reusage of a frames (navigation & Examination). No good solution yet.
     @clear_frame
     def build_navigation_frame(self, master):
         self.navcanvas_data = ()
@@ -846,15 +846,16 @@ class UltraVisView(tk.Frame):
 
         self.exam_data_frame.grid(row=1, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
-        self.statistic_frame = self.get_statistics_table(self.navigation_frame, None)
+        self.statistic_frame = self._build_statistics_table(self.navigation_frame, None)
         self.statistic_frame.grid(row=2, column=0, sticky=tk.NSEW)
 
         scroll.grid(row=0, column=0,sticky=tk.NSEW)
 
 
-    def get_statistics_table(self, master, title_id):
+    def _build_statistics_table(self, master, title_id):
         frame = tk.Frame(master=master, bg='yellow')
         frame.rowconfigure(0, weight=0)
+        frame.rowconfigure(1, weight=0)
         frame.columnconfigure(0, weight=1)
 
         title_lb = tk.Label(frame)
@@ -863,7 +864,22 @@ class UltraVisView(tk.Frame):
 
         title_lb.grid(row=0, column=0, pady=10, sticky=tk.NSEW)
 
+        self.statistics_table_frame = fr = tk.Frame(frame)
+        self.statistics_table = None
+        fr.grid(row=1, column=0, pady=10, sticky=tk.NSEW)
+
         return frame
+
+    def set_statistics_table(self, df: pd.DataFrame):
+        if not self.statistics_table:
+            self.statistics_table = pt = Table(self.statistics_table_frame, dataframe=df,
+                                                showtoolbar=False, showstatusbar=True)
+            pt.show()
+        else:
+            self.statistics_table.redraw()
+
+    def get_statistics_table(self):
+        return self.statistics_table
 
     def switch_imgsrc(self):
         '''Switches between the VideoinputSource and the savedimaged frame'''

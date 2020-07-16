@@ -26,7 +26,7 @@ from PIL import Image, ImageTk
 from src.aurora import Aurora, Handle, HandleManager
 from src.config import Configuration
 from src.helper import Helper
-from src.uvis_model import Examination, Record, UltraVisModel
+from src.uvis_model import Examination, Record, UltraVisModel, Comparison, Evaluation
 from src.uvis_view import UltraVisView
 from src.Calibrator import Calibrator
 
@@ -282,14 +282,14 @@ class UltraVisController:
                     self.hm.update_handles(tx)
                     self.setNavCanvasData()
                     self.refresh_position_data()
-            #time.sleep(freq)
+            time.sleep(freq)
             t1 = datetime.now()
             #logger.debug(t1-t0)
 
         self.stopTracking = False
         logger.info(threading.current_thread().name+" has stopped!")
 
-    # TODO next test
+
     def refresh_position_data(self):
         #av_color = ['yellow','red','green','blue']
         #color = []
@@ -365,7 +365,8 @@ class UltraVisController:
         self.view.navcanvas_data = (x,y,z,a,b,c,color)
 
     #Position is saving Record and Handles
-    def saveRecord(self):
+    # TODO RENAME THIS METHOD, IT IS THE SAME IN THE MODEL AN CONFUSING!!!
+    def save_record(self):
         if (not self.aua.get_sysmode()=='TRACKING'):
             logger.info("This functionality is only available during tracking. Please Start Tracking")
             return
@@ -388,7 +389,6 @@ class UltraVisController:
         img_name = f'{rec.R_ID[4:]}_img'
         handles = self.hm.get_handles(real_copy=True)
 
-
         if (self.validatePosition(handles)):
 
             #try saving image and the record
@@ -400,17 +400,18 @@ class UltraVisController:
                 raise Warning("Error during saving the image. \nErrorMessage:"+str(e))
             except ValueError as e:
                 #Konnte Aufzeichnung nicht speichern. Please try again with SAME DATA!
-                return
+                return False
 
             #try saving corresponding Position
             try:
                 self.model.save_position(R_ID=rec.R_ID, handles=handles)
             except ValueError as e:
                 #Konnte handles nicht speichern. Please try again with SAME DATA?!
-                pass
+                return False
 
             self.model.set_current_workitem(rec)
             self.model.set_current_workitem(handles.values())
+            return True
 
     def validatePosition(self, handles):
         '''Validates 4 Handles (Position) and checks the frameID and Missing Handles'''
@@ -622,13 +623,11 @@ class UltraVisController:
         if (num_handle is not 4):
             logger.warning(f'There are {num_handle} handles identified. Is that correct?')
         else:
-
             current_pos = hp.to_float([handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz])
             #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
             #print(current_ori)
 
             a, b, c = cali.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-
             pos = cali.transform_backward(current_pos)
 
             self.view.navigationvis.set_target_pos(pos[0], pos[1])
@@ -641,7 +640,7 @@ class UltraVisController:
         self.view.show_menu()
 
     def validate_examination(self):
-        isValid = None
+        isValid = True
 
         workitem = self.model.get_current_workitem()
         if not workitem["Records"]:
@@ -649,9 +648,6 @@ class UltraVisController:
         elif False:
             #another Validation
             pass
-
-        if (isValid is None):
-            isValid = True
 
         return isValid
 
@@ -746,8 +742,8 @@ class UltraVisController:
         logger.info("Navigation is ready. Please start Tracking and calibrating")
 
     def set_target_from_record(self, record=None, R_ID=None):
-        '''Sets the target for an navigation based on an record. As input it can either
-        use the R-ID or an Record Object.
+        '''Sets the target for an navigation based on an record.
+        As input it can either use the R-ID or an Record Object.
 
         Param:'''
 
@@ -771,11 +767,14 @@ class UltraVisController:
         self.view.refresh_img_for_lb(img=img, lb=self.view.target_img_lb)
 
     def nav_save_record(self):
-        self.saveRecord()
+
+        if not self.save_record():
+            logger.error("Couldn't save record. Please try again.")
+            return False
         self.refresh_position_data()
+        self.view.accept_record_but["state"] = 'normal'
         if self.view.USimg_frame.winfo_ismapped():
             self.view.switch_imgsrc()
-
 
     def nav_accept_record(self):
         '''
@@ -796,7 +795,7 @@ class UltraVisController:
         self.view.start_exam_but["command"] = self.start_examination
         self.view.activate_handle_but["command"] =lambda: self.q.put(self.activateHandles)
 
-        self.view.save_record_but["command"] = lambda: self.q.put(self.saveRecord)
+        self.view.save_record_but["command"] = lambda: self.q.put(self.save_record)
         self.view.track_but["command"] = lambda: self.q.put(self.startstopTracking)
         self.view.finish_exam_but["command"] = lambda: self.q.put(self.finalize_examination)
 
@@ -807,6 +806,7 @@ class UltraVisController:
         self.view.target_but["command"] = partial(self.set_target_from_record, R_ID=self.view.target_var.get)
         self.view.switch_imgsrc_but["command"] = self.view.switch_imgsrc
         self.view.nav_save_record_but["command"] = lambda: self.q.put(self.nav_save_record)
+        self.view.accept_record_but["command"] = lambda: self.q.put(self.nav_accept_record)
 
         self.view.cancel_but["command"] = self.cancel_examination
 
