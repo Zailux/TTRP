@@ -20,9 +20,11 @@ import uuid
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk
+from pyquaternion import Quaternion
 
 #sys.path.insert(1, '..\\')
 from src.aurora import Handle
+from src.averageQuaternions import avg_quaternions, q_average
 from src.Calibrator import Calibrator
 from src.config import Configuration
 from src.helper import Helper
@@ -102,7 +104,6 @@ class Comparison():
         self.R_ID_nav = nav_rec.R_ID
 
 
-        pass
 
 
 class Evaluation():
@@ -125,26 +126,37 @@ class UltraVisModel:
     """
     def __init__(self):
         datapath = _cfg.DATAPATH
+        self.COMPARISON_PATH = datapath+'comparison.csv'
+        self.HANDLE_PATH = datapath+'handles.csv'
+        self.EVALUATION_PATH = datapath+'evaluation.csv'
         self.EXAMINATION_PATH = datapath+'examination.csv'
         self.RECORDS_PATH = datapath+'record.csv'
-        self.HANDLE_PATH = datapath+'handles.csv'
-        self.COMPARISON_PATH = datapath+'comparison.csv'
-        self.EVALUATION_PATH = datapath+'evaluation.csv'
-
         try:
-            self.t_examination = pd.read_csv(self.EXAMINATION_PATH, index_col=0)
-            self.t_records = pd.read_csv(self.RECORDS_PATH, index_col=0)
-            self.t_handles = pd.read_csv(self.HANDLE_PATH, index_col=0)
             self.t_comparison = pd.read_csv(self.COMPARISON_PATH, index_col=0)
+            self.t_examination = pd.read_csv(self.EXAMINATION_PATH, index_col=0)
             self.t_evaluation = pd.read_csv(self.EVALUATION_PATH, index_col=0)
+            self.t_handles = pd.read_csv(self.HANDLE_PATH, index_col=0)
+            self.t_records = pd.read_csv(self.RECORDS_PATH, index_col=0)
         except FileNotFoundError as e:
             logger.error(e)
             #disable saving functions!
+        self._init_baseline_dataset()
+
         self._observers = {}
         self._curr_workitem = {"Examination":None, "Records":[], "Handles":[]}
 
-    def set_trial_data(self):
-        pass
+    def _init_baseline_dataset(self):
+
+        DATAPATH = _cfg.DATAPATH+'baseline_trials\\'
+
+        try:
+            self.b_examination = pd.read_csv(DATAPATH+'examination.csv', index_col=0)
+            self.b_handles = pd.read_csv(DATAPATH+'handles.csv', index_col=0)
+            self.b_records = pd.read_csv(DATAPATH+'record.csv', index_col=0)
+        except FileNotFoundError as e:
+            logger.error(e)
+
+
 
     def register(self, key, observer):
         """Implementation of observer pattern.
@@ -414,13 +426,15 @@ class UltraVisModel:
         logger.info("Succesfully saved record "+str(rec["R_ID"]))
         return rec["R_ID"]
 
-    def get_position(self, R_ID=None, as_dict=False):
+    def get_position(self, R_ID=None, as_dict=False, handle_df=None):
         """Return the position as list with the 4 handle objects. Else it returns None."""
+        if handle_df is None:
+            handle_df = self.t_handles
         R_ID = str(R_ID)
         try:
             position = []
             position_dict = {}
-            df = self.t_handles[self.t_handles["R_ID"] == R_ID]
+            df = handle_df[handle_df["R_ID"] == R_ID]
             del df['R_ID']
             temp = df.to_dict(orient='records')
 
@@ -445,8 +459,9 @@ class UltraVisModel:
                 h = h.__dict__
                 h['R_ID'] = R_ID
                 handle_data = h
-                new_handle_df = pd.DataFrame(data=handle_data,index=[len(df.index)])
-                df = df.append(new_handle_df,verify_integrity=True)
+                new_handle_df = pd.DataFrame(data=handle_data, index=[0])
+                df = df.append(new_handle_df, ignore_index=True)
+
             logger.debug(str(df))
             df.to_csv(self.HANDLE_PATH)
             self.t_handles = df
@@ -479,8 +494,9 @@ class UltraVisModel:
         self.t_handles.to_csv(self.HANDLE_PATH)
 
 
-    def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None):
+    def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None, insert_data=True):
         """Compares two records and creates an Comparison object with calculated values"""
+        logger.info("Compare stuff")
         R_ID_base = tgt_rec.R_ID  # Target R_ID
         R_ID_nav = nav_rec.R_ID   # Navigated R_ID or rather saved one
         h_base = self.get_position(R_ID=R_ID_base)
@@ -488,8 +504,6 @@ class UltraVisModel:
 
         pos1, ori1 = self.pos_to_transformed_data(h_base)
         pos2, ori2 = self.pos_to_transformed_data(h_nav)
-        print(pos1)
-        print(pos2)
 
         vec_base = np.array(pos1, dtype=float)
         vec_nav = np.array(pos2, dtype=float)
@@ -498,8 +512,8 @@ class UltraVisModel:
         #Distance in mm overall
         distance = np.linalg.norm(dist_vec)
         # Distance for each dimension
-        x_dif, y_dif, z_dif = np.absolute(dist_vec)
-        acc_t = np.array([x_dif, y_dif, z_dif, distance])
+        x_dif, y_dif, z_dif = np.absolute(dist_vec) # removed from db, due to conversion issues
+        acc_t = distance
 
         # Pessimistic comparing.
         calc_errors = np.array([self._get_max_calcerror(h_base), self._get_max_calcerror(h_nav)])
@@ -521,7 +535,10 @@ class UltraVisModel:
 
         df = pd.DataFrame(data=[input_dict], index=[len(self.t_comparison.index)])
 
-        return self._insert_comparison(df)
+        if insert_data:
+            return self._insert_comparison(df)
+        else:
+            return df
 
     def _insert_comparison(self, df:pd.DataFrame):
         try:
@@ -540,7 +557,59 @@ class UltraVisModel:
     def calculate_baseline(self):
         # Calculate average position, etc. of a fixed baseline measurement --> what is the avg position.
         # How much do the values vary in such measurements
-        pass
+
+        R_ID_list = self.b_records.index.to_list()
+
+        t_data = []
+        ori_data = []
+        calc_errors = []
+
+        for R_ID in R_ID_list:
+            position = self.get_position(R_ID=R_ID, handle_df=self.b_handles)
+            vector, ori1 = self.pos_to_transformed_data(position)
+            err = self._get_max_calcerror(position)
+            t_data.append(vector)
+            ori_data.append(ori1)
+            calc_errors.append(err)
+
+        def calc_translational():
+
+            t_array = np.asarray(t_data)
+
+            acc_t_med = np.median(t_array, axis=0)
+            acc_t_avg = np.mean(t_array, axis=0)
+            acc_t_std = np.std(t_array, axis=0)
+
+            # Get 95 % of data, via STD and Mean
+            edge_vector = np.add(acc_t_avg, (acc_t_std*2))
+            dis_vec = np.subtract(edge_vector, acc_t_avg)
+            acc_t_95 = np.linalg.norm(dis_vec)
+
+            print(acc_t_95)
+
+        def calc_calc_errors():
+            err = np.asarray(calc_errors)
+            max_err = np.max(err)
+            median_err = np.median(err)
+
+        def calc_orientation():
+            # TODO Ich brauche noch die Umwandlung des US Kopf orientierung
+            # auf Ziel Koordinaten system.
+            # https://stackoverflow.com/questions/18818102/convert-quaternion-representing-rotation-from-one-coordinate-system-to-another
+            # https://gamedev.stackexchange.com/questions/140465/convert-quaternion-to-a-different-coordinate-system
+
+            q_list = np.asarray(ori_data)
+            q_avg = q_average(Q=q_list)
+            self.q_avg = Quaternion(q_avg)
+            print(q_avg)
+
+
+        calc_orientation()
+
+
+        print("donus")
+
+
 
     def _get_max_calcerror(self, position:list):
         """Checks the calculation errors for 4 handles and return the highest calculation error."""
@@ -551,7 +620,9 @@ class UltraVisModel:
 
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
-    def pos_to_transformed_data(self, position):
+    # TODO Should I average Quarternion here already ?
+    def pos_to_transformed_data(self, position, orientation_type='quaternion'):
+        """Return the transformed data from a position"""
         cali = Calibrator()
         handle_US = position[0]
         handle_HR = position[1]
@@ -563,12 +634,18 @@ class UltraVisModel:
 
         cali.set_trafo_matrix(a,b,c)
 
-        trans_pos = cali.transform_backward(handle_US.get_trans_data())
-        q0,x,y,z = handle_US.get_orient_data()
-        yaw, pitch, roll = cali.quaternion_to_rotations(q0,x,y,z)
-        trans_ori = [yaw, pitch, roll]  #TODO sobald Orientierung funzt
+        trans_pos = cali.transform_backward(handle_US.get_trans_data(), do_scale=False)
+        q0,i,j,k = handle_US.get_orient_data()
+        yaw, pitch, roll = cali.quaternion_to_rotations(q0,i,j,k)
 
-        return trans_pos, trans_ori
+        trans_ori_quat =[q0,i,j,k]
+        trans_ori_euler = [yaw, pitch, roll]  #TODO sobald Orientierung funzt
+        trans_ori = {"quaternion": trans_ori_quat,
+                     "euler": trans_ori_euler
+        }
+        if not orientation_type in trans_ori.keys():
+            raise ValueError(f"return_type '{orientation_type}' is not in {list(trans_ori.keys())}")
+        return trans_pos, trans_ori[orientation_type]
 
 
     def get_img(self, filename, asPILimage=True):
@@ -598,6 +675,11 @@ class UltraVisModel:
         except IOError as e:
             raise IOError(str(e))
 
-
-
-
+    def list_string_to_list(self, string, dtype):
+        """Suboptimale Methode. Had to do this workaround for the csv.
+        Takes a String which is formatted as a list and actually converts it to a list."""
+        a = string.replace("[","").replace("]","").replace("'","").split(" ")
+        result = []
+        for item in a:
+            result.append(dtype(item))
+        return result
