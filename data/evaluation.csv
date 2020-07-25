@@ -1,2 +1,2 @@
-, descr, acc_t_avg, acc_t_med, acc_t_std, acc_o_avg, acc_o_med, acc_o_std, doc_eval_avg
-'Eval_ID! entspricht E_ID von Examination bzw. TBD',
+, descr,acc_t_avg,acc_t_med,acc_t_std,acc_o_avg,acc_o_med,acc_o_std,calc_error_min,calc_error_max,calc_error_avg,doc_eval_avg
+E-10,,0.8392024748620244,0.8259377270417176,0.2980905063388936,,,,0.084,0.1519,0.10683253328204156,,

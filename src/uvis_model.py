@@ -647,6 +647,29 @@ class UltraVisModel:
             raise ValueError(f"return_type '{orientation_type}' is not in {list(trans_ori.keys())}")
         return trans_pos, trans_ori[orientation_type]
 
+    def rename_images(self, rec_df:pd.DataFrame = None, PATH=None):
+        """Renames the image files, with temporary filenames."""
+        logger.info("Start Renaming Images")
+        if rec_df is None:
+            rec_df = self.t_records
+            PATH = self.RECORDS_PATH
+
+        for R_ID, img_path in zip (rec_df.index.tolist(), rec_df["US_img"]):
+            img_file = Path(img_path)
+            if not img_file.is_file():
+                logger.warning(f"Can't find image in Path {img_path}.")
+                continue
+            img_name = img_path.split("/")[-1]
+            if len(img_name) > 10:
+                new_path = _cfg.SAVEDIMGPATH+R_ID+"_img.png"
+                os.rename(img_path, new_path)
+                rec_df.at[R_ID, "US_img"] = new_path
+                rec_df.to_csv(PATH)
+                logger.debug(f"Changed file {img_path} to {new_path}")
+            else:
+                continue
+
+        logger.info("Done renaming images.")
 
     def get_img(self, filename, asPILimage=True):
         # Opens Image and translates it to TK compatible file.
