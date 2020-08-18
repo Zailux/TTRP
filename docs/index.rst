@@ -13,7 +13,7 @@ is created within the CaMed Masterprojekt (Computergestützte Medizin) at Reutli
    Installation
    Architecture
    Uvis_Application
-   AuroraAPI
+   aurora_api
    Further reading
 
 
