@@ -13,6 +13,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(1, '..\\') # For importing the src package
 
 
 # -- Project information -----------------------------------------------------
@@ -55,3 +56,4 @@ html_static_path = ['_static']
 
 
 # -- Autodoc Konfigurations -------------------------------------------------
+autoclass_content = "both"

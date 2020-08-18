@@ -9,12 +9,12 @@ is created within the CaMed Masterprojekt (Computergestützte Medizin) at Reutli
    :maxdepth: 2
    :caption: Contents:
 
-   Background
-   Installation
-   Architecture
-   Uvis_Application
+   background
+   installation
+   architecture
+   uvis_app
    aurora_api
-   Further reading
+   further_reading
 
 
 Indices and tables
