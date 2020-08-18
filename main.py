@@ -1,4 +1,4 @@
-#Einfacherhalber ist aktuell es im Controller PY der Befehl
+"""This is the main module for starting the ttrp application"""
 import logging
 import time
 

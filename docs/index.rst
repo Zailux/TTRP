@@ -1,15 +1,20 @@
-.. TTRP documentation master file, created by
-   sphinx-quickstart on Tue Aug 18 13:31:59 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Welcome to TTRP's master project documentation!
+===============================================
 
-Welcome to TTRP's documentation!
-================================
+This is the sphinx documentation for the master project Track to reference (TTRP).
+The TTRP application implements a electromagnetic guided ultrasound navigation system and
+is created within the CaMed Masterprojekt (Computergestützte Medizin) at Reutlingen University.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   Background
+   Installation
+   Architecture
+   Uvis_Application
+   AuroraAPI
+   Further reading
 
 
 Indices and tables
@@ -18,3 +23,19 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+Features
+========
+
+
+Requirements
+============
+
+Installation
+============
+
+
+Further reading
+===============
+
