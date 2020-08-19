@@ -24,6 +24,8 @@ from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
+print(os.path.abspath('..\\'))
+sys.path.insert(0, os.path.abspath('..\\'))
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
 #sys.path.insert(0, os.path.abspath('../src'))
 #sys.path.insert(1, '..\\')
