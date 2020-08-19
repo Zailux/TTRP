@@ -29,6 +29,8 @@ sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(2, os.path.abspath('..\\src'))
 sys.path.append('.')
 sys.path.append(os.path.abspath('..\\'))
+sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/')
+sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/src')
 from src.aurora import Aurora, Handle, HandleManager
 from src.config import Configuration
 from src.helper import Helper
