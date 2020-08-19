@@ -4,6 +4,7 @@ This module does stuff.
 """
 
 import logging
+import os
 import queue
 import random
 import sys
@@ -13,6 +14,7 @@ import tkinter as tk
 from tkinter.font import Font
 from datetime import datetime
 from functools import partial
+from itertools import zip_longest
 
 import matplotlib.animation
 import matplotlib.pyplot as plt
@@ -22,7 +24,9 @@ from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
-#sys.path.insert(1, '..\\')
+sys.path.insert(1, '..\\')
+sys.path.append(os.path.abspath('../src'))
+sys.path.append(os.path.abspath('..\\'))
 from src.aurora import Aurora, Handle, HandleManager
 from src.config import Configuration
 from src.helper import Helper
@@ -49,6 +53,7 @@ class UltraVisController:
         self.calibrator = Calibrator()
         self.target_calibrator = Calibrator()
         self.model = UltraVisModel()
+        #self.do_data_evaluation()
         self.view = UltraVisView(self.root, debug_mode=debug_mode)
 
         #Controller Attributes
@@ -71,7 +76,7 @@ class UltraVisController:
 
         #Tries to initalize Aurora and Adds Functionaly based on state
         self.init_aurora(self.ser)
-        self.initFunctionality()
+        self.init_button_func()
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
     #Closing Method and bind to root Window
@@ -139,8 +144,6 @@ class UltraVisController:
     def _initObservers(self):
         self.model.register(key="set_current_workitem", observer=self.refreshWorkItem)
 
-    #TODO Stopping the framegrabber in certain situation !
-    #       should be a method
     def _init_framegrabber(self):
         self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
 
@@ -261,8 +264,9 @@ class UltraVisController:
         #Verringern der Update Data frequenz
 
         logger.info(threading.current_thread().name+" has started tracking")
-        perma_plot = False
+        perma_plot = True
         freq = 0.01
+        missing = False
         while(not self.stopTracking):
             t0 = datetime.now()
             with self.aua._lock:
@@ -271,7 +275,11 @@ class UltraVisController:
                     header, data = self.aua.bx()
                     if self.hm.update_handlesBX(header, data):
                         self.setNavCanvasData()
+                        if missing:
+                            missing = False
+                            logger.info(f"All Handles are now active! :-)")
                     else:
+                        missing = True
                         miss = self.hm.get_missing_handles()
                         logger.info(f"MISSING HANDLE! {miss}")
                     if perma_plot:
@@ -559,7 +567,8 @@ class UltraVisController:
         ''' Continuously refreshes the given label, with the grabbed image.
         The label must be a tk.Label object. For the delay the tk.Label.after() Method
         is used.
-            Returns the scheduler_id for canceling the job with the after_cancel method.
+
+        :returns: Returns the scheduler_id for canceling the job with the after_cancel method.
         '''
         if (not isinstance(label, tk.Label)):
             raise TypeError (f'Expected {tk.Label} for parameter label \
@@ -610,7 +619,7 @@ class UltraVisController:
             trafo_param = [a,b,c]
             for i, vector in enumerate(trafo_param):
                 trafo_param[i] = hp.to_float(vector)
-            cali.set_trafo_matrix(a,b,c)
+            cali.set_trafo_matrix(a,b,c, log_matrix=True)
 
     def set_target_pos(self, calibrator=None, handles=None):
         '''By default it sets a target for the current reference coordinate system.'''
@@ -670,6 +679,7 @@ class UltraVisController:
             self.view.build_summary_frame(master=self.view.right_frame)
             self.view.show_menu(menu='summary')
             self.build_summary()
+            #self.model.clear_temp_data()
 
         else:
             msg = f'Can\'t finish Examination, without any Records. Please create Records first.'
@@ -712,6 +722,8 @@ class UltraVisController:
             self.q.put(self.activateHandles)
 
     def start_navigation(self, event=None):
+
+
         E_ID = str(self.view.examID_entry.get())
         if not E_ID:
             logger.error('E_ID Empty ! Please use a valid E_ID')
@@ -719,6 +731,8 @@ class UltraVisController:
 
         self.view.build_navigation_frame(master=self.view.right_frame)
         self.view.show_menu(menu='navigation')
+        self.view.switch_imgsrc_but["state"] = 'disabled'
+        self.view.accept_record_but["state"] = 'disabled'
 
         logger.info(f'Initialize frame grabber for navigation')
         self._init_framegrabber()
@@ -782,13 +796,75 @@ class UltraVisController:
         compare data
         display compared data'''
 
+        curr_target_R_ID = self.view.target_var.get()
+        workitem = self.model.get_current_workitem()
+        exam_object, records_list, positions_list = workitem.values()
+        last_rec = records_list[-1]
+        logger.debug(f"Last Record is {last_rec.R_ID}")
+        try:
+            new_R_ID = self.model.save_record(last_rec, persistant=True)
+            self.view.accept_record_but["state"] = 'disabled'
+        except ValueError as e:
+            logger.error(f"Couldn't persist {last_rec.R_ID}. Please try again!")
+            return False
 
+        # remove all temp records from E_ID or rather the whole dataset
+        self.model.clear_temp_data()
+
+        logger.info(f"Compare Current: {curr_target_R_ID} with new R_ID: {new_R_ID}")
+
+        target_record = self.model.get_record(R_ID=curr_target_R_ID)
+        nav_record = self.model.get_record(R_ID=new_R_ID)
+
+        try:
+            self.model.compare_records(target_record, nav_record)
+            df = self.model.t_comparison
+            self.view.set_statistics_table(df)
+        except ValueError as e:
+            logger.error(f"Couldn't compare data. Please try again!")
+
+    def clean_navigation(self):
+        # Removes records made during comparing, will all be deleted
+        # when cancel is triggered.
+
+        # also remove the comparison values for the E_ID !
         pass
 
-    def initFunctionality(self):
+
+    def open_evaluation(self):
+        self.view.build_openeval_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='open_evaluation')
+        self.view.load_eval_but["command"] = self.evaluate_examination
+        eval_list = self.model.t_comparison['E_ID'].unique()
+        self.view.set_eval_menu(eval_list)
+
+    def evaluate_examination(self):
+        # Zeige die Tabelle mit den Daten
+        # Gebe neben den einzelnen Werte, auch die Gesamtergebnisse zurück.
+        self.view.build_evaluation_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='evaluate_examination')
+
+        E_ID = self.view.eval_opts_var.get()
+        comp_df = self.model.get_comparison(Eval_ID=E_ID)
+        self.view.set_statistics_table(comp_df)
+
+        if not E_ID in self.model.t_evaluation.index:
+            self.model.evaluate_comparison_data(df=comp_df)
+            eval_df = self.model.t_evaluation.loc[E_ID]
+        else:
+            eval_df = self.model.t_evaluation.loc[E_ID]
+
+
+        # Tabelle Darstellen mit Ergebnissen
+
+        print("Donus")
+
+
+    def init_button_func(self):
 
         self.view.new_exam_but["command"] = self.new_examination
         self.view.open_exam_but["command"] = self.open_examination
+        self.view.open_eval_but["command"] = self.open_evaluation
 
         self.view.new_exam_but["command"] = self.new_examination
 
@@ -808,6 +884,8 @@ class UltraVisController:
         self.view.nav_save_record_but["command"] = lambda: self.q.put(self.nav_save_record)
         self.view.accept_record_but["command"] = lambda: self.q.put(self.nav_accept_record)
 
+
+
         self.view.cancel_but["command"] = self.cancel_examination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
@@ -823,8 +901,21 @@ class UltraVisController:
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
 
     def _debugfunc(self):
-        self.view.switch_imgsrc()
+        self.view.build_examination_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='examination')
 
+    # Data Auswertung '
+
+    def do_data_evaluation(self):
+        df0 = self.model.hb_records
+        df1 = self.model.heb_records
+        base = self.model.calculate_baseline()
+        base_human_laie = self.model.calculate_baseline(df0)
+        base_human_expert = self.model.calculate_baseline(df1)
+
+        arrow = list(zip_longest(base, base_human_laie, base_human_expert))
+        columns = ["G_0 System Error", "G_1 Human Error Layman", "G_1 Human Error Expert"]
+        self.model.display_boxplot(arrow, columns)
 
 
 
@@ -882,7 +973,7 @@ class UltraVisController:
         else:
             self.view.right_frame.after(2000,self.refresh_sysmode)
 
-    # TODO WIP
+    # TODO not finished
     def refreshWorkItem(self):
 
         infotext = f'Current Workitem\n'
@@ -905,3 +996,5 @@ class UltraVisController:
                 continue
 
         #self.view.workitemdataLabel["text"] = infotext
+
+
