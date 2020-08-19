@@ -25,16 +25,14 @@ from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
-path = str(Path().parent.absolute())
-path2 = Path().parent.parent.absolute()
-path3 = path2.joinpath('src')
+
+path = Path(__file__).parent.parent.absolute().joinpath('src').resolve()
 
 
 print(os.path.abspath('..\\'))
-print(path2)
-print(path3)
+print(path)
 
-sys.path.insert(0, os.path.abspath('..\\'))
+sys.path.insert(0, path)
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
 #sys.path.insert(0, os.path.abspath('../src'))
 #sys.path.insert(1, '..\\')
