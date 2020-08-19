@@ -15,6 +15,7 @@ from tkinter import ttk
 from tkinter.font import Font
 
 import matplotlib
+matplotlib.use('Tkagg')
 import matplotlib.animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,14 +26,14 @@ from mpl_toolkits.mplot3d import Axes3D
 from pandastable import Table
 from PIL import Image, ImageTk
 
-sys.path.insert(1, '..\\')
+#sys.path.insert(1, '..\\')
 from src.aurora import Handle
 from src.config import Configuration
 from src.helper import Helper, ScrollableFrame
 from src.NavigationVisualizer import NavigationVisualizer
 from src.uvis_model import Examination, Record
 
-matplotlib.use('Tkagg')
+
 
 
 global hp

@@ -25,7 +25,7 @@ from pyquaternion import Quaternion
 import matplotlib.pyplot as plt
 
 #sys.path.insert(1, '..\\')
-sys.path.insert(0, os.path.abspath('../src'))
+#sys.path.insert(0, os.path.abspath('../src'))
 from src.aurora import Handle
 from src.Calibrator import Calibrator
 from src.config import Configuration
