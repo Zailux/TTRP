@@ -31,10 +31,9 @@ from src.aurora import Aurora, Handle, HandleManager
 from src.Calibrator import Calibrator
 from src.config import Configuration
 from src.helper import Helper
-from src.uvis_view import UltraVisView
 from src.uvis_model import (Comparison, Evaluation, Examination, Record,
                             UltraVisModel)
-
+from src.uvis_view import UltraVisView
 
 
 

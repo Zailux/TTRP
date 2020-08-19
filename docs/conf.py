@@ -13,17 +13,14 @@
 import os
 import sys
 from pathlib import Path
-path2 = Path(__file__).parent.parent.absolute().resolve()
-print("öaosdifjaöoweifjaaaaaaa1231312312321")
-print(path2)
 
-sys.path.insert(3, str(path2))
+path2 = Path(__file__).parent.parent.absolute().resolve()
+print(path2)
 
 sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(1, '..\\') # For importing the src package
-#sys.path.insert(2, os.path.abspath('src')) # For importing the src package
-#sys.path.insert(3, 'src')
-#sys.path.insert(4, os.path.abspath('./src'))
+sys.path.insert(2, str(path2)) # for the readthedocs setup and importing the src package
+
 
 # -- Project information -----------------------------------------------------
 
