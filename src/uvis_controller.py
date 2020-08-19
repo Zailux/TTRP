@@ -15,6 +15,7 @@ from tkinter.font import Font
 from datetime import datetime
 from functools import partial
 from itertools import zip_longest
+from pathlib import Path
 
 import matplotlib.animation
 import matplotlib.pyplot as plt
@@ -24,7 +25,11 @@ from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
+path = str(Path().parent.absolute())
+
 print(os.path.abspath('..\\'))
+print(path)
+
 sys.path.insert(0, os.path.abspath('..\\'))
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
 #sys.path.insert(0, os.path.abspath('../src'))
