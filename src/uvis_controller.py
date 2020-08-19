@@ -26,23 +26,14 @@ from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
 
-path = Path(__file__).parent.parent.absolute().joinpath('src').resolve()
-b = Path(__file__).parent
+path = Path(__file__).parent.absolute().resolve()
 
-print(b)
-print(b.absolute())
-for item in b.iterdir():
-    if item.is_dir():
-        print(item)
-
-print("aöoiwefjaöoweifj")
-c = b.parent
-for item in c.iterdir():
-    if item.is_dir():
-        print(item)
+print(path)
+print(type(path))
 
 
 sys.path.insert(0, path)
+sys.path.insert(1, str(path))
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
 #sys.path.insert(0, os.path.abspath('../src'))
 #sys.path.insert(1, '..\\')
