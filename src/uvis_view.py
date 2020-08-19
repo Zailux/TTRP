@@ -34,8 +34,6 @@ from src.NavigationVisualizer import NavigationVisualizer
 from src.uvis_model import Examination, Record
 
 
-
-
 global hp
 hp = Helper()
 global _cfg

@@ -18,7 +18,7 @@ from pathlib import Path
 from tkinter.font import Font
 
 import matplotlib
-matplotlib.use('Tkagg')
+#matplotlib.use('Tkagg')
 import matplotlib.animation
 import matplotlib.pyplot as plt
 import pandas as pd
