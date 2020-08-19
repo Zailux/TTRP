@@ -1,9 +1,10 @@
 """
 The aurora module, is a python implementation of
-NDI Aurora System API Revision 4. The guide is in the docs accessable.
+NDI Aurora System API Revision 4. The guide is in the doc directory in Github accessable.
 
 Supported NDI API Version:
     Combined Firmware Revision: 011
+    API Revision: D.001.007
 
 Classes
     Aurora
@@ -38,8 +39,9 @@ SYSMODES = ['SETUP', 'TRACKING']
 
 
 class Aurora:
-
+    """This is the aurora class"""
     def __init__(self, ser, debug_mode=False):
+
         # Aurora System relevant Attributes
         self._lock = threading.Lock()
         self._observers = {}
@@ -85,7 +87,7 @@ class Aurora:
             raise Warning(
                 f"Observermethod: {observer} for Key {key} already exists")
 
-    def __callback(self, key):
+    def _callback(self, key):
         """Calls the observers methods, based on the methodkey of Aurora method."""
         key = str(key)
         if (key in self._observers):
@@ -104,7 +106,7 @@ class Aurora:
                 str(SYSMODES))
         self.sysmode = mode
 
-        self.__callback(key='set_sysmode')
+        self._callback(key='set_sysmode')
 
     # Debug & Additional Methods
     # Commands & Parameters are not case sensitive
@@ -681,7 +683,7 @@ class Handle:
         return [self.Tx, self.Ty, self.Tz]
 
     def get_orient_data(self):
-        ''' Return Translational Data as list Q0,Qx,Qy,Qz in quarternion'''
+        ''' Return Translational Data as list Q0,Qx,Qy,Qz in quaternion'''
         return [self.Q0, self.Qx, self.Qy, self.Qz]
 
     def set_reference_name(self, refname):

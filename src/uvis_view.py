@@ -4,9 +4,11 @@ This module does stuff.
 """
 
 import logging
+import os
 import threading
 import time
 import tkinter as tk
+import sys
 from datetime import datetime
 from functools import partial, wraps
 from tkinter import ttk
@@ -23,6 +25,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from pandastable import Table
 from PIL import Image, ImageTk
 
+sys.path.insert(1, '..\\')
 from src.aurora import Handle
 from src.config import Configuration
 from src.helper import Helper, ScrollableFrame
@@ -74,7 +77,6 @@ def clear_frame(func):
         return func(*args, **kwargs)
 
     return buildFrame_wrapper
-
 
 class UltraVisView(tk.Frame):
 
@@ -236,15 +238,6 @@ class UltraVisView(tk.Frame):
             STATES IS NOT IMPLEMENTED YET!
         '''
         # Idea to use a state "table of 0 and 1 to enable / disable Button"
-        MENUES = ['main', 'new_examination', 'setup', 'examination',
-                  'summary', 'open_examination', 'navigation',
-                  'all_debug']
-        if menu not in MENUES:
-            raise ValueError(
-                f'Try showing Menu "{menu}" which was not in {MENUES}')
-
-        children = self.menu_frame.winfo_children()
-        self.clean_menu(children)
 
         # potentially add activatehandles button
         menu_buttons = {
@@ -255,8 +248,17 @@ class UltraVisView(tk.Frame):
             'summary': [self.mainmenu_but, self.cancel_but], #self.save_edit_but,
             'open_examination': [self.start_navigation_but, self.cancel_but],
             'navigation': [self.track_but, self.calibrate_but, self.target_menu_frame, self.nav_save_record_but,
-                           self.switch_imgsrc_but, self.accept_record_but, self.finish_exam_but, self.cancel_but]
+                           self.switch_imgsrc_but, self.accept_record_but, self.finish_exam_but, self.cancel_but],
+            'open_evaluation': [self.cancel_but],
+            'evaluate_examination': [self.NOBUTTONSYET, self.cancel_but]
         }
+
+        if menu not in menu_buttons.keys():
+            raise ValueError(
+                f'Try showing Menu "{menu}" which was not in {list(menu_buttons.keys())}')
+
+        children = self.menu_frame.winfo_children()
+        self.clean_menu(children)
 
         for item in menu_buttons[menu]:
             item.pack(side=tk.TOP, pady=(0, 0), padx=(10), fill="both")
@@ -897,21 +899,43 @@ class UltraVisView(tk.Frame):
         else:
             logger.debug("No Switcheruu today. Please check the call!")
 
+    @clear_frame
+    def build_openeval_frame(self,master):
+        self.open_eval_frame = frame = tk.Frame(master)
+        frame.rowconfigure(0, weight=1, uniform=1)
+        frame.columnconfigure(0,weight=1,uniform=1)
+        lb = tk.Label(frame,text="Wählen Sie eine Evaluation ID zur Auswertung aus")
+        self.eval_opts_var = tk.StringVar(frame)
+        self.eval_opts_var.set('')
+        self.eval_option_menu = tk.OptionMenu(frame, self.eval_opts_var, ' ')
 
-    def build_action_frame(self, bFrame):
+        self.load_eval_but = tk.Button(frame)
+        self.load_eval_but["text"] = "Lade Auswertung"
 
-        self.back_but = tk.Button(bFrame)
-        self.back_but["text"] = "Zurueck"
-        self.back_but["width"] = 20
-        # self.back_but["command"] =
+        lb.pack(side=tk.TOP, pady=(20, 5),padx=(10))
+        self.eval_option_menu.pack(side=tk.TOP, pady=(10),padx=(10))
+        self.load_eval_but.pack(side=tk.TOP, pady=(10),padx=(10))
+        frame.grid(row=0, column=0,sticky=tk.NSEW)
 
-        self.nextBut = tk.Button(bFrame)
-        self.nextBut["text"] = "Weiter"
-        self.nextBut["width"] = 20
-        # self.nextBut["command"] =
+    def set_eval_menu(self, eval_list):
+        '''Loads the distinct E_IDs from the comparison table into the dropdown.'''
+        self.eval_opts_var.set(eval_list[-1])
+        self.eval_option_menu['menu'].delete(0, 'end')
+        for e_id in eval_list:
+            self.eval_option_menu['menu'].add_command(label=e_id, command=tk._setit(self.eval_opts_var, e_id))
 
-        self.back_but.pack(side=tk.LEFT, padx=(0), pady=0, fill="both")
-        self.nextBut.pack(side=tk.RIGHT, padx=(0), pady=0, fill="both")
+    @clear_frame
+    def build_evaluation_frame(self, master):
+        scroll = ScrollableFrame(master=master)
+        self.eval_frame = frame = scroll.contentframe
+
+        frame.rowconfigure(0, weight=1, uniform=1)
+        frame.rowconfigure(1, weight=1, uniform=1)
+        frame.columnconfigure(0,weight=1,uniform=1)
+
+        compare_frame = self._build_statistics_table(frame, None)
+        compare_frame.grid(row=2, column=0, sticky=tk.NSEW)
+        scroll.grid(row=0, column=0,sticky=tk.NSEW)
 
 
     def _build_tab2(self):

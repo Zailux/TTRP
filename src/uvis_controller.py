@@ -24,7 +24,8 @@ from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
-raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
+#raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
+#sys.path.insert(0, os.path.abspath('../src'))
 #sys.path.insert(1, '..\\')
 #sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/')
 #sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/src')

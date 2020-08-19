@@ -12,19 +12,21 @@ This module contains the following classes:
         Contains the image and the reference to the positional
         data of an record.
 """
-
 import logging
+import os
 import sys
 import uuid
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk
 from pyquaternion import Quaternion
+import matplotlib.pyplot as plt
 
 #sys.path.insert(1, '..\\')
+sys.path.insert(0, os.path.abspath('../src'))
 from src.aurora import Handle
-from src.averageQuaternions import avg_quaternions, q_average
 from src.Calibrator import Calibrator
 from src.config import Configuration
 from src.helper import Helper
@@ -148,11 +150,19 @@ class UltraVisModel:
     def _init_baseline_dataset(self):
 
         DATAPATH = _cfg.DATAPATH+'baseline_trials\\'
+        DATAPATH2 = _cfg.DATAPATH+'baseline_human_trials\\'
+        DATAPATH3 = _cfg.DATAPATH+'baseline_human_expert_trials\\'
 
         try:
             self.b_examination = pd.read_csv(DATAPATH+'examination.csv', index_col=0)
             self.b_handles = pd.read_csv(DATAPATH+'handles.csv', index_col=0)
             self.b_records = pd.read_csv(DATAPATH+'record.csv', index_col=0)
+            self.hb_examination = pd.read_csv(DATAPATH2+'examination.csv', index_col=0)
+            self.hb_handles = pd.read_csv(DATAPATH2+'handles.csv', index_col=0)
+            self.hb_records = pd.read_csv(DATAPATH2+'record.csv', index_col=0)
+            self.heb_examination = pd.read_csv(DATAPATH3+'examination.csv', index_col=0)
+            self.heb_handles = pd.read_csv(DATAPATH3+'handles.csv', index_col=0)
+            self.heb_records = pd.read_csv(DATAPATH3+'record.csv', index_col=0)
         except FileNotFoundError as e:
             logger.error(e)
 
@@ -172,7 +182,7 @@ class UltraVisModel:
         else:
             raise Warning(f"Observermethod: {observer} for Key {key} already exists")
 
-    def __callback(self, key):
+    def _callback(self, key):
         """Calls the observers methods, based on the methodkey of UltraVisModel method."""
         key = str(key)
         if (key in self._observers):
@@ -235,7 +245,7 @@ class UltraVisModel:
             else:
                 raise TypeError(f'The workitem tuple {obj} contains items which are not of Type {Examination}, {Record} or {Handle}.')
 
-        self.__callback(key="set_current_workitem")
+        self._callback(key="set_current_workitem")
 
     #Renaming of image name can be implemented.
     def persist_workitem(self):
@@ -391,6 +401,7 @@ class UltraVisModel:
         if (not(isinstance(record,Record))):
             raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
 
+        # TODO add renaming image for persistant save (see rename_images for that.)
         if (persistant):
             df = self.t_records
             old_R_ID = record.R_ID
@@ -486,13 +497,16 @@ class UltraVisModel:
 
         self._dataset_to_csv()
 
+    def get_comparison(self, Eval_ID, as_df=True):
+        df = self.t_comparison[self.t_comparison["E_ID"] == Eval_ID]
+        if as_df:
+            return df
 
     def _dataset_to_csv(self):
         """Writes the dataframes to the csv files. Locking could be implemented"""
         self.t_examination.to_csv(self.EXAMINATION_PATH)
         self.t_records.to_csv(self.RECORDS_PATH)
         self.t_handles.to_csv(self.HANDLE_PATH)
-
 
     def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None, insert_data=True):
         """Compares two records and creates an Comparison object with calculated values"""
@@ -551,21 +565,63 @@ class UltraVisModel:
         logger.info(f"Succesfully saved comparison of {c.R_ID_base} and {c.R_ID_nav}")
         return True
 
-    
+    def evaluate_comparison_data(self, df:pd.DataFrame):
+        # calculate comparison data and evaluates them and writes it in a db.
+        # get relevant values and get averages etc.
+        Eval_ID = df["E_ID"].unique()[0]
+        logger.info(f"Start evaluating Examination {Eval_ID}.")
 
+        data_acc = df['acc_t']
+        acc_t_med = data_acc.median()
+        acc_t_avg = data_acc.mean()
+        acc_t_std = data_acc.std()
 
-    def calculate_baseline(self):
+        data_calc = df['calc_errors'].tolist()
+        as_list = []
+
+        for item in data_calc:
+            item = self.list_string_to_list(item, float)
+            as_list = as_list+item
+
+        min_err, max_err, avg_err = min(as_list), max(as_list), np.mean(as_list)
+        eval_dict = {"descr": None, "acc_t_avg": acc_t_avg, "acc_t_med": acc_t_med,
+                     "acc_t_std": acc_t_std,
+                     "acc_o_avg": None, "acc_o_med": None, "acc_o_std": None,
+                     "calc_error_min": min_err, "calc_error_max": max_err, "calc_error_avg": avg_err,
+                     "doc_eval_avg":None}
+
+        eval_df = pd.DataFrame(data=[eval_dict], index=[Eval_ID])
+        self._insert_evaluation(eval_df)
+
+    def _insert_evaluation(self, df:pd.DataFrame):
+        try:
+            self.t_evaluation = self.t_evaluation.append(df, verify_integrity=True)
+            self.t_evaluation.to_csv(self.EVALUATION_PATH)
+        except ValueError as e:
+            logger.error("Could not insert Evaluation results row. Errormsg - "+str(e))
+            raise ValueError(str(e))
+
+        logger.info(f"Succesfully saved evaluation {df.index}.") # Der Output ist nicht richtig
+
+    # TODO ändere das so ab, dass du die Daten aus deinen Ordnern rausziehst. Ne weitere methode, die die auswerten
+    # für den einzelnen Datensatz zurückliefert.
+    def calculate_baseline(self, records_df:pd.DataFrame = None):
         # Calculate average position, etc. of a fixed baseline measurement --> what is the avg position.
         # How much do the values vary in such measurements
 
-        R_ID_list = self.b_records.index.to_list()
+        if records_df is not None:
+            df = records_df
+        else:
+            df = self.b_records
 
+        R_ID_list = df.index.to_list()
+        #R_ID_list = ["R-137","R-133","R-127","R-125","R-124","R-114","R-104"] # Hr. Froehlich ausgewählt R_ID
         t_data = []
         ori_data = []
         calc_errors = []
 
         for R_ID in R_ID_list:
-            position = self.get_position(R_ID=R_ID, handle_df=self.b_handles)
+            position = self.get_position(R_ID=R_ID) # aufrufbar mit definierten df
             vector, ori1 = self.pos_to_transformed_data(position)
             err = self._get_max_calcerror(position)
             t_data.append(vector)
@@ -575,17 +631,41 @@ class UltraVisModel:
         def calc_translational():
 
             t_array = np.asarray(t_data)
-
             acc_t_med = np.median(t_array, axis=0)
             acc_t_avg = np.mean(t_array, axis=0)
-            acc_t_std = np.std(t_array, axis=0)
+            acc_t_std = np.std(t_array, axis=0)  # ist das so korrekt?
 
             # Get 95 % of data, via STD and Mean
             edge_vector = np.add(acc_t_avg, (acc_t_std*2))
-            dis_vec = np.subtract(edge_vector, acc_t_avg)
+            dis_vec = np.subtract(edge_vector, acc_t_avg) # eigentlich unnötiger rechenschritt
             acc_t_95 = np.linalg.norm(dis_vec)
 
-            print(acc_t_95)
+            logger.info(f"Median Vector is {acc_t_med}")
+            logger.info(f"Average Vector is {acc_t_avg}")
+            logger.info(f"Standard Deviation vector is {acc_t_std}")
+
+            # Confidenz Interval
+            logger.info(f"Translative Accurary for CI 95 is is {acc_t_95} mm.")
+
+            dis2 = np.subtract(acc_t_med, acc_t_avg)
+            dis2 = np.linalg.norm(dis2)
+            logger.info(f"Distance between median and average is {dis2} mm.")
+
+            dis_array = []
+            for rec in t_array:
+                distance = np.subtract(acc_t_avg, rec)
+                distance = np.linalg.norm(distance)
+                dis_array.append(distance)
+
+            dis_array = np.asarray(dis_array)
+            logger.info(f"Median Vector is {acc_t_med}")
+            logger.info(f"Average Vector is {acc_t_avg}")
+            logger.info(f"Standard Deviation vector is {acc_t_std}")
+            print(np.mean(dis_array)) #mean distance
+            print(np.median(dis_array)) # median distance
+            print(np.std(dis_array)) # std distance
+            return dis_array
+
 
         def calc_calc_errors():
             err = np.asarray(calc_errors)
@@ -599,17 +679,33 @@ class UltraVisModel:
             # https://gamedev.stackexchange.com/questions/140465/convert-quaternion-to-a-different-coordinate-system
 
             q_list = np.asarray(ori_data)
-            q_avg = q_average(Q=q_list)
+            q_avg = hp.q_average(Q=q_list)
+
             self.q_avg = Quaternion(q_avg)
             print(q_avg)
 
+            # STD, AVG and Median for Orientation
+            # With average quarternion make a look to get difference for all quarternions
+            # Copy avg quarterion complex konjugated as a equalsized list and  multiply them matrixes.
+            # the u get a list differences quarternions.
+            # extract the degree difference for all of the quaternions
+            # have the list averaged, std, and medianed !
 
-        calc_orientation()
+            # ALternatively use a for loop
 
+        arr = calc_translational()
+        #calc_orientation()
 
         print("donus")
 
+        return arr
 
+    def display_boxplot(self, input_arr, columns=None):
+
+        df = pd.DataFrame(input_arr, columns=columns)
+        bplot = df.boxplot()
+        plt.axes(bplot)
+        plt.show()
 
     def _get_max_calcerror(self, position:list):
         """Checks the calculation errors for 4 handles and return the highest calculation error."""
@@ -617,7 +713,6 @@ class UltraVisModel:
         for handle in position:
             errors.append(handle.calc_Err)
         return max(errors)
-
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
     # TODO Should I average Quarternion here already ?
@@ -660,7 +755,7 @@ class UltraVisModel:
                 logger.warning(f"Can't find image in Path {img_path}.")
                 continue
             img_name = img_path.split("/")[-1]
-            if len(img_name) > 10:
+            if len(img_name) > 18:
                 new_path = _cfg.SAVEDIMGPATH+R_ID+"_img.png"
                 os.rename(img_path, new_path)
                 rec_df.at[R_ID, "US_img"] = new_path
