@@ -25,7 +25,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
 sys.path.insert(1, '..\\')
-sys.path.append(os.path.abspath('../src'))
+sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(2, os.path.abspath('..\\src'))
+sys.path.append('.')
 sys.path.append(os.path.abspath('..\\'))
 from src.aurora import Aurora, Handle, HandleManager
 from src.config import Configuration
