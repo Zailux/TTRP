@@ -26,9 +26,13 @@ from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
 path = str(Path().parent.absolute())
+path2 = Path().parent.parent.absolute()
+path3 = path2.joinpath('src')
+
 
 print(os.path.abspath('..\\'))
-print(path)
+print(path2)
+print(path3)
 
 sys.path.insert(0, os.path.abspath('..\\'))
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
