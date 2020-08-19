@@ -14,6 +14,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(1, '..\\') # For importing the src package
+sys.path.insert(2, os.path.abspath('src')) # For importing the src package
 
 
 # -- Project information -----------------------------------------------------

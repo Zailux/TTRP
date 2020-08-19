@@ -16,16 +16,16 @@ The python scripts are created regarding that fashion.
 * **config.py** - Contains the configuration for the uvis application like serial configuration etc.
 * **helper.py** - Contains minor helping methods for the application.
 
-uvis_controller.py module
--------------------------
+uvis_controller
+---------------
 
 .. automodule:: uvis_controller
     :members:
     :private-members:
     :undoc-members:
 
-uvis_view.py module
--------------------------
+uvis_view
+---------
 
 .. automodule:: uvis_view
     :members:
@@ -33,8 +33,8 @@ uvis_view.py module
     :undoc-members:
 
 
-uvis_model.py module
--------------------------
+uvis_model
+----------
 
 .. automodule:: uvis_model
     :members:
@@ -42,33 +42,24 @@ uvis_model.py module
     :undoc-members:
 
 
-NavigationVisualizer.py module
--------------------------
+NavigationVisualizer
+--------------------
 
 .. automodule:: NavigationVisualizer
     :members:
     :private-members:
     :undoc-members:
 
-Calibrator.py module
--------------------------
+Calibrator
+----------
 
 .. automodule:: Calibrator
     :members:
     :private-members:
     :undoc-members:
 
-averageQuaternion.py module
--------------------------
-
-.. automodule:: averageQuaternion
-    :members:
-    :private-members:
-    :undoc-members:
-
-
-config.py module
--------------------------
+config
+------
 
 .. automodule:: config
     :members:
@@ -76,8 +67,8 @@ config.py module
     :undoc-members:
 
 
-helper.py module
--------------------------
+helper
+------
 
 .. automodule:: helper
     :members:
@@ -87,9 +78,4 @@ helper.py module
 
 
 
-subtitle3
-^^^^^^^^^
-
-bigtitle
-========
 
