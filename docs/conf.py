@@ -12,6 +12,12 @@
 #
 import os
 import sys
+from pathlib import Path
+path2 = Path(__file__).parent.parent.absolute().resolve()
+print("öaosdifjaöoweifjaaaaaaa1231312312321")
+print(path2)
+
+sys.path.insert(3, str(path2))
 
 sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(1, '..\\') # For importing the src package

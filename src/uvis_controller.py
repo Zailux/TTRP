@@ -17,24 +17,24 @@ from itertools import zip_longest
 from pathlib import Path
 from tkinter.font import Font
 
-import matplotlib
+#import matplotlib
 #matplotlib.use('Tkagg')
-import matplotlib.animation
-import matplotlib.pyplot as plt
+#import matplotlib.animation
+#import matplotlib.pyplot as plt
 import pandas as pd
 import serial
 from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
 
-print("controller")
+print("controller DERP DERP")
 #path = Path(__file__).parent.absolute().resolve()
 path2 = Path(__file__).parent.parent.absolute().resolve()
-
+print(path2)
 #sys.path.insert(0, path)
 #sys.path.insert(1, str(path))
 #sys.path.insert(2, path2)
-sys.path.insert(3, str(path2))
+#sys.path.insert(3, str(path2))
 
 from src.aurora import Aurora, Handle, HandleManager
 from src.Calibrator import Calibrator
