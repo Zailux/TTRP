@@ -27,10 +27,20 @@ from PIL import Image, ImageTk
 
 
 path = Path(__file__).parent.parent.absolute().joinpath('src').resolve()
+b = Path(__file__).parent
 
+print(b)
+print(b.absolute())
+for item in b.iterdir():
+    if item.is_dir():
+        print(item)
 
-print(os.path.abspath('..\\'))
-print(path)
+print("aöoiwefjaöoweifj")
+c = b.parent
+for item in c.iterdir():
+    if item.is_dir():
+        print(item)
+
 
 sys.path.insert(0, path)
 #raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
