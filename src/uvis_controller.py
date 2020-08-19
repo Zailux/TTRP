@@ -11,19 +11,35 @@ import sys
 import threading
 import time
 import tkinter as tk
-from tkinter.font import Font
 from datetime import datetime
 from functools import partial
 from itertools import zip_longest
 from pathlib import Path
+from tkinter.font import Font
 
 import matplotlib.animation
+matplotlib.use('Tkagg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import serial
 from cv2 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageTk
+
+#raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
+#sys.path.insert(0, os.path.abspath('../src'))
+#sys.path.insert(1, '..\\')
+#sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/')
+#sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/src')
+from src.aurora import Aurora, Handle, HandleManager
+from src.Calibrator import Calibrator
+from src.config import Configuration
+from src.helper import Helper
+from src.uvis_model import (Comparison, Evaluation, Examination, Record,
+                            UltraVisModel)
+from src.uvis_view import UltraVisView
+
+
 
 
 #path = Path(__file__).parent.absolute().resolve()
@@ -35,17 +51,6 @@ path2 = Path(__file__).parent.parent.absolute().resolve()
 #sys.path.insert(1, str(path))
 #sys.path.insert(2, path2)
 sys.path.insert(3, str(path2))
-#raise Exception("MEIN FEHLER  "+str(os.path.abspath(os.getcwd())))
-#sys.path.insert(0, os.path.abspath('../src'))
-#sys.path.insert(1, '..\\')
-#sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/')
-#sys.path.append('/home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b/src')
-from src.aurora import Aurora, Handle, HandleManager
-from src.config import Configuration
-from src.helper import Helper
-from src.uvis_model import Examination, Record, UltraVisModel, Comparison, Evaluation
-from src.uvis_view import UltraVisView
-from src.Calibrator import Calibrator
 
 global hp
 global _cfg
@@ -1009,5 +1014,3 @@ class UltraVisController:
                 continue
 
         #self.view.workitemdataLabel["text"] = infotext
-
-
