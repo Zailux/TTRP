@@ -15,7 +15,8 @@ from tkinter import ttk
 from tkinter.font import Font
 
 import matplotlib
-matplotlib.use('Tkagg', force=False) #needs to active for Sphinx doc
+# force needs to be active for Sphinx doc. For testing purposes this can be deactivated
+matplotlib.use('Tkagg', force=False)
 import matplotlib.animation
 import matplotlib.pyplot as plt
 import numpy as np

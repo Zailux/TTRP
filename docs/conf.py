@@ -14,12 +14,12 @@ import os
 import sys
 from pathlib import Path
 
-path2 = Path(__file__).parent.parent.absolute().resolve()
-print(path2)
+path = Path(__file__).parent.parent.absolute().resolve()
+# /home/docs/checkouts/readthedocs.org/user_builds/ttrp/checkouts/uvis-v01b
 
 sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(1, '..\\') # For importing the src package
-sys.path.insert(2, str(path2)) # for the readthedocs setup and importing the src package
+sys.path.insert(2, str(path)) # for the readthedocs setup and importing the src package
 
 
 # -- Project information -----------------------------------------------------

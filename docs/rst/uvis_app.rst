@@ -3,9 +3,11 @@ Uvis Application
 ================
 
 The Uvis Application is structured with the *MVC* architecture pattern.
-The python scripts are created regarding that fashion.
 
-**Overview**
+PICTURE of software architecture ?
+
+
+**Module Overview**
 
 * **uvis_controller.py** - Contains the major logic of the application.
 * **uvis_view.py** - Contains the view of the application
@@ -15,6 +17,7 @@ The python scripts are created regarding that fashion.
 * **averageQuaternion.py** - Supporting method for calculating with quaternions.
 * **config.py** - Contains the configuration for the uvis application like serial configuration etc.
 * **helper.py** - Contains minor helping methods for the application.
+
 
 uvis_controller
 ---------------

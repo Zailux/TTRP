@@ -17,10 +17,6 @@ from itertools import zip_longest
 from pathlib import Path
 from tkinter.font import Font
 
-#import matplotlib
-#matplotlib.use('Tkagg')
-#import matplotlib.animation
-#import matplotlib.pyplot as plt
 import pandas as pd
 import serial
 from cv2 import cv2
