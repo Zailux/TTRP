@@ -4,11 +4,14 @@
 
 Overview
 ========
-This is the code repository of the
+This is the code repository of the TTRP master project.
 
-- Project Homepage: https://github.com/pyserial/pyserial
+- Project Homepage: https://github.com/Zailux/TTRP/
 
-BSD License??
+
+Version
+=======
+v1.0 - Thanh Nam Bach 2019-2020
 
 
 Documentation
@@ -23,7 +26,6 @@ Installation
 ============
 
 **Short Step-by-Step Guide**
-
  * Install the Hardware drivers
 
    * NDI Toolbox + Aurora drivers
@@ -36,9 +38,10 @@ Installation
 
  * Start the main.py
 
-If you have any question please contact Nam Bach <thanh_nam.bach@student.reutlingen-university.de>.
-
 Detailed information for each step can be found in `sphinx_doc.rst`_.
+
+
+If you have any question please contact Nam Bach <thanh_nam.bach@student.reutlingen-university.de>.
 
 
 .. _`venvdoc`: https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/

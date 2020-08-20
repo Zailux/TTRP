@@ -1,6 +1,6 @@
-================
-Uvis Application
-================
+=====================
+Uvis Application Code
+=====================
 
 The Uvis Application is structured with the *MVC* architecture pattern.
 
