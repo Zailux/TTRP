@@ -4,7 +4,7 @@ Uvis Application Code
 
 The Uvis Application is structured with the *MVC* architecture pattern.
 
-PICTURE of software architecture ?
+.. image:: imgs/modules.*
 
 
 **Module Overview**

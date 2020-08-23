@@ -26,19 +26,32 @@ Indices and tables
 * :ref:`search`
 
 
-Features
-========
-
-
 Requirements
 ============
+
+* Python 3.7.5 or higher
+* NDI Aurora system
+* Frame Grabber (e.g. Epiphan AV.io frame grabber)
+* Ultrasound system
+
 
 Installation
 ============
 
+**Short Step-by-Step Guide**
+ * Install the Hardware drivers
 
-Further reading
-===============
+   * NDI Toolbox + Aurora drivers
+   * Epiphan AV.io Framegrabber drivers
+ * Setup Python project
+
+   * ``git clone https://github.com/Zailux/TTRP.git <path/to/project>``
+   * Setup virtualenv with Python 3.7.5 64 bit (venvdoc_)
+   * Install required packages via ``pip install -r requirements.txt``
+ * Configure application in ``config.py``
+ * Start the ``main.py``
+
+
 
 Master project documentation
 ----------------------------
@@ -48,4 +61,6 @@ in `MS Teams / Sharepoint <https://teams.microsoft.com/l/team/19%3a4858c510b7564
 of Reutlingen University.
 
 * Peter Grupp 17/18
-* Thanh Nam Bach 19/20   TODO
+* Thanh Nam Bach 19/20
+
+.. _venvdoc: https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/
