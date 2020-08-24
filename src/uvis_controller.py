@@ -1,6 +1,6 @@
-"""This is the Uvis Controller module.
-
-This module does stuff.
+"""
+The uvis_controller module contains the major logic of the application.
+:class:`UltraVisController` implements the logic.
 """
 
 import logging
@@ -32,7 +32,7 @@ from src.uvis_model import (Comparison, Evaluation, Examination, Record,
 from src.uvis_view import UltraVisView
 
 
-
+# Module Configs and helper classes
 global hp
 global _cfg
 hp = Helper()
@@ -43,6 +43,14 @@ SUM_MAXHEIGHT = 4
 SUM_TITLE_PADY = 5
 
 class UltraVisController:
+    """
+    :param bool debug_mode:
+        Enables debug functionality in the app.
+        The main.py normally sets this parameter.
+
+    The UltraVisController class controls the application flow and connects all
+    modules of the uvis app.
+    """
 
     def __init__(self, debug_mode=False):
 
@@ -52,7 +60,7 @@ class UltraVisController:
         self.calibrator = Calibrator()
         self.target_calibrator = Calibrator()
         self.model = UltraVisModel()
-        #self.do_data_evaluation()
+        #self._do_data_evaluation()
         self.view = UltraVisView(self.root, debug_mode=debug_mode)
 
         #Controller Attributes
@@ -78,9 +86,11 @@ class UltraVisController:
         self.init_button_func()
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
-    #Closing Method and bind to root Window
     def _on_closing(self):
-
+        """
+        Closing method when the root window is closed.
+        Stops all relevant processing for a clean exit.
+        """
         if (hasattr(self.view, 'examination_frame')):
              #Close FrameGrabber
             self.view.USimg_lb.after_cancel(self._framegrabber_job)
@@ -94,7 +104,6 @@ class UltraVisController:
                     with self.aua._lock:
                         self.aua.tstop()
 
-
         self.quitEvent.set()
         self.ser.close()
 
@@ -107,9 +116,12 @@ class UltraVisController:
         self.root.destroy()
 
     def run (self):
+        """Starts the tkinter mainloop after :func:`__init__`."""
         self.root.mainloop()
 
     def _initBackgroundQueue(self):
+        """ Initializes a :class:`threading.Queue` in the background for parallel processing (e.g. :func:`init_aurora`)"""
+
         self.q = queue.Queue(maxsize=8)
         self.quitEvent = threading.Event()
         def processQueue(self):
@@ -146,7 +158,12 @@ class UltraVisController:
     def _init_framegrabber(self):
         self.cap = cv2.VideoCapture(_cfg.VID_INPUT)
 
-    def init_aurora(self,ser):
+    def init_aurora(self, ser):
+        """Initializes the NDI Aurora system (see for details :class:`aurora.Aurora`).
+
+        :param serial.Serial ser:
+            The Serial object configured to the NDI Aurora System.
+        """
 
         logger.info("Initialize Aurorasystem - Try connecting to Aurorasystem")
 
@@ -169,8 +186,8 @@ class UltraVisController:
             self.view.reinit_aua_but["command"] = lambda: self.init_aurora(self.ser)
             return
 
-        self.aua_active = True
         logger.info("Connection success")
+        self.aua_active = True
         self.aua.register("set_sysmode", self.refresh_sysmode)
         hp.enable_widgets(widgets)
         self.view.reinit_aua_but.pack_forget()
@@ -179,15 +196,13 @@ class UltraVisController:
         self.aua.reset_and_init_system()
 
         self.addFuncDebug()
-
         logger.info("Initialize Aurorasystem - done")
-
-
-
 
     #   -----Aurora Setup Functionality  ------#
 
     def activateHandles(self):
+        """Initializes and activated the handles in order to start tracking. See NDI Aurora API Guide for more details."""
+
         # todo Gesamtprozess nach Guide (siehe Aurora API)
         logger.info("Activate Handles - Acquiring Lock")
 
@@ -235,7 +250,7 @@ class UltraVisController:
     #---- App Frame functionality tracking and saving----#
 
     def startstopTracking(self):
-        #Bug self.aua can't deal with concurrent calls !
+        """Starts / Stops the current tracking process of the Aurora System"""
 
         if (self.aua.get_sysmode()=='SETUP'):
             with self.aua._lock:
@@ -259,6 +274,9 @@ class UltraVisController:
                 self.aua.tstop()
 
     def track_handles(self):
+        """Acquires the handle data from the Aurora system. Data is available from the :class:`aurora.Handlemanager`.
+        Can either be done with `bx` or `tx`. Use `bx` for faster processing.
+        """
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
 
@@ -296,8 +314,9 @@ class UltraVisController:
         self.stopTracking = False
         logger.info(threading.current_thread().name+" has stopped!")
 
-
     def refresh_position_data(self):
+        """Refreshes and visualizes the tracking data in tabular form. See :func:`UltraVisView.build_position_summary`."""
+
         #av_color = ['yellow','red','green','blue']
         #color = []
         #num_handle = self.hm.get_numhandles()
@@ -326,12 +345,13 @@ class UltraVisController:
                     logger.debug(f'Wrong class? {widget.winfo_class()}')
         t2= datetime.now()
 
-
         #logger.debug(f'Display shit {(t2-t0)}')
 
-
-    #Example of using the hm data
+    #Example of using the hm data +TODO Should be renamed imo.
     def setNavCanvasData(self):
+        """Transforms the handle data to the correct reference system with the :class:`Calibrator` and then
+        provides the data to the view (:class:`NavigationVisualizer` to be precise)."""
+
         x,y,z,a,b,c = [],[],[],[],[],[]
         av_color = ['yellow','red','green','blue']
         color = []
@@ -374,6 +394,9 @@ class UltraVisController:
     #Position is saving Record and Handles
     # TODO RENAME THIS METHOD, IT IS THE SAME IN THE MODEL AN CONFUSING!!!
     def save_record(self):
+        """Acquires record data (ultrasound image, current date etc.) in an :class:`uvis_model.Record` object
+        and persist the data with the :class:`uvis_model.UltraVisModel`."""
+
         if (not self.aua.get_sysmode()=='TRACKING'):
             logger.info("This functionality is only available during tracking. Please Start Tracking")
             return
@@ -421,7 +444,7 @@ class UltraVisController:
             return True
 
     def validatePosition(self, handles):
-        '''Validates 4 Handles (Position) and checks the frameID and Missing Handles'''
+        """Validates the 4 handles ("position") before saving. It checks the frameID and missing handles."""
         handles = handles
         validSave = True
         missID = []
@@ -442,11 +465,18 @@ class UltraVisController:
     #----GUI Related ----#
 
     def new_examination(self):
+        """Starts the GUI for new examinations."""
         self.view.build_newExam_frame(master=self.view.right_frame)
         self.view.show_menu(menu='new_examination')
         self.view.continue_but["command"] = self.setup_handles
 
     def validate_new_examination(self):
+        """
+        :returns: isValid indicator, :class:`uvis_model.Examination`
+
+        :rtype: bool, :class:`uvis_model.Examination`
+
+        Validates the data from the "new examination" frame and returns :class:`uvis_model.Examination` object."""
         #if there is future validation necessary e.g. Patient data is required, you need to implement it here
         doctor = self.view.doctor_entry.get()
         patient = self.view.patient_entry.get()
@@ -460,10 +490,10 @@ class UltraVisController:
         #Due to no validation as of now,
         validExam = True
 
-        return validExam,new_exam
+        return validExam, new_exam
 
     def setup_handles(self):
-
+        """Validates the examination meta data and starts the GUI for "setup handles"."""
         #save exam procudere should be actually somewhere else ...
         validExam, new_exam = self.validate_new_examination()
         if (validExam):
@@ -482,16 +512,23 @@ class UltraVisController:
         self.view.show_menu(menu='setup')
         self.addSetupHandlesFunc()
 
-        #load Menu but still disabled.
+        #Starts activating the handles in the background. So system calibration can be done.
         if (self.aua_active):
             self.q.put(self.activateHandles)
 
-
-
-        #wenn sucessfull dann enable button. Und hole dir Handledaten
-        #Else zeige zurückbutton und läd den Basescreen again.
-
     def validate_setuphandles(self,handle_index=None):
+        """
+        :param int handle_index: index of 1-4 or :const:`None`
+
+        :return: isValid indicator.
+
+        :rtype: bool
+
+        :exception ValueError:
+            Will be raised when handle_index are out of range or incorrect.
+
+        Validates the data from the "setup handles" frame.
+        """
 
         last_index = self.hm.get_numhandles() - 1 if self.hm is not None else 3
         setuphandles = self.view.setuphandle_frames
@@ -542,6 +579,7 @@ class UltraVisController:
             raise ValueError(f"Invalid Handle_index: {handle_index}.")
 
     def start_examination(self):
+        """Starts the GUI for the "examination"."""
         is_valid_setuphandles = self.validate_setuphandles()
         if (is_valid_setuphandles):
             handles = self.hm.get_handles().values()
@@ -563,12 +601,17 @@ class UltraVisController:
             return
 
     def capture_framegrabber(self, label, ms_delay=35):
-        ''' Continuously refreshes the given label, with the grabbed image.
-        The label must be a tk.Label object. For the delay the tk.Label.after() Method
-        is used.
+        """
+        :param tkinter.Label label: The tkinter label in which the video source is rendered.
 
-        :returns: Returns the scheduler_id for canceling the job with the after_cancel method.
-        '''
+        :param int ms_delay: The refresh rate for the video stream.
+
+        :returns: Returns the scheduler_id for canceling the frame grabber job with the after_cancel method.
+
+        Starts a background process for continuously refreshing the given label, with the grabbed image.
+        The label must be a :class:`tkinter.Label` object. For the delay the :func:`tkinter.Label.after` method
+        is used.
+        """
         if (not isinstance(label, tk.Label)):
             raise TypeError (f'Expected {tk.Label} for parameter label \
                                but got {type(label)} instead.')
@@ -600,8 +643,14 @@ class UltraVisController:
             ms_delay, self.capture_framegrabber, label, ms_delay)
 
     def calibrate_coordsys(self, calibrator=None, handles=None):
-        '''Calibrates by default the reference coordinate system.
-        An individual Calibrator object can also be given'''
+        """
+        :param Calibrator calibrator: Preconfigured calibrator object or :const:`None`.
+
+        :param dict handles: A dictionary containing :class:`aurora.Handle` objects :const:`None`.
+
+        Calibrates by default the reference coordinate system of the application.
+        An individual :class:`Calibrator` object can also be given (e.g. for loading recorded data).
+        """
 
         logger.info("Calibrate Coordinate System")
         cali = self.calibrator if not calibrator else calibrator
@@ -621,7 +670,14 @@ class UltraVisController:
             cali.set_trafo_matrix(a,b,c, log_matrix=True)
 
     def set_target_pos(self, calibrator=None, handles=None):
-        '''By default it sets a target for the current reference coordinate system.'''
+        """
+        :param Calibrator calibrator: Preconfigured calibrator object or :const:`None`.
+
+        :param dict handles: A dictionary containing :class:`aurora.Handle` objects or :const:`None`.
+
+        By default it sets a target in the navigation visualzation for the current reference coordinate system.
+        Alternatively it is used to load a Record and set that data as a target.
+        """
         logger.info("Set Target Position")
         pos = [0.0, 0.0, 0.0]
         cali = self.calibrator if not calibrator else calibrator
@@ -641,16 +697,19 @@ class UltraVisController:
             self.view.navigationvis.set_target_pos(pos[0], pos[1])
             self.view.navigationvis.set_target_ori(a, b, c)
 
-    #Muss Logik einbauen, dass das System dabei auch resettet wird &
+    # TODO Muss Logik einbauen, dass das System dabei auch resettet wird &
     # das GUI etc. korrekt gestoppt wird
     def cancel_examination(self, save=False):
+        """Cancels current workflow and loads the main menu frame."""
         self.view.build_mainscreen_frame(master=self.view.right_frame)
         self.view.show_menu()
 
     def validate_examination(self):
+        """Validates the data from the "examination" frame. """
         isValid = True
 
         workitem = self.model.get_current_workitem()
+        #Check whether record is in workitem.
         if not workitem["Records"]:
             isValid = False
         elif False:
@@ -661,6 +720,7 @@ class UltraVisController:
 
     # doppel klick soll verhindert werden, maybe über check, current menu
     def finalize_examination(self):
+        """Starts the GUI for the "examination summary", after persisting the current workitem."""
         isValidExam = self.validate_examination()
         if (isValidExam):
 
@@ -687,7 +747,7 @@ class UltraVisController:
             return
 
     def build_summary(self):
-
+        """Build the summary for "examination summary" frame."""
         exam, records, handles = self.model.get_current_workitem().values()
         summary_frame = self.view.summary_content_frame
         summary_frame.columnconfigure(0, weight=1)
@@ -711,6 +771,7 @@ class UltraVisController:
             position_summary.grid(row=row,column=0, sticky=tk.NSEW, pady=5, ipadx=5)
 
     def open_examination(self):
+        """Starts the GUI for the "open examination" frame."""
         self.view.build_openexam_frame(master=self.view.right_frame)
         self.view.show_menu(menu='open_examination')
         lastE_ID = self.model.t_examination.tail().index.tolist()
@@ -721,7 +782,9 @@ class UltraVisController:
             self.q.put(self.activateHandles)
 
     def start_navigation(self, event=None):
+        """:param buttonevent event: Defaults to :const:`None`. Param is necessary for \<Enter\> event.
 
+        Starts the GUI for the "navigation" frame and loads the first record as a target for navigation."""
 
         E_ID = str(self.view.examID_entry.get())
         if not E_ID:
@@ -755,10 +818,15 @@ class UltraVisController:
         logger.info("Navigation is ready. Please start Tracking and calibrating")
 
     def set_target_from_record(self, record=None, R_ID=None):
-        '''Sets the target for an navigation based on an record.
-        As input it can either use the R-ID or an Record Object.
+        """
+        :param uvis_model.Record record: :class:`uvis_model.Record` object to be loaded or :const:`None`.
 
-        Param:'''
+        :param string R_ID: R_ID like "R-0" to be loaded or :const:`None`.
+
+        Sets the target for an navigation based on an record.
+        As input it can either use the R-ID or an :class:`uvis_model.Record` Object.
+
+        """
 
         if not(isinstance(record, Record)) and R_ID is not None:
             if hasattr(R_ID, '__call__'):
@@ -780,7 +848,7 @@ class UltraVisController:
         self.view.refresh_img_for_lb(img=img, lb=self.view.target_img_lb)
 
     def nav_save_record(self):
-
+        """The same as :func:`save_record` but for the navigation process."""
         if not self.save_record():
             logger.error("Couldn't save record. Please try again.")
             return False
@@ -790,10 +858,9 @@ class UltraVisController:
             self.view.switch_imgsrc()
 
     def nav_accept_record(self):
-        '''
-        model save record
-        compare data
-        display compared data'''
+        """ Accepts the temporary record and persists it to the database.
+        It also compares the records and displays statistics"""
+
 
         curr_target_R_ID = self.view.target_var.get()
         workitem = self.model.get_current_workitem()
@@ -823,14 +890,16 @@ class UltraVisController:
             logger.error(f"Couldn't compare data. Please try again!")
 
     def clean_navigation(self):
+        """TODO"""
+
         # Removes records made during comparing, will all be deleted
         # when cancel is triggered.
 
         # also remove the comparison values for the E_ID !
         pass
 
-
     def open_evaluation(self):
+        """Starts the GUI for the "open evaluation" frame"""
         self.view.build_openeval_frame(master=self.view.right_frame)
         self.view.show_menu(menu='open_evaluation')
         self.view.load_eval_but["command"] = self.evaluate_examination
@@ -838,6 +907,7 @@ class UltraVisController:
         self.view.set_eval_menu(eval_list)
 
     def evaluate_examination(self):
+        """Starts the GUI for the "evaluate examination" frame"""
         # Zeige die Tabelle mit den Daten
         # Gebe neben den einzelnen Werte, auch die Gesamtergebnisse zurück.
         self.view.build_evaluation_frame(master=self.view.right_frame)
@@ -853,14 +923,14 @@ class UltraVisController:
         else:
             eval_df = self.model.t_evaluation.loc[E_ID]
 
-
         # Tabelle Darstellen mit Ergebnissen
 
         print("Donus")
 
 
     def init_button_func(self):
-
+        """Sets for all buttons the functionality.
+        The buttons are defined in :func:`UltraVisView.build_menu_frame`."""
         self.view.new_exam_but["command"] = self.new_examination
         self.view.open_exam_but["command"] = self.open_examination
         self.view.open_eval_but["command"] = self.open_evaluation
@@ -883,15 +953,13 @@ class UltraVisController:
         self.view.nav_save_record_but["command"] = lambda: self.q.put(self.nav_save_record)
         self.view.accept_record_but["command"] = lambda: self.q.put(self.nav_accept_record)
 
-
-
         self.view.cancel_but["command"] = self.cancel_examination
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
         #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")
 
     def addSetupHandlesFunc(self):
-
+        """Sets the button functionality for the setuphandles frame."""
         frames = self.view.setuphandle_frames
         #Partial muss genutzt werden, weil der Parameter hochgezählt wird.
         for i,frame_data in enumerate(frames):
@@ -899,66 +967,9 @@ class UltraVisController:
             button = frame_data["button"]
             button["command"] = partial(self.validate_setuphandles, handle_index=i)
 
-    def _debugfunc(self):
-        self.view.build_examination_frame(master=self.view.right_frame)
-        self.view.show_menu(menu='examination')
-
-    # Data Auswertung '
-
-    def do_data_evaluation(self):
-        df0 = self.model.hb_records
-        df1 = self.model.heb_records
-        base = self.model.calculate_baseline()
-        base_human_laie = self.model.calculate_baseline(df0)
-        base_human_expert = self.model.calculate_baseline(df1)
-
-        arrow = list(zip_longest(base, base_human_laie, base_human_expert))
-        columns = ["G_0 System Error", "G_1 Human Error Layman", "G_1 Human Error Expert"]
-        self.model.display_boxplot(arrow, columns)
-
-
-
-    #----Debugging Related ----#
-    def writeCmd2AUA(self,event):
-
-        try:
-            command = self.view.cmdEntry.get()
-            self.aua.readsleep = float(self.view.sleeptimeEntry.get())
-            if (len(self.view.expec.get())==0):
-                a = False
-            else:
-                a = self.view.expec.get()
-
-            logger.debug("Execute command: "+command)
-            self.aua.write_cmd(command,expect=a)
-            self.view.cmdEntry.delete(0, 'end')
-
-        except Warning as e:
-            logger.exception("An FATAL occured: "+str(e))
-
-    def testFunction(self):
-        with self.aua._lock:
-            self.aua.beep(2)
-
-
-    def addFuncDebug(self):
-        #Menu
-        #self.view.initBut["command"] = self.beep
-        self.view.readBut["command"] = self.aua.read_serial
-        self.view.resetBut["command"] = self.aua.reset_and_init_system
-        self.view.testBut["command"] = self.testFunction
-        self.view.handleBut["command"] = self.activateHandles
-        #self.view.restartBut["command"] = self.restart
-        self.view.quitBut["command"] = self.root.destroy
-
-
-        #DebugCMD
-        self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
-        self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
-        self.view.expec.bind('<Return>', func=self.writeCmd2AUA)
-
-
     def refresh_sysmode(self):
+        """Displays the current Operating mode of the NDI Aurora System. Modes are 'Setup' and 'Tracking'.
+        For more details please read the official NDI Aurora API Guide."""
         if (hasattr(self.view,'sysmode_lb')):
             mode = self.aua.get_sysmode()
             color = 'black'
@@ -995,3 +1006,64 @@ class UltraVisController:
                 continue
 
         #self.view.workitemdataLabel["text"] = infotext
+
+    def _debugfunc(self):
+        """Internal method for testing all kinds of code"""
+        self.view.build_examination_frame(master=self.view.right_frame)
+        self.view.show_menu(menu='examination')
+
+    # Data Auswertung
+    # Needs better integration into the application
+    def _do_data_evaluation(self):
+        """Evaluates the current Ground Truth datasets and display the boxplots."""
+        df0 = self.model.hb_records #human layman
+        df1 = self.model.heb_records # human expert
+        base = self.model.calculate_baseline() # system base accuracy
+        base_human_laie = self.model.calculate_baseline(df0)
+        base_human_expert = self.model.calculate_baseline(df1)
+
+        arrow = list(zip_longest(base, base_human_laie, base_human_expert))
+        columns = ["G_0 System Error", "G_1 Human Error Layman", "G_1 Human Error Expert"]
+        self.model.display_boxplot(arrow, columns)
+
+
+
+    #---- Debugging Related. ----#
+    def writeCmd2AUA(self, event):
+        """Writes a serial Command to the NDI Aurora System"""
+        try:
+            command = self.view.cmdEntry.get()
+            self.aua.readsleep = float(self.view.sleeptimeEntry.get())
+            if (len(self.view.expec.get())==0):
+                a = False
+            else:
+                a = self.view.expec.get()
+
+            logger.debug("Execute command: "+command)
+            self.aua.write_cmd(command,expect=a)
+            self.view.cmdEntry.delete(0, 'end')
+
+        except Warning as e:
+            logger.exception("An FATAL occured: "+str(e))
+
+    def testFunction(self):
+        """Tests a function for the debugging GUI"""
+        with self.aua._lock:
+            self.aua.beep(2)
+
+    def addFuncDebug(self):
+        """Adds the button functionality for the debugging GUI"""
+        #Menu
+        #self.view.initBut["command"] = self.beep
+        self.view.readBut["command"] = self.aua.read_serial
+        self.view.resetBut["command"] = self.aua.reset_and_init_system
+        self.view.testBut["command"] = self.testFunction
+        self.view.handleBut["command"] = self.activateHandles
+        #self.view.restartBut["command"] = self.restart
+        self.view.quitBut["command"] = self.root.destroy
+
+
+        #DebugCMD
+        self.view.cmdEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.sleeptimeEntry.bind('<Return>', func=self.writeCmd2AUA)
+        self.view.expec.bind('<Return>', func=self.writeCmd2AUA)

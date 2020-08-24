@@ -40,6 +40,7 @@ Python environment
 ^^^^^^^^^^^^^^^^^^
 
 * Install Python 3.7.5 or higher from https://python.org
+* Clone the project with ``git clone https://github.com/Zailux/TTRP.git <path/to/project>``
 * Create a clean virtual environment with ``virtualenv``. Please check out `virtualenv documentation`_.
 * Install the relevant packages with ``pip install -r requirements.txt``
 
