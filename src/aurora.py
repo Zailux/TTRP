@@ -562,7 +562,7 @@ class HandleManager:
     def update_handlesBX(self, bx_header, bx_data):
         """
         :param bytes bx_header: The header contains meta data about the response
-        (e.g. reply_length, number handles etc.)
+         (e.g. reply_length, number handles etc.)
 
         :param bytes bx_data: The bx data from the :func:Aurora.bx method.
 
