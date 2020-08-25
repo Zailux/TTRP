@@ -1,6 +1,6 @@
-"""This is the config module.
-
-This module contains program relevant configurations
+"""
+This module contains the configurations for setting up the uvis application.
+Setting correct paths, Logging configurations, serial configs etc.
 """
 
 import logging
@@ -15,7 +15,44 @@ class Singleton(type):
 
 
 class Configuration(metaclass=Singleton):
+    """The :class:`Configuration` object contains all the configuration for the Uvis Application.
+    one could research alternatives for configs.
 
+    Attributes
+
+    .. attribute:: DEBUG
+
+        `bool` - Sets the debug mode flag for the Uvis App.
+
+    .. attribute:: DATAPATH
+
+        `str` - Sets the path of the data directory.
+
+    .. attribute:: SAVEDIMGPATH
+
+        `str` - Sets the path where the ultrasound images are saved.
+
+    .. attribute:: IMGPATH
+
+        `str` - Sets the path of the image directory. These images are used for the application itself.
+
+    .. attribute:: COM
+
+        `str` - Sets the COM Port for the :class:`Serial` connection of the application (e.g. `'COM8'`).
+
+    .. attribute:: VID_INPUT
+
+        `int` - Index for choosing the video source. See :class:`cv2.VideoCapture` for more details.
+
+    .. attribute:: LOGGER
+
+        `logging.Logger` - The general logger of the uvis application.
+
+    .. attribute:: Q_LOGGER
+
+        :class:`logging.Logger` - The logger for the queue thread.
+
+    """
     def __init__(self):
         self.DEBUG = True
 
@@ -39,5 +76,4 @@ class Configuration(metaclass=Singleton):
         if self.DEBUG:
             self.LOGGER.setLevel(logging.DEBUG)
             self.Q_LOGGER.setLevel(logging.DEBUG)
-
 

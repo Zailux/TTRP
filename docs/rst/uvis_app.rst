@@ -14,7 +14,6 @@ The Uvis Application is structured with the *MVC* architecture pattern.
 * **uvis_model.py** - Contains the model class handling data and persiting to csv.
 * **NavigationVisualizer.py** - Separate Navigation visualization for orientation + position.
 * **Calibrator.py** - Contains the *Calibrator* class which is handles the calibration of the EMM Tracking system.
-* **averageQuaternion.py** - Supporting method for calculating with quaternions.
 * **config.py** - Contains the configuration for the uvis application like serial configuration etc.
 * **helper.py** - Contains minor helping methods for the application.
 
@@ -64,7 +63,7 @@ Calibrator
 config
 ------
 
-.. automodule:: config
+.. autoclass:: config.Configuration
     :members:
     :private-members:
     :undoc-members:

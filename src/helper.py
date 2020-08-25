@@ -11,16 +11,13 @@ Available Classes
 import logging
 import tkinter as tk
 from tkinter import ttk
+import numpy as np
 
 from PIL import Image, ImageTk
 
 
 class Helper():
-    """ The helper class easier GUI Handling in uvis_controller and uvis_view
-
-    Attributes:
-        None yet
-    """
+    """ The helper class easier GUI Handling in uvis_controller and uvis_view"""
 
     def __init__(self):
         pass
@@ -37,13 +34,20 @@ class Helper():
         return nextRow
 
     def get_readonly_widget(self, master, value, max_length, max_height=None):
-        '''Get a readonly text-based Widget.
-        Returns either a tk.Entry or a tk.Text widget with an readonly state.
-            max_length
-        If the input value length len(value) > max_length, the method will return
+        '''
+        :param tkinter.Frame master: Master frame.
+
+        :param str value: Sets the text for the widget.
+
+        :param int max_length: If the input value length len(value) > max_length, the method will return
         a tk.Text Widget. Else it will return an Entry widget.
-            max_height
-        The maximum height of the Text widget. This can of course be configured afterwards.
+
+        :param int max_height: The maximum height of the Text widget.
+
+        :returns: Returns either a :class:`tk.Entry` or a :class:`tk.Text` widget with an `readonly state`.
+
+        :rtype: tkinter.Entry or tkinter.Text.
+
         '''
         val = str(value)
         widget = None
@@ -62,6 +66,7 @@ class Helper():
         return widget
 
     def enable_widgets(self, childList, enable_all=False):
+        """Enables all widgets in the list if enable_all is True. Else only button and entry."""
         for child in childList:
             if (child.winfo_class() == 'Frame'):
                 self.enable_widgets(child.winfo_children())
@@ -71,6 +76,7 @@ class Helper():
                 child.configure(state='normal')
 
     def disable_widgets(self, childList, disable_all=False):
+        """Disables all widgets in the list if disable_all is False. Else only button and entry."""
         for child in childList:
             if (child.winfo_class() == 'Frame'):
                 self.disable_widgets(child.winfo_children())
@@ -102,6 +108,19 @@ class Helper():
         for i, item in enumerate(number_list):
             number_list[i] = float(item)
         return number_list
+
+    def q_average(self, Q, W=None):
+        """
+        :param np.array Q: N-by-4 matrix of unit quaternions.
+
+        :param np.array W: Matrix of weights.
+
+        Calculates the average quaternions. Q is therefore a N-by-4 matrix.
+        Quaternion should be normalized / be unit quaternions."""
+        if W is not None:
+            Q *= W
+        eigvals, eigvecs = np.linalg.eig(Q.T@Q)
+        return eigvecs[:, eigvals.argmax()]
 
 # TODO https://stackoverflow.com/questions/17355902/python-tkinter-binding-mousewheel-to-scrollbar
 # Add mousewheel event to scrollbar.
@@ -162,3 +181,6 @@ class ScrollableFrame(tk.Frame):
                 canvas.itemconfigure(
                     contentframe_id, width=canvas.winfo_width())
         canvas.bind('<Configure>', _configure_canvas)
+
+
+

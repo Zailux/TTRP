@@ -1,6 +1,6 @@
 """
 The aurora module, is a python implementation of
-NDI Aurora System API Revision 4. The guide is in the doc directory in Github accessable.
+NDI Aurora System API Revision 4. The guide is in the docs directory in GitHub accessable.
 
 Supported NDI API Version:
     Combined Firmware Revision: 011
@@ -39,7 +39,14 @@ SYSMODES = ['SETUP', 'TRACKING']
 
 
 class Aurora:
-    """This is the aurora class"""
+    """
+    :param serial.Serial ser: :class:serial.Serial object for communicating with NDI Aurora System.
+
+    :param bool debug_mode: Flag for debugging.
+
+    The aurora class provides for communicating with NDI Aurora system.
+    For the processing the responses from this class please refer to the NDI API v4 doc or extend this documentation.
+    """
     def __init__(self, ser, debug_mode=False):
 
         # Aurora System relevant Attributes
@@ -73,10 +80,16 @@ class Aurora:
 
     # Observer Pattern - Add Observer Method / Callback Method
     def register(self, key, observer):
-        '''Implementation of observer pattern.
+        """
+        :param str key: Function name of the observed function in the model.
+
+        :param function observer: Observer method or function to be called back.
+
+        Implementation of observer pattern.
         Observers can register methods for a callback. The key should be
-        the Aurora methodname.
-        '''
+        the UltraVisModel methodname. When the method in the model is executed
+        the :func:`_callback` is triggered.
+        """
         key = str(key)
         if (key not in self._observers):
             self._observers[key] = []
@@ -88,7 +101,9 @@ class Aurora:
                 f"Observermethod: {observer} for Key {key} already exists")
 
     def _callback(self, key):
-        """Calls the observers methods, based on the methodkey of Aurora method."""
+        """:param str key: Key / functionname of Observed method in UltraVisModel.
+
+        Calls the observers methods, based on the methodkey of UltraVisModel method."""
         key = str(key)
         if (key in self._observers):
             logging.debug(
@@ -99,7 +114,7 @@ class Aurora:
     def get_sysmode(self):
         return self.sysmode
 
-    def set_sysmode(self, mode):
+    def set_sysmode(self, mode:str):
         if (mode not in SYSMODES):
             raise ValueError(
                 "Invalid Value. Value must be in " +
@@ -110,7 +125,9 @@ class Aurora:
 
     # Debug & Additional Methods
     # Commands & Parameters are not case sensitive
-    def write_cmd(self, cmd, expect=False):
+    def write_cmd(self, cmd:str, expect=False):
+        """Writes a command to the NDI Aurorasystem and strips trailing blanks.
+        If expect is `True`, the `read_until()` method will use specified ending character."""
         # Validate input
         try:
             if (not isinstance(cmd, str)):
@@ -156,10 +173,16 @@ class Aurora:
     # ----------------------------- #
 
     def apirev(self):
+        """Returns the API revision number."""
         self.ser.write(b'APIREV \r')
         return self.read_serial()
 
     def beep(self, num):
+        """
+        :param int num: 1-9 beeps.
+
+        Sounds the system beeper.
+        """
         try:
             num = int(num)
             if (not (0 < num < 10)):
@@ -173,6 +196,7 @@ class Aurora:
             logging.exception(str(e))
 
     def init(self):
+        """Initializes the system."""
         self.ser.write(b'INIT \r')
         if (self.read_serial().startswith(b'OKAY')):
             self.set_sysmode('SETUP')
@@ -182,12 +206,18 @@ class Aurora:
         return
 
     def reset(self):
+        """Resets the system."""
         self.ser.write(b'RESET \r')
         msg = self.read_serial()
         if (msg.startswith(b'RESET') or msg.startswith(b'OKAY')):
             self.set_sysmode('SETUP')
 
     def pinit(self, handle):
+        """
+        :param Handle handle: Handle to be initialized.
+
+        Initializes a port handle.
+        """
 
         if (not(isinstance(handle, Handle))):
             raise TypeError(f'Invalid Object of type: {type(handle)}. \
@@ -202,6 +232,18 @@ class Aurora:
         self.read_serial()
 
     def pena(self, handle, mode):
+        """
+        :param Handle handle: Handle to be enabled.
+
+        :param str mode: A single character which is either 'S','D' or 'B'.
+
+            * Static: a static tool is considered to be relatively immobile, e.g. a reference tool
+            * Dynamic: a dynamic tool is considered to be in motion, e.g. a probe.
+            * Button box: a button box can have switches and LEDs, but no sensor coils. No
+            transformations are returned for a button box tool, but switch status is returned
+
+        Enables the reporting of transformations for a particular port handle.
+        """
         penamodes = 'SDB'
         if ((not (isinstance(mode, str) and len(mode) == 1))
                 and mode.upper() not in penamodes):
@@ -228,7 +270,18 @@ class Aurora:
         return
 
     def phsr(self, option=0):
+        """
+        :param int option: Specifies which information will be returned. Defaults to 0.
 
+            * 0 - Reports all allocated port handles (default)
+            * 1 - Reports port handles that need to be freed
+            * 2 - Reports port handles that are occupied, but not initialized or enabled
+            * 3 - Reports port handles that are occupied and initialized, but not enabled
+            * 4 - Reports enabled port handles
+
+        Returns the number of assigned port handles and the port status for each one. Assigns a port handle
+        to a tool.
+        """
         option = int(option)
         if (not (0 <= option < 5)):
             raise ValueError(
@@ -246,21 +299,22 @@ class Aurora:
         return phsr_string
 
     def sflist(self, option=None):
-        option = int(option)
+        """
+        :param int option: TODO
 
-        if (option is not None):
-            cmd = 'TSTART \r'
-        elif ((option != 40 or option != 80)):
-            raise ValueError("Invalid Parameter: Please choose value 40 or 80")
-        else:
-            cmd = 'TSTART ' + str(option) + '\r'
-
-        self.ser.write(cmd)
-        time.sleep(1)
-        self.read_serial()
+        Returns information about the supported features of the system.
+        """
+        pass
 
     def tstart(self, option=None):
+        """
+        :param int option: 40 or 80. The reply options are hexadecimal numbers that can be OR’d (C0).
 
+            * 40 (Optional, starts tracking in faster acquisition mode)
+            * 80 (Optional, resets the frame counter to zero)
+
+        Starts Tracking mode.
+        """
         if (option is None):
             cmd = 'TSTART \r'
         else:
@@ -277,6 +331,7 @@ class Aurora:
             self.set_sysmode('TRACKING')
 
     def tstop(self):
+        """Stops Tracking mode."""
         self.ser.write(b'TSTOP \r')
         time.sleep(0.7)
 
@@ -284,6 +339,14 @@ class Aurora:
             self.set_sysmode('SETUP')
 
     def bx(self, option=None):
+        """
+        :param int option: TBD
+
+        :returns: Header bytes and bx_data bytes as two params.
+
+        Returns the latest tool transformations and system status information in binary format.
+        Its faster than tx due to shorter response length.
+        """
         if(option == None):
             self.ser.write(b'BX \r')
         else:
@@ -300,7 +363,14 @@ class Aurora:
         return out
 
     def tx(self, option=None):
+        """
+        :param str option: Option for response format.
+            * 0001 - Transformation data (default)
+            * 0800 - Transformations not normally reported
 
+        Returns the latest tool transformations and system status in text format.
+        It is recommended to work with :class:`Handle` object to easier manage the response data.
+        """
         if(option is None):
             self.ser.write(b'TX \r')
         else:
@@ -319,11 +389,21 @@ class Aurora:
     # ---------------------------------------- #
 
     def reset_and_init_system(self):
+        """Resets and initiliazes the NDI Aurora System"""
         self.reset()
         self.init()
 
     # Optional Feature Einbau der CRC Message, Gen + Check sinnvoll.
     def read_serial(self, expected=b'\r', to_log=True):
+        """
+        :param str expected: `Byte string` for the ending characters. Defaults to "b'\r'"
+
+        :param bool to_log: Flag for logging the responses.
+
+        :returns: Return the response from serial system as a byte string.
+
+        Reads the response from the serial interface and logs it to console.
+        """
         out = ''
         time.sleep(self.readsleep)
         out = self.ser.read_until(expected)
@@ -338,7 +418,14 @@ class Aurora:
         return out
 
     def check_aurora_error(self, msg):
+        """
+        :param str msg: Byte string response from the NDI aurora system.
 
+        :exception Warning:
+            Will be raised if error is found. Maybe introduce own Exception type later.
+
+        Interprets the errorcode from the NDI Aurora system and logs it.
+        """
         if (not msg.startswith(b'ERROR')):
             return
         else:
@@ -352,7 +439,15 @@ class Aurora:
         raise Warning(exceptmsg)
 
     def get_aurora_errormsg(self, errorcode):
+        """
+        :param str errorcode: Number in hex as a string. (Can be rewritten) for the error code.
 
+        :return: Return the aurora error message as a string.
+
+        :rtype: str
+
+        :note: Not all error messages are implemented yet.
+        """
         AuaErrorDict = {
             '01': 'Invalid command.',
             '02': 'Command too long.',
@@ -412,7 +507,13 @@ class Aurora:
 
 
 class HandleManager:
+    """
+    :param str phsr: String from :func:`Aurora.phsr`
 
+    The `HandleManager`is a utility class for an easier handling of the NDI Aurora API.
+    It can directly process the responses from the :class:`Aurora` class and translate it into
+    a more useful format for the developer.
+    """
     def __init__(self, phsr):
         # 01 0A 00D 2674\r als antwort
         # 01 0A 00 001 74\r keine Handles
@@ -433,13 +534,24 @@ class HandleManager:
             self.handles[h_id] = h
 
     def get_numhandles(self):
+        """Return the number of identified handles."""
         return self.num_handles
 
     def get_handles(self, real_copy=False):
+        """:param bool real_copy: Flag for getting a real_copy of the handles or the referenced dict.
+
+        :returns: Return the current handle data as a dictionary.
+
+        :rtype: dict
+        """
         with self._hmlock:
             return self.handles if not real_copy else deepcopy(self.handles)
 
     def get_missing_handles(self):
+        """:returns: Return the missing handle data as a list.
+
+        :rtype: list
+        """
         misshandles = []
         h = self.get_handles()
         for h_id, handle in h.items():
@@ -448,16 +560,25 @@ class HandleManager:
         return misshandles
 
     def update_handlesBX(self, bx_header, bx_data):
-        #print(len(bx_header))
-        #print(len(bx_data))
-        #
-        ''' <Reply Option 0001 Data> = <Q0><Qx><Qy><Qz><Tx><Ty><Tz><Indicator Value>
-            <Port Status><Frame Number>
-            or
-            <Reply Option 0001 Data> = <Port Status><Frame Number>
+        """
+        :param bytes bx_header: The header contains meta data about the response
+        (e.g. reply_length, number handles etc.)
 
-        42 Byte vollständiger Handle. Ansonsten 10 Byte der Handle
-        '''
+        :param bytes bx_data: The bx data from the :func:Aurora.bx method.
+
+        :return: Return the success boolean whether the data could be correctly processed or not.
+
+        :rtype: bool
+
+        <Reply Option 0001 Data> = <Q0><Qx><Qy><Qz><Tx><Ty><Tz><Indicator Value>
+        <Port Status><Frame Number>
+        or
+        <Reply Option 0001 Data> = <Port Status><Frame Number>
+
+        42 Byte vollständiger Handle. Ansonsten 10 Byte der Handle.
+
+        Please check the BX command in the NDI Aurora API Guide for more details.
+        """
 
         # header
         start_seq = int.from_bytes(bx_header[0:2], 'little')
@@ -524,12 +645,21 @@ class HandleManager:
         return False if len(bx_data) < (42*n_handles) else True
 
     def _hex_to_string(self, hex_val):
+        """:param bytestring hex_val: Input hex value in binary.
+
+        :return: string
+
+        :rtype: str
+
+        Converts a hex value to string."""
         #Example input b'\x90G\x00\x00' ^= 90470000
         hex_val = str(BitArray(hex_val).hex).upper()
-
         return hex_val
 
     def update_handles(self, tx_str):
+        """:param str tx_str: The transformation data as a string.
+
+        Updates handle data based on response from :func:`Aurora.tx`"""
         # expects the outpout from tx decoded tx string.
         # SYSTEMSTATUS TO BE DONE!
         # b'020A+06975+04593-00366-05486-007807-007185-015834+003950002003D000003E8\n0B+08324+03951+03881+00150+011264-001768-017704+006430002003F000003E8\n0000DA87\r'
@@ -634,7 +764,38 @@ class Port():
 
 
 class Handle:
+    """
+    :param str ID: The handle ID - (is actually a hex number)
 
+    :param str handle_state: The doctor performing the examination.
+
+    :param str refname: The reference name of the handle/sensor (e.g. Left hip, sternum etc.)
+
+    :param bool MISSING: Indicator for a missing handle (e.g. out of volume).
+
+    :param float Q0: Scalar of unit quaternion.
+
+    :param float Qx: x Vector part of unit quaternion.
+
+    :param float Qy: y Vector part of unit quaternion.
+
+    :param float Qz: z Vector part of unit quaternion.
+
+    :param float Tx: x-position of handle.
+
+    :param float Ty: y-position of handle.
+
+    :param float Tz: z-position of handle.
+
+    :param float calc_Err: An estimate of how well the Aurora System calculated
+    the transformation. Value range is >= 0.
+
+    :param float port_state: State of the port handle. See :class:`Port` and NDI Aurora Doc for more.
+
+    :param float frame_id: frame-id of the recorded tracking data.
+
+    The data model of an handle of the NDI Aurora system. Can be instantiated as empty object.
+    """
     def __init__(
             self,
             ID,
@@ -673,17 +834,18 @@ class Handle:
         self.frame_id = frame_id
 
     def __copy__(self):
+        """Necessary for the deep_copy functionality. Is called when the object is copied."""
         cls = self.__class__
         copy_handle = cls.__new__(cls)
         copy_handle.__dict__.update(self.__dict__)
         return copy_handle
 
     def get_trans_data(self):
-        ''' Return Translational Data as list x,y,z in mm'''
+        ''' Return Translational Data as `list` x,y,z in mm'''
         return [self.Tx, self.Ty, self.Tz]
 
     def get_orient_data(self):
-        ''' Return Translational Data as list Q0,Qx,Qy,Qz in quaternion'''
+        ''' Return Translational Data as `list` Q0,Qx,Qy,Qz in quaternion'''
         return [self.Q0, self.Qx, self.Qy, self.Qz]
 
     def set_reference_name(self, refname):
@@ -705,6 +867,7 @@ class Handle:
             calc_Err=None,
             port_state=None,
             frame_id=None):
+        """Setter for tx or transformation data."""
         self.MISSING = MISSING
         self.Q0 = Q0
         self.Qx = Qx
