@@ -516,9 +516,9 @@ class UltraVisController:
         if (self.aua_active):
             self.q.put(self.activateHandles)
 
-    def validate_setuphandles(self,handle_index=None):
+    def validate_setuphandles(self, handle_index=None):
         """
-        :param int handle_index: index of 1-4 or :const:`None`
+        :param int handle_index: index of 0-3 or :const:`None`
 
         :return: isValid indicator.
 
@@ -821,7 +821,7 @@ class UltraVisController:
         """
         :param uvis_model.Record record: :class:`uvis_model.Record` object to be loaded or :const:`None`.
 
-        :param string R_ID: R_ID like "R-0" to be loaded or :const:`None`.
+        :param str R_ID: R_ID like "R-0" to be loaded or :const:`None`.
 
         Sets the target for an navigation based on an record.
         As input it can either use the R-ID or an :class:`uvis_model.Record` Object.

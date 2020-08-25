@@ -1,6 +1,6 @@
 """This is the Uvis Model module.
 
-This module contains the following classes:
+This module contains the following classes\:
     UltraVisModel
         The main class of this module, which provides
         methods to access the data / model of the uvis application.
@@ -42,12 +42,20 @@ logger = _cfg.LOGGER
 # ------------------------------#
 
 class Examination():
-    """The data model of an examination.
-    If no E_ID is given at the instantitation, it will generate a tempID with uuid4():
-    'tempE-5d51171a-eae6-4b93-b4dd-abadecda3976'.
+    """
+    :param str E_ID: The Examination ID
 
-    Attributes
-        Will be documented at the end.
+    :param str doctor: The doctor performing the examination.
+
+    :param str patient: The patient name.
+
+    :param str examitem: The examination item (e.g. left lung ...)
+
+    :param date.datetime created: The timestamp of the performed examination.
+
+    The data model of an examination. Can be instantiated as empty object.
+    If no E_ID is given at the instantitation, it will generate a tempID with `uuid4()`:
+    'tempE-5d51171a-eae6-4b93-b4dd-abadecda3976'.
     """
     def __init__(self, E_ID=None, doctor=None, patient=None, examitem=None, created=None):
 
@@ -62,12 +70,20 @@ class Examination():
 
 
 class Record():
-    """The data model of an record.
+    """
+    :param str E_ID: The foreign key of the :class:`Examination`.
+
+    :param str R_ID: The key or ID of the :class:`Record`.
+
+    :param str descr: The description of the record (e.g. which struture is to seen in the image).
+
+    :param date.datetime date: The timestamp of the performed examination.
+
+    :param str US_img: Path of the saved image in the filesystem (e.g `data\img\imag_name`).
+
+    The data model of an record.
     If no R_ID is given at the instantitation, it will generate a tempID with uuid4():
     'tempR-5d51171a-eae6-4b93-b4dd-abadecda3976'.
-
-    Attributes
-        Will be documented at the end.
     """
     def __init__(self, E_ID, R_ID=None, descr=None, date=None, US_img=None):
 
@@ -82,10 +98,26 @@ class Record():
 
 
 class Comparison():
-    """The object for comparing two records
+    """
+    :param str R_ID_base: The key of the base :class:`Record`.
 
-    Attributes
-        Will be documented at the end.
+    :param str R_ID_nav: The key of the navigated / target :class:`Record`.
+
+    :param numpy.array vec_base: The ultrasound probe position vector of the base :class:`Record`.
+
+    :param numpy.array vec_nav: The ultrasound probe position vector of the navigated / target :class:`Record`.
+
+    :param float acc_t: Translational accuracy in mm (95% confidence interval)
+
+    :param float acc_o: Orientation accuracy in degree (95% confidence interval)
+
+    :param list calc_errors: List of calculation errors pessimitic calculated.
+
+    :param str doc_eval: Evaluation of the doctor regarding the two images.
+
+    :param str E_ID: The foreign key of the :class:`Examination`.
+
+    The object holding the results from compairing two records.
     """
     def __init__(self, R_ID_base=None, R_ID_nav=None, vec_base=None,
                  vec_nav=None, acc_t=None, acc_o=None, calc_errors=None,
@@ -101,13 +133,14 @@ class Comparison():
         self.doc_eval = doc_eval
         self.E_ID = E_ID
 
+
     def set_values_from_records(self, tgt_rec:Record, nav_rec:Record):
+        """Sets the values via Record objects. TODO"""
         self.R_ID_base = tgt_rec.R_ID
         self.R_ID_nav = nav_rec.R_ID
 
 
-
-
+# TODO
 class Evaluation():
     pass
 
@@ -125,6 +158,8 @@ class UltraVisModel:
         and Handles in one object.
         Via an observer pattern, the model triggers a callback to
         the corresponding methods in the controller (caller).
+        During instatiation the `pd.DataFrame` object are loaded from the filesystem
+        to provide the application with the data.
     """
     def __init__(self):
         datapath = _cfg.DATAPATH
@@ -148,7 +183,8 @@ class UltraVisModel:
         self._curr_workitem = {"Examination":None, "Records":[], "Handles":[]}
 
     def _init_baseline_dataset(self):
-
+        """Loads the baseline datasets. Might cause errors when datasets are not in the filesystem.
+        The datasets can be found in the MS Team folder. See further_readings in the code documentation"""
         DATAPATH = _cfg.DATAPATH+'baseline_trials\\'
         DATAPATH2 = _cfg.DATAPATH+'baseline_human_trials\\'
         DATAPATH3 = _cfg.DATAPATH+'baseline_human_expert_trials\\'
@@ -166,12 +202,16 @@ class UltraVisModel:
         except FileNotFoundError as e:
             logger.error(e)
 
-
-
     def register(self, key, observer):
-        """Implementation of observer pattern.
+        """
+        :param str key: Function name of the observed function in the model.
+
+        :param function observer: Observer method or function to be called back.
+
+        Implementation of observer pattern.
         Observers can register methods for a callback. The key should be
-        the UltraVisModel methodname.
+        the UltraVisModel methodname. When the method in the model is executed
+        the :func:`_callback` is triggered.
         """
         key = str(key)
         if (key not in self._observers):
@@ -180,10 +220,12 @@ class UltraVisModel:
         elif(observer not in self._observers[key]):
             self._observers[key].append(observer)
         else:
-            raise Warning(f"Observermethod: {observer} for Key {key} already exists")
+            raise Warning(f"Observermethod: {observer} for key {key} already exists")
 
     def _callback(self, key):
-        """Calls the observers methods, based on the methodkey of UltraVisModel method."""
+        """:param str key: Key / functionname of Observed method in UltraVisModel.
+
+        Calls the observers methods, based on the methodkey of UltraVisModel method."""
         key = str(key)
         if (key in self._observers):
             logger.debug(f'{self.__class__}: Callback for "{key}" - {self._observers[key]}')
@@ -198,10 +240,17 @@ class UltraVisModel:
         self._curr_workitem = {"Examination":None, "Records":[], "Handles":[]}
 
     def get_current_workitem(self):
-        """ Return the current workitem """
+        """:returns: Return the current workitem.
+
+        :rtype: dict
+        """
         return self._curr_workitem
 
     def get_length_workitem(self):
+        """:returns: Return the length or rather the num of items workitem.
+
+        :rtype: int
+        """
         # Might be length of workitem in the future, if I make it as a class
         # len(workitem) or something should do it.
         itemcount = 0
@@ -217,7 +266,17 @@ class UltraVisModel:
     # loadWorkitem is inefficient. It would be better if this methods gets the E_ID and
     # then tries to find all corresponding data (records & handles) and then refreshes just once afterwards
     def set_current_workitem(self, obj, as_instance=True):
-        """Set the current workitem for the UvisModel.
+        """
+        :param obj: Object or tuple to be set for the workitem.
+        :type obj: Examination, Record, Handle, tuple
+
+        :param bool as_instance: If `True` use single object. If `False` then use `tuple` with the objects.
+
+        :exception TypeError:
+            Will be raised object is not of :class:`uvis_model.Examination`, :class:`uvis_model.Record`,
+            :class:`aurora.Handle` or `tuple` containing the object types..
+
+        Set the current workitem for the UvisModel.
         You can either append single instances of an Examination Object, Record Object
         or a Position (a list object with 4 Handle Objects) to the workitem.
         Alternatively you can set a whole workitem, as a tuple (Examination, [Record,...], [Handle,...]).
@@ -293,8 +352,11 @@ class UltraVisModel:
         return new_E_ID
 
     def load_workitem(self, E_ID):
-        """Loads the workitem based on the examination id (E_ID).
-        The workitem can be accessed via get_current_workitem.
+        """
+        :param str E_ID: The ID of an :class:`Examination`
+
+        Loads the workitem based on the examination id (E_ID).
+        The workitem can be accessed via :func:`get_current_workitem`.
         """
         exam = self.get_examination(ID=E_ID)
         records = []
@@ -317,6 +379,13 @@ class UltraVisModel:
 
     #für Examination & Record. Über vererbung lösen auch möglich.
     def _getnextID(self,df):
+        """:param df.DataFrame df: The dataframe for which the next ID is necessary.
+
+        :return: Returns the next ID for persisting.
+
+        :rtype: int
+
+        Supporting method for getting the next real ID for persisting."""
         indexlist = df.index.tolist()
         length = []
 
@@ -327,7 +396,7 @@ class UltraVisModel:
         return next_id
 
     def get_examination(self, ID=None):
-        """Return an Examination Object from the csv. Else it returns None."""
+        """:return: Return an class:`Examination` Object from the csv. Else it returns :const:`None`."""
         E_ID = str(ID)
         try:
             e = self.t_examination.loc[E_ID]
@@ -342,7 +411,14 @@ class UltraVisModel:
             return None
 
     def save_examination(self, examination, persistant=False):
-        """Saves a temporary Instance of an Examination Object to the csv."""
+        """:param Examination examination: Examination object for saving
+
+        :param bool persistant: Flag whether save Examination temporarily or persisant. Defaults to :const:`False`
+
+        :exception TypeError:
+            Will be raised examination param is not of :class:`uvis_model.Examination`.
+
+        Saves a (temporary) instance of an Examination Object to the csv."""
         if (not(isinstance(examination,Examination))):
             raise TypeError(f'Invalid Object of type: {type(examination)}". \
                               Please use a correct {Examination} Object.')
@@ -370,9 +446,20 @@ class UltraVisModel:
         logger.info("Succesfully saved record "+str(exam["E_ID"]))
 
     def get_record(self, R_ID=None, E_ID=None):
-        """Returns an Record object or Record object list from the csv.
+        """
+        :param str R_ID: The key of an :class:`Record` object.
+            Used to get single record object.
+
+        :param str E_ID: The key of an :class:`Examination` object.
+            Used for all corresponding records to the examination.
+
+        :return: Either return single :class:`Record` object or `list` of :class:`Record` objects.
+
+        :rtype: Record, list, None
+
+        Returns an Record object or Record object list from the csv.
         Get corresponding Records via the E_ID or a specific instance via R_ID.
-        If it can't find an object the method returns None.
+        If it can't find an object the method returns :const:`None`.
         """
         if (R_ID is not None and E_ID is not None):
             raise ValueError('Either use R_ID or E_ID not both parameters')
@@ -397,7 +484,14 @@ class UltraVisModel:
             return result
 
     def save_record(self, record, persistant=False):
+        """:param Record record: Record object for saving
 
+        :param bool persistant: Flag whether save record temporarily or persisant. Defaults to :const:`False`
+
+        :exception TypeError:
+            Will be raised examination param is not of :class:`uvis_model.Record`.
+
+        Saves a (temporary) instance of an Examination Object to the csv."""
         if (not(isinstance(record,Record))):
             raise TypeError('Invalid Object of type:'+ type(record)+". Please use a correct Record Object.")
 
@@ -438,7 +532,17 @@ class UltraVisModel:
         return rec["R_ID"]
 
     def get_position(self, R_ID=None, as_dict=False, handle_df=None):
-        """Return the position as list with the 4 handle objects. Else it returns None."""
+        """
+        :param str R_ID: Record ID.
+
+        :param bool as_dict: Flag for getting the position as a dict or a list.
+
+        :param pd.DataFrame handle_df: DataFrame contained all recorded handle data (or sensor data).
+
+        :returns: Return the position as list or dict with the 4 :class:`aurora.Handle` objects. Else it returns :const:`None`.
+
+        :rtype: dict, list, None
+        """
         if handle_df is None:
             handle_df = self.t_handles
         R_ID = str(R_ID)
@@ -462,7 +566,16 @@ class UltraVisModel:
             return None
 
     def save_position(self, R_ID, handles):
+        """
+        :param str R_ID: Record ID.
 
+        :param dict handles: Dictionary containing the 4 :class:`aurora.Handle` objects.
+
+        :exception ValueError:
+            Will be raised if the saving procedure failed.
+        Saves the 4 :class:`aurora.Handle` objects to the database / csv.
+
+        """
         try:
             df = self.t_handles
 
@@ -481,6 +594,8 @@ class UltraVisModel:
             raise ValueError(str(e))
 
     def clear_temp_data(self):
+        """Revmoves all temporary from the whole data set.
+        Temp data are items which start with 'temp' in their IDs."""
         df1 = [self.t_examination, self.t_records]
         df2 = self.t_handles
 
@@ -498,6 +613,7 @@ class UltraVisModel:
         self._dataset_to_csv()
 
     def get_comparison(self, Eval_ID, as_df=True):
+
         df = self.t_comparison[self.t_comparison["E_ID"] == Eval_ID]
         if as_df:
             return df
@@ -701,7 +817,12 @@ class UltraVisModel:
         return arr
 
     def display_boxplot(self, input_arr, columns=None):
+        """
+        :param list input_arr: List of numpy.array containing the data for each plot column.
 
+        :param list columns: List of the column names.
+
+        Creates and displays a boxplot for the baseline evaluations."""
         df = pd.DataFrame(input_arr, columns=columns)
         bplot = df.boxplot()
         plt.axes(bplot)
@@ -717,7 +838,15 @@ class UltraVisModel:
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
     # TODO Should I average Quarternion here already ?
     def pos_to_transformed_data(self, position, orientation_type='quaternion'):
-        """Return the transformed data from a position"""
+        """
+        :param list position: A list with the 4 :class:`aurora.Handle` objects.
+
+        :returns: Return 2 lists with the transformed translative and transformed orientation data.
+
+        :rtype: list, list
+
+        Takes a record or rather the position and return the transformed data of the
+        Ultrasound probe. """
         cali = Calibrator()
         handle_US = position[0]
         handle_HR = position[1]
@@ -778,7 +907,7 @@ class UltraVisModel:
         finally:
             return img if asPILimage else ImageTk.PhotoImage(img)
 
-    def save_PIL_image(self,img,img_name,filetype='.png'):
+    def save_PIL_image(self, img, img_name, filetype='.png'):
         """Saves an PIL Image to the _cfg defined DATAPATH.
         Returns path of the saved image as a string.
         """

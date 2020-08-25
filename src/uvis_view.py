@@ -1,6 +1,6 @@
-"""This is the Uvis View module.
+"""This is the uvis_view module.
 
-This module does stuff.
+The uvis_view module contains contains the views / frontend of the uvis application.
 """
 
 import logging
@@ -57,12 +57,12 @@ SUM_TITLE_PADY = 5
 
 
 def clear_frame(func):
-    '''
-    The decorator clears the master (tk.Frame Object) of its children
+    """
+    The decorator clears the master (`tkinter.Frame` Object) of its children
     when the build_frame method is called.
     The build_frame method must be called with the 'master' keyword.
         Example: myframe = self.build_frame(master=parent_frame).
-    '''
+    """
     @wraps(func)
     def buildFrame_wrapper(*args, **kwargs):
         master = kwargs['master']
@@ -79,7 +79,17 @@ def clear_frame(func):
     return buildFrame_wrapper
 
 class UltraVisView(tk.Frame):
+    """
+    :param tkinter.Frame master:
+        The root frame.
 
+    :param bool debug_mode:
+        Enables debug functionality in the app.
+        The main.py normally sets this parameter.
+
+    The UltraVisView class inherits from the :class:`tkinter.Frame` class and is the frontend implementation
+    of the Uvis Application.
+    """
     def __init__(self, master, debug_mode=False):
         super().__init__(master)
 
@@ -111,7 +121,18 @@ class UltraVisView(tk.Frame):
         # self.tab_control.select(self.t2_debugFrame)
 
     def _center_window(self, toplevel, width, height):
-        '''Returns the centered Position for the tk.Frame.geometry() function.'''
+        """
+        :param tkinter.Frame toplevel:
+            The toplevel / root frame.
+
+        :param int width:
+
+        :param int height:
+
+        :returns: Returns the centered Position for the `tk.Frame.geometry()` function.
+
+        :rtype: str
+        """
         toplevel.update_idletasks()
         w = toplevel.winfo_screenwidth()
         h = toplevel.winfo_screenheight()
@@ -145,7 +166,8 @@ class UltraVisView(tk.Frame):
         self.t1_main_frame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
     def build_menu_frame(self, lFrame):
-        '''Build the menu frame and adds the buttons to the application'''
+        """:param tkinter.Frame lFrame: The master frame.
+        Build the menu frame and adds the buttons to the application"""
         self.menu_frame = tk.Frame(lFrame)
         self.menu_title_lb = tk.Label(self.menu_frame, text="Menu",
                                     font=Font(family='Open Sans', size=12))
@@ -221,7 +243,7 @@ class UltraVisView(tk.Frame):
         self.menu_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
     def clean_menu(self, childList):
-        '''Recursively removes the Buttons from the menu_frame'''
+        """Recursively removes the Buttons from the menu_frame"""
         for child in childList:
             if (child.winfo_class() == 'Frame'):
                 self.clean_menu(child.winfo_children())
@@ -231,12 +253,25 @@ class UltraVisView(tk.Frame):
                 child.pack_forget()
 
     def show_menu(self, menu='main', states=None):
-        '''Displays the corresponding menu, for an application frame.
-        The menu chosen via the menu parameter will be displayed. With the
+        """
+        :param str menu:
+            Menu to be displayed. Defaults to 'main'. Menu param must be in
+            `['main', 'new_examination', 'setup', 'examination', 'summary',
+            'open_examination', 'navigation', 'open_evaluation', 'evaluate_examination']`
+
+        :param list states:
+            list a 0,1 sequence for button states in the menu.
+
+        :exception ValueError:
+            Will be raised when `menu` param is not in valid keys.
+
+        Displays the corresponding menu, for an application frame.
+        The menu chosen via the `menu` parameter will be displayed. With the
         'states' parameter the states of the buttons in the menu
         can be influences via a 0,1 sequence [0,1,1,...].
-            STATES IS NOT IMPLEMENTED YET!
-        '''
+
+        :note: STATES IS NOT IMPLEMENTED YET!
+        """
         # Idea to use a state "table of 0 and 1 to enable / disable Button"
 
         # potentially add activatehandles button
@@ -272,15 +307,19 @@ class UltraVisView(tk.Frame):
                                    padx=(10), fill="both")
 
     def set_target_menu(self, records_list):
-        ''' Sets the target_menu for the navigation menu. Param records_list should hold R_ID which shall be loaded'''
+        """
+        :param list records_list:
+            Holds a list of R_ID (str), which are available for the dropdown.
+
+        Sets the target_menu for the navigation menu. Param records_list should hold R_ID which shall be loaded"""
         self.target_var.set(records_list[0])
         self.target_option_menu['menu'].delete(0, 'end')
         for value in records_list:
             self.target_option_menu['menu'].add_command(label=value, command=tk._setit(self.target_var, value))
 
-
     def build_details_frame(self, lFrame):
-        '''Builds the scrollable details_frame (ScrollableFrame object).'''
+        """:param tkinter.Frame lFrame: The master frame.
+        Builds the scrollable details_frame (:class:`helper.ScrollableFrame` object)."""
         scroll_framing = ScrollableFrame(lFrame)
         self.details_frame = scroll_framing.contentframe
         scroll_framing.grid_propagate(0)
@@ -296,13 +335,21 @@ class UltraVisView(tk.Frame):
 
     # cleaning setInfomsg?? when and how
     def set_info_message(self, msg, type='INFO'):
+        """
+        :param str msg: The message string to be displayed.
+
+        :param str type: The display type. Must be in `['INFO', 'SUCCESS', 'ERROR']`
+        Sets the info message in the details frame.
+        """
         OPTIONS = ['INFO', 'SUCCESS', 'ERROR']
         msg = str(msg)
         self.details_info_lb["text"] = msg
 
     @clear_frame
     def build_mainscreen_frame(self, master):
-        '''Builds the mainscreen of the app.'''
+        """:param tkinter.Frame master: The master frame.
+        Builds the mainscreen of the app.
+        """
         self.mainscreen_frame = tk.Frame(master)
         self.mainscreen_frame.rowconfigure(0, weight=1, uniform=1)
         self.mainscreen_frame.columnconfigure(0, weight=1, uniform=1)
@@ -315,6 +362,7 @@ class UltraVisView(tk.Frame):
 
     @clear_frame
     def build_newExam_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         self.newExam_frame = tk.Frame(master, bg="grey", padx=20, pady=10)
         self.newExam_frame.rowconfigure(0, weight=10, uniform=1)
         self.newExam_frame.rowconfigure(1, weight=90, uniform=1)
@@ -359,7 +407,7 @@ class UltraVisView(tk.Frame):
 
     @clear_frame
     def build_setup_frame(self, master):
-
+        """:param tkinter.Frame master: The master frame."""
         # 2x2 Matrix of Application frame
         self.setup_frame = tk.Frame(master, bg="grey", padx=10, pady=10)
         self.setup_frame.rowconfigure(0, weight=20, uniform=1)
@@ -435,6 +483,11 @@ class UltraVisView(tk.Frame):
         self.setup_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
     def set_current_setuphandle(self, handle_index):
+        """
+        :param int handle_index: index of 0-3.
+
+        Sets the active / current setuphandle in the setup frame.
+        """
         lastindex = len(self.setuphandle_frames) - 1
         if (self._current_setuphandle is None):
             self._current_setuphandle = self.setuphandle_frames[handle_index]
@@ -461,12 +514,16 @@ class UltraVisView(tk.Frame):
         self._current_setuphandle = self.setuphandle_frames[handle_index]
 
     def set_setup_instruction(self, text):
+        """:param str text: Instuction text.
+
+        Sets the setup instruction.
+        """
         text = str(text)
         self.instruction_lb["text"] = text
 
     @clear_frame
     def build_examination_frame(self, master):
-
+        """:param tkinter.Frame master: The master frame."""
         # Init of AppFrame Attributes
         self.navcanvas_data = ()
         self.img_size = None
@@ -538,10 +595,15 @@ class UltraVisView(tk.Frame):
         self.exam_frame.grid(row=0, column=0, padx=2, pady=2, sticky=tk.NSEW)
 
     def refresh_imgsize(self, frame, event=None):
+        """:param tkinter.Frame frame: :class:`tkinter.Frame` of the frame grabber.
+
+        Supporting method for background refreshing of frame grabber img_size.
+        """
         frame.after_idle(self.calculate_US_imgsize)
         #self.grid_frame.after_idle(self.calculate_US_imgsize)
 
     def calculate_US_imgsize(self):
+        """"Calculates the max available image size of the frame grabber / ultra sound image and resizes the image source."""
         # Get current Frame
         #cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
         #img = Image.fromarray(cv2image)
@@ -567,6 +629,7 @@ class UltraVisView(tk.Frame):
         self.refresh_saved_img()
 
     def refresh_saved_img(self, event=None):
+        """Supporting method for resizing the `saved_img` label."""
         # Refresh Saved IMG more Image possible
         if (self.saved_img is not None):
             self.saved_img = self.saved_img.resize(
@@ -576,6 +639,14 @@ class UltraVisView(tk.Frame):
             self.saved_img_lb.configure(image=self.saved_img_lb.imgtk)
 
     def refresh_img_for_lb(self, event=None, img=None, lb=None):
+        """
+        :param event event: Defaults to :const:`None`. Param is necessary for \<Framechanged\> event
+
+        :param Image.Image img: :class:`PIL.Image.Image` of the frame grabber.
+
+        :param tkinter.Label lb: :class:`tkinter.Label` for displaying the image.
+
+        Supporting method for setting to image for a given label and resizing it to img_size."""
         if not self.img_size:
             logger.debug("img_size still empty")
             lb.after(1000, self.refresh_img_for_lb, None, img, lb)
@@ -586,7 +657,7 @@ class UltraVisView(tk.Frame):
         lb.configure(image=imgtk)
 
     def build_coordinatesystem(self):
-
+        """Sets the navcanvas_data for the NavigationVisualization. It refreshes every 25 ms."""
         if (not hasattr(self,'navigationvis')):
             return
 
@@ -600,15 +671,9 @@ class UltraVisView(tk.Frame):
 
         #self.nav_canvas.draw()
 
-    '''
-    def saveUSImg(self):
-        cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
-        self.saved_img = Image.fromarray(cv2image)
-        self.refresh_saved_img()
-    '''
-
     @clear_frame
     def build_summary_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         self.summaryFrame = tk.Frame(master)
         self.summaryFrame.rowconfigure(0, weight=5, uniform=1)
         self.summaryFrame.rowconfigure(1, weight=95, uniform=1)
@@ -622,10 +687,21 @@ class UltraVisView(tk.Frame):
         self.summaryFrame.grid(row=0, column=0, sticky=tk.NSEW)
 
     def build_exam_summary(self, master, exam):
-        ''' Builds an Exam Summary Frame
-        The Frame displays the Exam Object in 3 Column pairs.
-            Returns the appropriate tk.Frame Object.
-        '''
+        """
+        :param tkinter.Frame master: The master frame.
+
+        :param uvis_model.Examination exam: The Examination object for the summary frame.
+
+        :exception TypeError:
+            Will be raised when param `exam` is not of type :class:`uvis_model.Examination`.
+
+        :return: Returns the :class:`uvis_model.Examination` summary as an :class:`tkinter.Frame` object.
+
+        :rtype: tkinter.Frame
+
+        Builds an a summary frame, for an Examination. The Frame displays the
+        :class:`uvis_model.Examination` object in 3 Column pairs.
+        """
         if (not isinstance(exam, Examination)):
             raise TypeError(f'Expected {Examination} for parameter record \
                               and got {type(exam)} instead.')
@@ -662,11 +738,21 @@ class UltraVisView(tk.Frame):
         return exam_summary
 
     def build_record_summary(self, master, record):
-        ''' Builds an Record Summary Frame
-        The Frame displays the Record Object in 3 Column pairs.
-        The Record image!!!!! Display.
-            Returns a tk.Frame Object.
-        '''
+        """
+        :param tkinter.Frame master: The master frame.
+
+        :param uvis_model.Record record: The Record object for the summary frame.
+
+        :exception TypeError:
+            Will be raised when param `record` is not of type :class:`uvis_model.Record`.
+
+        :return: Returns the :class:`uvis_model.Record` summary as an :class:`tkinter.Frame` object.
+
+        :rtype: tkinter.Frame
+
+        Builds an a summary frame, for a Record. The frame displays the
+        :class:`uvis_model.Record` object in 3 Column pairs.
+        """
         if (not isinstance(record, Record)):
             raise TypeError(f'Expected {Record} for parameter record \
                               and got {type(record)} instead.')
@@ -706,11 +792,21 @@ class UltraVisView(tk.Frame):
         return record_summary
 
     def build_position_summary(self, master, position):
-        ''' Builds an Position Summary Frame
-        The Frame displays the 4 Handles / the Position in an table format.
-        Returns a tk.Frame Object.
-        '''
+        """
+        :param tkinter.Frame master: The master frame.
 
+        :param dict position: A dictionary contained up to 4 :class:`aurora.Handles` object.
+
+        :exception TypeError:
+            Will be raised when if the dictonary `position` doesn't include objetcs :class:`aurora.Handles` only.
+
+        :return: Returns the sensor data for summary as an :class:`tkinter.Frame` object.
+
+        :rtype: tkinter.Frame
+
+        Builds an a summary frame, for an Examination. The Frame displays the
+        4 :class:`aurora.Handles` / the Position in an table format.
+        """
         if (isinstance(position, dict)):
             as_list = []
             for handle in position.values():
@@ -754,7 +850,8 @@ class UltraVisView(tk.Frame):
         return position_summary
 
     @clear_frame
-    def build_openexam_frame(self,master):
+    def build_openexam_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         self.openExamFrame = tk.Frame(master)
         self.openExamFrame.rowconfigure(0, weight=1, uniform=1)
         self.openExamFrame.columnconfigure(0,weight=1,uniform=1)
@@ -772,6 +869,7 @@ class UltraVisView(tk.Frame):
     # TODO bad reusage of a frames (navigation & Examination). No good solution yet.
     @clear_frame
     def build_navigation_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         self.navcanvas_data = ()
         self.img_size = None
         self.saved_img = None
@@ -853,8 +951,17 @@ class UltraVisView(tk.Frame):
 
         scroll.grid(row=0, column=0,sticky=tk.NSEW)
 
-
     def _build_statistics_table(self, master, title_id):
+        """:param tkinter.Frame master: The master frame.
+
+        :param string title_id: String for statistics table title.
+
+        :return: Statistics table frame.
+
+        :rtype: tkinter.Frame
+
+        Builds the statistics table frame.
+        """
         frame = tk.Frame(master=master, bg='yellow')
         frame.rowconfigure(0, weight=0)
         frame.rowconfigure(1, weight=0)
@@ -873,6 +980,10 @@ class UltraVisView(tk.Frame):
         return frame
 
     def set_statistics_table(self, df: pd.DataFrame):
+        """:param pd.DataFrame df: The DataFrame containing the statistic data.
+
+        Sets and displays the statistics data.
+        """
         if not self.statistics_table:
             self.statistics_table = pt = Table(self.statistics_table_frame, dataframe=df,
                                                 showtoolbar=False, showstatusbar=True)
@@ -881,10 +992,11 @@ class UltraVisView(tk.Frame):
             self.statistics_table.redraw()
 
     def get_statistics_table(self):
+        """Getter of statistics table frame."""
         return self.statistics_table
 
     def switch_imgsrc(self):
-        '''Switches between the VideoinputSource and the savedimaged frame'''
+        """Switches between the VideoinputSource and the savedimaged frame"""
         self.switch_imgsrc_but["state"] = 'normal'
         if self.USimg_frame.winfo_ismapped():
             logger.debug("Switched to SavedImgFrame")
@@ -900,7 +1012,8 @@ class UltraVisView(tk.Frame):
             logger.debug("No Switcheruu today. Please check the call!")
 
     @clear_frame
-    def build_openeval_frame(self,master):
+    def build_openeval_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         self.open_eval_frame = frame = tk.Frame(master)
         frame.rowconfigure(0, weight=1, uniform=1)
         frame.columnconfigure(0,weight=1,uniform=1)
@@ -918,7 +1031,9 @@ class UltraVisView(tk.Frame):
         frame.grid(row=0, column=0,sticky=tk.NSEW)
 
     def set_eval_menu(self, eval_list):
-        '''Loads the distinct E_IDs from the comparison table into the dropdown.'''
+        """:param list eval_list: List with all examination (E_ID) for evaluation.
+
+        Loads the distinct E_IDs from the comparison table into the dropdown."""
         self.eval_opts_var.set(eval_list[-1])
         self.eval_option_menu['menu'].delete(0, 'end')
         for e_id in eval_list:
@@ -926,6 +1041,7 @@ class UltraVisView(tk.Frame):
 
     @clear_frame
     def build_evaluation_frame(self, master):
+        """:param tkinter.Frame master: The master frame."""
         scroll = ScrollableFrame(master=master)
         self.eval_frame = frame = scroll.contentframe
 
@@ -937,9 +1053,9 @@ class UltraVisView(tk.Frame):
         compare_frame.grid(row=2, column=0, sticky=tk.NSEW)
         scroll.grid(row=0, column=0,sticky=tk.NSEW)
 
-
+    # Tab2 contains the old prototyp for testing the Aurora GUI.
     def _build_tab2(self):
-        # Tab2
+
         self.t2_debugFrame = tk.Frame(self.tab_control, bg="grey")
         self.t2_debugFrame.rowconfigure(0, weight=1)
         self.t2_debugFrame.columnconfigure(0, weight=80)
@@ -967,6 +1083,8 @@ class UltraVisView(tk.Frame):
         self.t2_debugFrame.pack(fill=tk.BOTH, expand=tk.TRUE)
 
     def build_DebugMenu(self, lFrame):
+        """:param tkinter.Frame lFrame: The master frame.
+        Builds the debug frame."""
         self.debugMenuLabel = tk.Label(lFrame, text="Debug Menu Options")
         self.initBut = tk.Button(lFrame)
         self.initBut["text"] = "INIT"
@@ -1006,6 +1124,7 @@ class UltraVisView(tk.Frame):
                 child.grid_propagate(0)
 
     def build_DebugCMD(self, rFrame):
+        """Build the debug menu"""
         self.cmdLabel = tk.Label(rFrame, text="CMD")
         self.cmdEntry = tk.Entry(rFrame, bd=5)
         self.expecLabel = tk.Label(
@@ -1023,7 +1142,7 @@ class UltraVisView(tk.Frame):
         self.sleeptimeEntry.grid(row=6, column=1, sticky=tk.EW)
 
     def initImages(self):
-
+        """Initializes images from the predecessor project."""
         imgdir = _cfg.IMGPATH
         self.notfoundimg = imgdir + "not-found-image.jpg"
 
@@ -1087,9 +1206,9 @@ class UltraVisView(tk.Frame):
         self.ziel = self.getImage_fromfile("ziel.jpg")
 
     def getImage_fromfile(self, filename, asTKImage=True):
+        """Return a PIL.Image.Image or PIL.ImageTk.PhotoImage from the file system."""
         # Opens Image and translates it to TK compatible file.
         #filename = self.imgdir+filename
-
         try:
             tkimage = Image.open(filename)
 

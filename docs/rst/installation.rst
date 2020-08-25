@@ -47,7 +47,6 @@ Python environment
 
 Starting the application
 ------------------------
-
 * Configure your application in the ``config.py`` module
     * Configure the ``COM Port`` for serial connection to the NDI Aurora system.
       In Windows you'll find that info under *control panel > device manager > COM devices*.
