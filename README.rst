@@ -45,5 +45,5 @@ If you have any question please contact Nam Bach <thanh_nam.bach@student.reutlin
 
 
 .. _`venvdoc`: https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/
-.. _`sphinx_doc.rst`: https://github.com/pyserial/pyserial/blob/master/documentation/pyserial.rst#installation
+.. _`sphinx_doc.rst`: https://ttrp.readthedocs.io/en/latest/rst/installation.html
 .. _Sphinx: http://sphinx-doc.org/
