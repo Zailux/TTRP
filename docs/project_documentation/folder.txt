@@ -1,0 +1,15 @@
+TTRP
+├───data
+├───docs
+│   ├───Avio
+│   ├───NDI
+│   │   └───ROM
+│   ├───project_documentation
+│   ├───rst
+│   │   └───imgs
+│   ├───_build
+│   ├───_static
+│   └───_templates
+├───img
+├───logs
+└───src
