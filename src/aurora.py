@@ -239,8 +239,8 @@ class Aurora:
 
             * Static: a static tool is considered to be relatively immobile, e.g. a reference tool
             * Dynamic: a dynamic tool is considered to be in motion, e.g. a probe.
-            * Button box: a button box can have switches and LEDs, but no sensor coils. No
-            transformations are returned for a button box tool, but switch status is returned
+            * Button box: a button box can have switches and LEDs, but no sensor coils. No \
+              transformations are returned for a button box tool, but switch status is returned
 
         Enables the reporting of transformations for a particular port handle.
         """
@@ -395,8 +395,7 @@ class Aurora:
 
     # Optional Feature Einbau der CRC Message, Gen + Check sinnvoll.
     def read_serial(self, expected=b'\r', to_log=True):
-        """
-        :param str expected: `Byte string` for the ending characters. Defaults to "b'\r'"
+        """:param str expected: `Byte string` for the ending characters.
 
         :param bool to_log: Flag for logging the responses.
 
@@ -787,7 +786,7 @@ class Handle:
 
     :param float Tz: z-position of handle.
 
-    :param float calc_Err: An estimate of how well the Aurora System calculated
+    :param float calc_Err: An estimate of how well the Aurora System calculated \
     the transformation. Value range is >= 0.
 
     :param float port_state: State of the port handle. See :class:`Port` and NDI Aurora Doc for more.

@@ -57,10 +57,10 @@ SUM_TITLE_PADY = 5
 
 
 def clear_frame(func):
-    """
-    The decorator clears the master (`tkinter.Frame` Object) of its children
+    """The decorator clears the master (`tkinter.Frame` Object) of its children
     when the build_frame method is called.
     The build_frame method must be called with the 'master' keyword.
+
         Example: myframe = self.build_frame(master=parent_frame).
     """
     @wraps(func)
@@ -167,6 +167,7 @@ class UltraVisView(tk.Frame):
 
     def build_menu_frame(self, lFrame):
         """:param tkinter.Frame lFrame: The master frame.
+
         Build the menu frame and adds the buttons to the application"""
         self.menu_frame = tk.Frame(lFrame)
         self.menu_title_lb = tk.Label(self.menu_frame, text="Menu",
@@ -319,6 +320,7 @@ class UltraVisView(tk.Frame):
 
     def build_details_frame(self, lFrame):
         """:param tkinter.Frame lFrame: The master frame.
+
         Builds the scrollable details_frame (:class:`helper.ScrollableFrame` object)."""
         scroll_framing = ScrollableFrame(lFrame)
         self.details_frame = scroll_framing.contentframe
@@ -335,10 +337,10 @@ class UltraVisView(tk.Frame):
 
     # cleaning setInfomsg?? when and how
     def set_info_message(self, msg, type='INFO'):
-        """
-        :param str msg: The message string to be displayed.
+        """:param str msg: The message string to be displayed.
 
         :param str type: The display type. Must be in `['INFO', 'SUCCESS', 'ERROR']`
+
         Sets the info message in the details frame.
         """
         OPTIONS = ['INFO', 'SUCCESS', 'ERROR']
@@ -348,6 +350,7 @@ class UltraVisView(tk.Frame):
     @clear_frame
     def build_mainscreen_frame(self, master):
         """:param tkinter.Frame master: The master frame.
+
         Builds the mainscreen of the app.
         """
         self.mainscreen_frame = tk.Frame(master)
@@ -1084,6 +1087,7 @@ class UltraVisView(tk.Frame):
 
     def build_DebugMenu(self, lFrame):
         """:param tkinter.Frame lFrame: The master frame.
+
         Builds the debug frame."""
         self.debugMenuLabel = tk.Label(lFrame, text="Debug Menu Options")
         self.initBut = tk.Button(lFrame)

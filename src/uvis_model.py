@@ -573,8 +573,8 @@ class UltraVisModel:
 
         :exception ValueError:
             Will be raised if the saving procedure failed.
-        Saves the 4 :class:`aurora.Handle` objects to the database / csv.
 
+        Saves the 4 :class:`aurora.Handle` objects to the database / csv.
         """
         try:
             df = self.t_handles

@@ -39,7 +39,7 @@ class Helper():
 
         :param str value: Sets the text for the widget.
 
-        :param int max_length: If the input value length len(value) > max_length, the method will return
+        :param int max_length: If the input value length len(value) > max_length, the method will return \
         a tk.Text Widget. Else it will return an Entry widget.
 
         :param int max_height: The maximum height of the Text widget.
