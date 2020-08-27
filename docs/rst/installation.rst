@@ -10,8 +10,6 @@ Project structure
 .. image:: imgs/folder.*
 
 
-
-
 Installing the project
 ----------------------
 
@@ -29,7 +27,7 @@ Alternatively here are the official links
     Possibly you need to register at the NDI support portal with your student email. But that is fast.
 
 * NDI Tool Box (https://support.ndigital.com/downloads.php?filetypebrowse=software) - contains necessary tools and drivers for connecting to NDI Aurora System
-* NDI User Guide and API Guides (https://github.com/Zailux/TTRP/master/docs/NDI LINK anpassen???) TODO
+* NDI User Guide v2 and API Guide v4 (https://github.com/Zailux/TTRP/tree/master/docs/NDI)
 
 **Avio Epiphan Framegrabber**
 

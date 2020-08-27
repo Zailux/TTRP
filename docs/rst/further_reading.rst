@@ -7,12 +7,12 @@ Hardware Docs
 **NDI Aurora Documentation**
 
 * NDI Tool Box (https://support.ndigital.com/downloads.php?filetypebrowse=software) - contains necessary tools and drivers for connecting to NDI Aurora System
-* NDI User Guide and API Guides (https://github.com/Zailux/TTRP/master/docs/NDI LINK anpassen???) TODO
+* NDI User Guide and API Guides (https://github.com/Zailux/TTRP/tree/master/docs/NDI)
 
 **Avio Epiphan Framegrabber**
 
 * Official documentation (https://www.epiphan.com/support/avio-hd-software-documentation/)
-* Drivers are also accessable in Github repository LINK im master ! TODO
+* Drivers are also accessable in Github repository (https://github.com/Zailux/TTRP/tree/master/docs/Avio)
 
 
 Quaternion
