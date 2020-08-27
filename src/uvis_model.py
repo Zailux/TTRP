@@ -435,7 +435,7 @@ class UltraVisModel:
         exam = examination.__dict__
         df = pd.DataFrame(data=exam,index=[0])
         df = df.set_index('E_ID')
-        logger.debug(df)
+        #logger.debug(df)
         try:
             new_exam = self.t_examination.append(df,verify_integrity=True)
             new_exam.to_csv(self.EXAMINATION_PATH)

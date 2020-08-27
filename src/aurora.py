@@ -107,7 +107,7 @@ class Aurora:
         key = str(key)
         if (key in self._observers):
             logging.debug(
-                f'{self.__class__}: Callback for "{key}" - {self._observers[key]}')
+                f'{self.__class__.__name__}: Callback for "{key}" - {self._observers[key]}')
             for observer_method in self._observers[key]:
                 observer_method()
 
