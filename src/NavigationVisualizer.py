@@ -2,13 +2,13 @@ import logging
 import tkinter as tk
 
 import matplotlib
+matplotlib.use('Tkagg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D
 
-matplotlib.use('Tkagg')
 
 class NavigationVisualizer:
 
@@ -57,7 +57,7 @@ class NavigationVisualizer:
         #self.canvas.get_tk_widget().grid(columnspan=2,sticky=tk.NSEW)
 
         self.__initAll()
-        self.__animateAll(0)
+        self.__animateAll(5)
 
         #self.test3d()
 
@@ -76,7 +76,7 @@ class NavigationVisualizer:
         ax.set_zlim([-1, 8])
         plt.show()
 
-        
+
         # animation funtion
         #self.anim = animation.FuncAnimation(self.fig, self.__animateAll,
         #                        init_func=self.__initAll,
@@ -126,7 +126,7 @@ class NavigationVisualizer:
         else:
             return False
 
-        
+
 
     def is_position_in_tolerance():
         correction_x = self.pos_x - self.target_pos_x
@@ -145,7 +145,7 @@ class NavigationVisualizer:
         #print("ori_x " + str(self.ori_x) + ", target_ori_x " + str(self.target_ori_x))
         #print("ori_y " + str(self.ori_y) + ", target_ori_y " + str(self.target_ori_y))
         #print("ori_z " + str(self.ori_z) + ", target_ori_z " + str(self.target_ori_z))
-        
+
         correction_ori_x = self.ori_x - self.target_ori_x
         correction_ori_y = self.ori_y - self.target_ori_y
 

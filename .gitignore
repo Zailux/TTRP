@@ -9,3 +9,7 @@ __pycache__/
 *.cpp
 data/img/*
 test_src
+docs/make.bat
+docs/Makefile
+docs/_build/
+docs/_static/
