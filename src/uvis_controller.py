@@ -281,7 +281,7 @@ class UltraVisController:
         #Verringern der Update Data frequenz
 
         logger.info(threading.current_thread().name+" has started tracking")
-        perma_plot = True
+        perma_plot = False
         freq = 0.01
         missing = False
         while(not self.stopTracking):
@@ -651,14 +651,16 @@ class UltraVisController:
         Calibrates by default the reference coordinate system of the application.
         An individual :class:`Calibrator` object can also be given (e.g. for loading recorded data).
         """
-
+        if (calibrator is None and self.aua.get_sysmode() != 'TRACKING'):
+            logger.warning("Please start tracking before calibrating.")
+            return
         logger.info("Calibrate Coordinate System")
         cali = self.calibrator if not calibrator else calibrator
         handles = self.hm.get_handles() if not handles else handles
 
         num_handle = self.hm.get_numhandles()
         if (num_handle != 4):
-            logger.warning(f'There are {num_handle} handles identified. Need 4 to calibrate!')
+            logger.warning(f'There are {num_handle} handles identified. Need 4 handles for calibration!')
         else:
             a = [handles['0B'].Tx, handles['0B'].Ty, handles['0B'].Tz] # becken rechts
             b = [handles['0C'].Tx, handles['0C'].Ty, handles['0C'].Tz] # becken links
@@ -876,6 +878,10 @@ class UltraVisController:
 
         # remove all temp records from E_ID or rather the whole dataset
         self.model.clear_temp_data()
+
+        self.model.load_workitem(exam_object.E_ID)
+
+        a = self.model.get_current_workitem()
 
         logger.info(f"Compare Current: {curr_target_R_ID} with new R_ID: {new_R_ID}")
 

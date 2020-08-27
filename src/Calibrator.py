@@ -19,7 +19,7 @@ class Calibrator:
 
         self.scale = 1.0
 
-    def set_trafo_matrix(self, a, b, c):
+    def set_trafo_matrix(self, a, b, c, log_matrix=False):
         """ set transformation matrix and inverse transformation matrix from calibration sensors
             a: Becken rechts (pelvis, right)
             b: Becken links (pelvis, left)
@@ -74,14 +74,15 @@ class Calibrator:
         # scale factor
         self.scale = 1 / ( (self.__dist_ab(a,b)))
 
-        print("trafo:")
-        print(self.trafo_matrix)
+        if log_matrix:
+            print("trafo:")
+            print(self.trafo_matrix)
 
-        print("trafo inv:")
-        print(self.trafo_matrix_inv)
+            print("trafo inv:")
+            print(self.trafo_matrix_inv)
 
-        print("scale:")
-        print(self.scale)
+            print("scale:")
+            print(self.scale)
 
     def quaternion_to_rpy(self, qw, qx, qy, qz):
         vx, vy, vz = self.__quaternion_to_unit_vectors(qw, qx, qy, qz)
@@ -103,11 +104,11 @@ class Calibrator:
         #print(transformed)
         a,b,c = self.__rpy_from_matrix(m)
         #print("r: " + str(a) + ", p: " + str(b) + ", y: " + str(c))
-        
+
         #b = vx[2]
         #print("---")
         #print(str(a) + ", " + str(b) + ", " + str(c))
-        
+
         return c,b,a
 
     def __rpy_from_matrix(self, m):
@@ -131,7 +132,7 @@ class Calibrator:
         return a,b,c
 
 
-        
+
 
     def __quaternion_to_unit_vectors(self, qw, qx, qy, qz):
         """ rotates unit vectors with input quaternion """
@@ -171,10 +172,10 @@ class Calibrator:
 
         pitch = self.__angle_between(z_on_xz, [0.0, 1.0])
         yaw = self.__angle_between(z_on_yz, [0.0, 1.0])
-        
+
         rotated_x = [[vx[0], vx[1], vx[2]]]
 
-        
+
         #roll = self.__angle_between(x_on_xy, )
 
 
@@ -184,7 +185,7 @@ class Calibrator:
         Source:
         https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
         """
-        
+
         sinr_cosp = 2 * (w * x + y * z)
         cosr_cosp = 1 - 2 * (x * x + y * y)
         roll = math.atan2(sinr_cosp, cosr_cosp)
@@ -209,7 +210,7 @@ class Calibrator:
 
     """
     def quaternion_to_rotations(self, qw, qx, qy, qz):
-        # builds rotation matrix from quaternion 
+        # builds rotation matrix from quaternion
         if (qw is None)or(qx is None)or(qy is None)or(qz is None):
             return 0.0, 0.0, 0.0
         # unit vectors
@@ -274,14 +275,14 @@ class Calibrator:
         if do_scale:
             result = np.multiply(self.scale, result)
         return [result[0], result[1], result[2]]
-        
+
     def rotate_backward(self, m):
         rot_m = [ \
             [self.trafo_matrix_inv[0][0], self.trafo_matrix_inv[0][1], self.trafo_matrix_inv[0][2], 0.0],
             [self.trafo_matrix_inv[1][0], self.trafo_matrix_inv[1][1], self.trafo_matrix_inv[1][2], 0.0],
             [self.trafo_matrix_inv[2][0], self.trafo_matrix_inv[2][1], self.trafo_matrix_inv[2][2], 0.0],
             [0.0, 0.0, 0.0, 1.0]]
-    
+
         result = np.dot(rot_m, m)
         return [result[0], result[1], result[2]]
 

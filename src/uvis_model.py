@@ -626,7 +626,7 @@ class UltraVisModel:
 
     def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None, insert_data=True):
         """Compares two records and creates an Comparison object with calculated values"""
-        logger.info("Compare stuff")
+        logger.info("Start comparing.")
         R_ID_base = tgt_rec.R_ID  # Target R_ID
         R_ID_nav = nav_rec.R_ID   # Navigated R_ID or rather saved one
         h_base = self.get_position(R_ID=R_ID_base)
@@ -672,7 +672,7 @@ class UltraVisModel:
 
     def _insert_comparison(self, df:pd.DataFrame):
         try:
-            self.t_comparison = self.t_comparison.append(df, verify_integrity=True)
+            self.t_comparison = self.t_comparison.append(df, ignore_index=True)
             self.t_comparison.to_csv(self.COMPARISON_PATH)
         except ValueError as e:
             logger.error("Could not insert comparison row. Errormsg - "+str(e))
@@ -711,7 +711,7 @@ class UltraVisModel:
 
     def _insert_evaluation(self, df:pd.DataFrame):
         try:
-            self.t_evaluation = self.t_evaluation.append(df, verify_integrity=True)
+            self.t_evaluation = self.t_evaluation.append(df, ignore_index=True)
             self.t_evaluation.to_csv(self.EVALUATION_PATH)
         except ValueError as e:
             logger.error("Could not insert Evaluation results row. Errormsg - "+str(e))
