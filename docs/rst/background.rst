@@ -63,6 +63,7 @@ complex numbers as is noted as followed:
 
 .. math::
     \bar{q} = a-bi-cj-dk
+
 The norm of a quaternion is calculated with the square root of the product of a quaternion. If the norm is one,
 such quaternion is denoted as **unit quaternion**.
 
@@ -70,6 +71,7 @@ such quaternion is denoted as **unit quaternion**.
     \left\|  q \right\| = \sqrt{q\bar{q}} = \sqrt{a^2+b^2+c^2+d^2}=1
 
 Regarding rotations quaternion describe the two important parts:
+
  * Rotation angle :math:`\theta`  – represented with the real part :math:`a`
  * Rotation axis :math:`(X,Y,Z)` -  represented with the imaginary part :math:`bi-cj-dk`
 
