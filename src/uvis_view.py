@@ -235,6 +235,8 @@ class UltraVisView(tk.Frame):
         self.reinit_aua_but = tk.Button(self.menu_frame)
         self.reinit_aua_but["text"] = "Reinitialize Aurora"
         self.NOBUTTONSYET = tk.Button(self.menu_frame, text="Secret Blowup Button")
+        #self.NOBUTTONSYET["state"] = 'disabled'
+        
 
         for widget in self.menu_frame.winfo_children():
             if widget.winfo_class() == 'Button':
@@ -275,6 +277,8 @@ class UltraVisView(tk.Frame):
         """
         # Idea to use a state "table of 0 and 1 to enable / disable Button"
 
+        self.set_calibrate_info("Not Calibrated", msg_type="ERROR")
+
         # potentially add activatehandles button
         menu_buttons = {
             'main': [self.new_exam_but, self.open_exam_but, self.open_eval_but],
@@ -303,9 +307,9 @@ class UltraVisView(tk.Frame):
                 for child in children:
                     child.pack(side=tk.LEFT, fill="both")
         self.current_menu = menu
-        if (self._debug):
-            self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),
-                                   padx=(10), fill="both")
+        #if (self._debug):
+        #    self.NOBUTTONSYET.pack(side=tk.BOTTOM, pady=(0, 0),
+        #                           padx=(10), fill="both")
 
     def set_target_menu(self, records_list):
         """
@@ -327,13 +331,64 @@ class UltraVisView(tk.Frame):
         scroll_framing.grid_propagate(0)
 
         self.details_title_lb = tk.Label(self.details_frame, text="Details")
+        self.details_handle_lb = tk.Label(self.details_frame, text="Handles Inactive")
+        self.details_handle_lb["fg"] = "white"
+        self.details_handle_lb["bg"] = "red"
+        self.details_tracking_lb = tk.Label(self.details_frame, text="Tracking Inactive")
+        self.details_tracking_lb["fg"] = "white"
+        self.details_tracking_lb["bg"] = "red"
+        self.details_calibrate_lb = tk.Label(self.details_frame, text="Not Calibrated")
+        self.details_calibrate_lb["fg"] = "white"
+        self.details_calibrate_lb["bg"] = "red"
         self.details_info_lb = tk.Label(self.details_frame, text=" - ")
         self.workitem_data_lb = tk.Label(self.details_frame, text=" - ")
 
         self.details_title_lb.pack(side=tk.TOP, pady=(10, 2), fill="both")
+        self.details_handle_lb.pack(side=tk.TOP, pady=(2, 2), fill="both")
+        self.details_tracking_lb.pack(side=tk.TOP, pady=(2, 2), fill="both")
+        self.details_calibrate_lb.pack(side=tk.TOP, pady=(2, 2), fill="both")
         self.details_info_lb.pack(side=tk.TOP, pady=(2, 2), fill="both")
         self.workitem_data_lb.pack(side=tk.TOP, pady=(2, 2), fill="both")
+
         scroll_framing.grid(row=1, column=0, padx=2, pady=2, sticky=tk.NSEW)
+
+
+    def set_handle_info(self, msg, msg_type='INFO'):
+        if msg_type == 'ERROR':
+            self.details_handle_lb["fg"] = "white"
+            self.details_handle_lb["bg"] = "red"
+        elif msg_type == 'SUCCESS':
+            self.details_handle_lb["fg"] = "white"
+            self.details_handle_lb["bg"] = "lime green"
+        else:
+            self.details_handle_lb["fg"] = "black"
+            self.details_handle_lb["bg"] = "white"
+        self.details_handle_lb["text"] = msg
+
+    def set_tracking_info(self, msg, msg_type='INFO'):
+        if msg_type == 'ERROR':
+            self.details_tracking_lb["fg"] = "white"
+            self.details_tracking_lb["bg"] = "red"
+        elif msg_type == 'SUCCESS':
+            self.details_tracking_lb["fg"] = "white"
+            self.details_tracking_lb["bg"] = "lime green"
+        else:
+            self.details_tracking_lb["fg"] = "black"
+            self.details_tracking_lb["bg"] = "white"
+        self.details_tracking_lb["text"] = msg
+
+    def set_calibrate_info(self, msg, msg_type='INFO'):
+        if msg_type == 'ERROR':
+            self.details_calibrate_lb["fg"] = "white"
+            self.details_calibrate_lb["bg"] = "red"
+        elif msg_type == 'SUCCESS':
+            self.details_calibrate_lb["fg"] = "white"
+            self.details_calibrate_lb["bg"] = "lime green"
+        else:
+            self.details_calibrate_lb["fg"] = "black"
+            self.details_calibrate_lb["bg"] = "white"
+        self.details_calibrate_lb["text"] = msg
+        
 
     # cleaning setInfomsg?? when and how
     def set_info_message(self, msg, type='INFO'):
@@ -666,11 +721,11 @@ class UltraVisView(tk.Frame):
 
         if (len(self.navcanvas_data) is not 0):
             x,y,z,a,b,c,color = self.navcanvas_data
-            self.navigationvis.set_pos(x[0], y[0])
+            self.navigationvis.set_pos(x[0], y[0],z[0])
             self.navigationvis.set_ori(a[0],b[0],c[0])
             self.navigationvis.update_All()
 
-            self._Canvasjob = self.nav_canvas._tkcanvas.after(25,func=self.build_coordinatesystem)
+            self._Canvasjob = self.nav_canvas._tkcanvas.after(10,func=self.build_coordinatesystem)
 
         #self.nav_canvas.draw()
 
@@ -877,7 +932,7 @@ class UltraVisView(tk.Frame):
         self.img_size = None
         self.saved_img = None
 
-        scroll = ScrollableFrame(master=master, bg="red")
+        scroll = ScrollableFrame(master=master, bg="black")
         self.navigation_frame = scroll.contentframe
         self.navigation_frame.rowconfigure(0, weight=1)
         self.navigation_frame.rowconfigure(1, weight=0)

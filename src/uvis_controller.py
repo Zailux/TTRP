@@ -91,6 +91,7 @@ class UltraVisController:
         Closing method when the root window is closed.
         Stops all relevant processing for a clean exit.
         """
+        self.stopTracking = True
         if (hasattr(self.view, 'examination_frame')):
              #Close FrameGrabber
             self.view.USimg_lb.after_cancel(self._framegrabber_job)
@@ -243,7 +244,8 @@ class UltraVisController:
                 success=False
                 #maybe solve via states in show menu Later
                 self.view.activate_handle_but.pack(side=tk.TOP, pady=(0, 0),padx=(10), fill="both")
-
+        if success:
+            self.view.set_handle_info("Handles Activated", msg_type="SUCCESS")
         logger.info("Activate Handles - finished with NO_ERRORS" if success else "Activate Handles - finished with ERRORS")
 
 
@@ -279,7 +281,7 @@ class UltraVisController:
         """
         #Stop as soon the event is set
         #Verringern der Update Data frequenz
-
+        self.view.set_calibrate_info("Not Calibrated", msg_type="ERROR")
         logger.info(threading.current_thread().name+" has started tracking")
         perma_plot = False
         freq = 0.01
@@ -294,11 +296,13 @@ class UltraVisController:
                         self.setNavCanvasData()
                         if missing:
                             missing = False
+                            self.view.set_tracking_info("Tracking OK", msg_type='SUCCESS')
                             logger.info(f"All Handles are now active! :-)")
                     else:
                         missing = True
                         miss = self.hm.get_missing_handles()
                         logger.info(f"MISSING HANDLE! {miss}")
+                        self.view.set_tracking_info(f"MISSING HANDLE! {miss}", msg_type='ERROR')
                     if perma_plot:
                         self.refresh_position_data() # TODO Takes HALF A SECOND !!! Performance Killer
                 else:
@@ -311,6 +315,8 @@ class UltraVisController:
             t1 = datetime.now()
             #logger.debug(t1-t0)
 
+        self.view.set_tracking_info("Tracking Inactive", msg_type='ERROR')
+        self.view.set_calibrate_info("Not Calibrated", msg_type="ERROR")
         self.stopTracking = False
         logger.info(threading.current_thread().name+" has stopped!")
 
@@ -376,7 +382,11 @@ class UltraVisController:
                     y.append(transformed[1])
                     z.append(transformed[2])
 
-                    temp_a, temp_b, temp_c = self.calibrator.quaternion_to_rotations(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    if self.calibrator.target_rotation_matrix is not None:           
+                        temp_a, temp_b, temp_c = self.calibrator.get_target_rotation_split(handle.Q0, handle.Qx, handle.Qy, handle.Qz)
+                    else:
+                        #print("[ERROR] skipping target split once")
+                        temp_a, temp_b, temp_c = 0,0,0
                     a.append(temp_a)
                     b.append(temp_b)
                     c.append(temp_c)
@@ -651,6 +661,7 @@ class UltraVisController:
         Calibrates by default the reference coordinate system of the application.
         An individual :class:`Calibrator` object can also be given (e.g. for loading recorded data).
         """
+        is_live_calibration = calibrator==None
         if (calibrator is None and self.aua.get_sysmode() != 'TRACKING'):
             logger.warning("Please start tracking before calibrating.")
             return
@@ -671,6 +682,9 @@ class UltraVisController:
                 trafo_param[i] = hp.to_float(vector)
             cali.set_trafo_matrix(a,b,c, log_matrix=True)
 
+            if is_live_calibration:
+                self.view.set_calibrate_info("Calibrated", msg_type='SUCCESS')
+
     def set_target_pos(self, calibrator=None, handles=None):
         """
         :param Calibrator calibrator: Preconfigured calibrator object or :const:`None`.
@@ -689,20 +703,27 @@ class UltraVisController:
         if (num_handle is not 4):
             logger.warning(f'There are {num_handle} handles identified. Is that correct?')
         else:
-            current_pos = hp.to_float([handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz])
-            #current_ori = self.calibrator.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
-            #print(current_ori)
+            
+            orientation_matrix = cali.quaternion_to_rotation_matrix(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            rot_matrix = cali.rotate_backward(orientation_matrix)
+            self.calibrator.set_target_rotation_matrix(rot_matrix)
 
-            a, b, c = cali.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            current_pos = hp.to_float([handles['0A'].Tx, handles['0A'].Ty, handles['0A'].Tz])
+            
             pos = cali.transform_backward(current_pos)
 
-            self.view.navigationvis.set_target_pos(pos[0], pos[1])
-            self.view.navigationvis.set_target_ori(a, b, c)
+            self.view.navigationvis.set_target_pos(pos[0], pos[1], pos[2])
+            
+            #a, b, c = cali.quaternion_to_rotations(handles['0A'].Q0, handles['0A'].Qx, handles['0A'].Qy, handles['0A'].Qz)
+            #self.view.navigationvis.set_target_ori(a, b, c)
 
     # TODO Muss Logik einbauen, dass das System dabei auch resettet wird &
     # das GUI etc. korrekt gestoppt wird
     def cancel_examination(self, save=False):
         """Cancels current workflow and loads the main menu frame."""
+        if self.aua.get_sysmode() == "TRACKING":
+                self.startstopTracking()
+        self.view.set_handle_info("Handles Inactive", msg_type="ERROR")
         self.view.build_mainscreen_frame(master=self.view.right_frame)
         self.view.show_menu()
 
@@ -728,6 +749,7 @@ class UltraVisController:
 
             try:
                 new_E_ID = self.model.persist_workitem()
+                #logging.debug(new_E_ID)
             except ValueError as e:
                 msg = "Could not save Examination. See logs for details."
                 self.view.set_info_message(msg)
@@ -747,6 +769,7 @@ class UltraVisController:
             logger.info(msg)
             self.view.set_info_message(msg=msg,type='ERROR')
             return
+        self.view.set_handle_info("Handles Inactive", msg_type="ERROR")
 
     def build_summary(self):
         """Build the summary for "examination summary" frame."""
@@ -779,6 +802,8 @@ class UltraVisController:
         lastE_ID = self.model.t_examination.tail().index.tolist()
         self.view.lastE_IDs["text"] += '\n\n'+str(lastE_ID)
         self.view.examID_entry.bind('<Return>', func=self.start_navigation)
+
+        self.view.set_calibrate_info("Not Calibrated", msg_type="ERROR")
 
         if self.aua.get_sysmode() == 'SETUP':
             self.q.put(self.activateHandles)
@@ -933,7 +958,6 @@ class UltraVisController:
 
         print("Donus")
 
-
     def init_button_func(self):
         """Sets for all buttons the functionality.
         The buttons are defined in :func:`UltraVisView.build_menu_frame`."""
@@ -950,7 +974,7 @@ class UltraVisController:
         self.view.track_but["command"] = lambda: self.q.put(self.startstopTracking)
         self.view.finish_exam_but["command"] = lambda: self.q.put(self.finalize_examination)
 
-        self.view.mainmenu_but["command"] = self.cancel_examination
+        self.view.mainmenu_but["command"] = lambda: self.q.put(self.cancel_examination)
 
         self.view.start_navigation_but["command"] = self.start_navigation
         self.view.calibrate_but["command"] = self.calibrate_coordsys
@@ -959,7 +983,7 @@ class UltraVisController:
         self.view.nav_save_record_but["command"] = lambda: self.q.put(self.nav_save_record)
         self.view.accept_record_but["command"] = lambda: self.q.put(self.nav_accept_record)
 
-        self.view.cancel_but["command"] = self.cancel_examination
+        self.view.cancel_but["command"] = lambda: self.q.put(self.cancel_examination)
 
         self.view.NOBUTTONSYET["command"] = self._debugfunc
         #lambda: print("NO FUNCTIONALITY YET BUT I'LL GET U soon :3 <3")

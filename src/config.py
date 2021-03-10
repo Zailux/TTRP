@@ -62,10 +62,10 @@ class Configuration(metaclass=Singleton):
         self.IMGPATH = "img\\"
 
         # Serial Configuration
-        self.COM = 'COM8'
+        self.COM = 'COM4'
 
         #Video Input Configuration
-        self.VID_INPUT = 0                      #defaults to 0
+        self.VID_INPUT = 1                    #defaults to 0
 
         #Logger
         format = "%(asctime)s - %(threadName)s - %(levelname)s | %(message)s"

@@ -142,7 +142,7 @@ class ScrollableFrame(tk.Frame):
         self.bind(
             "<Configure>",
             lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+                    scrollregion=canvas.bbox("all")
             )
         )
 

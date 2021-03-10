@@ -624,6 +624,49 @@ class UltraVisModel:
         self.t_records.to_csv(self.RECORDS_PATH)
         self.t_handles.to_csv(self.HANDLE_PATH)
 
+    def _init_calibrator(self, position):
+        cali = Calibrator()
+        handle_US = position[0]
+        handle_HR = position[1]
+        handle_LR = position[2]
+        handle_B = position[3]
+        a = handle_HR.get_trans_data() # becken rechts
+        b = handle_LR.get_trans_data() # becken links
+        c = handle_B.get_trans_data() # brustbein
+        cali.set_trafo_matrix(a,b,c)
+        return cali
+
+    def _ori_data(self, h_base, h_nav):
+        """ get all the orientations """
+        # one calibrator for the base exam and one for the navigation
+        cali_base = self._init_calibrator(h_base)
+        cali_nav = self._init_calibrator(h_nav)
+        US_base = h_base[0]
+        US_nav = h_nav[0]
+
+        # target quaternion
+        bQ0, bQx, bQy, bQz = US_base.get_orient_data()
+        # target rotation matrix
+        base_ori_matrix = cali_base.quaternion_to_rotation_matrix(bQ0, bQx, bQy, bQz)
+        # calibrated target rotation matrix
+        base_ori_matrix_transformed = cali_base.rotate_backward(base_ori_matrix)
+        # set target in nav calibrator
+        cali_nav.set_target_rotation_matrix(base_ori_matrix_transformed)
+
+        # navigator quaternion
+        nQ0, nQx, nQy, nQz = US_nav.get_orient_data()
+        # rotation difference in euler
+        roll, pitch, yaw = cali_nav.get_target_rotation_split(nQ0, nQx, nQy, nQz)
+
+        #print("### ori ###")
+        #print(roll)
+        #print(pitch)
+        #print(yaw)
+
+        diff_rpy = [roll, pitch, yaw]
+
+        return diff_rpy
+
     def compare_records(self, tgt_rec:Record, nav_rec:Record, E_ID=None, insert_data=True):
         """Compares two records and creates an Comparison object with calculated values"""
         logger.info("Start comparing.")
@@ -645,6 +688,9 @@ class UltraVisModel:
         x_dif, y_dif, z_dif = np.absolute(dist_vec) # removed from db, due to conversion issues
         acc_t = distance
 
+        rpy = self._ori_data(h_base, h_nav)
+        acc_o = np.array(rpy, float)
+
         # Pessimistic comparing.
         calc_errors = np.array([self._get_max_calcerror(h_base), self._get_max_calcerror(h_nav)])
 
@@ -658,7 +704,7 @@ class UltraVisModel:
                       "vec_base": vec_base,
                       "vec_nav": vec_nav,
                       "acc_t": acc_t,
-                      "acc_o":None,
+                      "acc_o": acc_o,
                       "calc_errors":calc_errors,
                       "doc_eval":None,
                       "E_ID": E_ID}
@@ -672,7 +718,7 @@ class UltraVisModel:
 
     def _insert_comparison(self, df:pd.DataFrame):
         try:
-            self.t_comparison = self.t_comparison.append(df, ignore_index=True)
+            self.t_comparison = self.t_comparison.append(df, ignore_index=True, sort=True)
             self.t_comparison.to_csv(self.COMPARISON_PATH)
         except ValueError as e:
             logger.error("Could not insert comparison row. Errormsg - "+str(e))
@@ -837,6 +883,7 @@ class UltraVisModel:
 
     # TODO how to deal with position / Handles appropriately? List Or dict !!! no mixture
     # TODO Should I average Quarternion here already ?
+    # TODO euler is not correctly implemented
     def pos_to_transformed_data(self, position, orientation_type='quaternion'):
         """
         :param list position: A list with the 4 :class:`aurora.Handle` objects.
@@ -860,7 +907,7 @@ class UltraVisModel:
 
         trans_pos = cali.transform_backward(handle_US.get_trans_data(), do_scale=False)
         q0,i,j,k = handle_US.get_orient_data()
-        yaw, pitch, roll = cali.quaternion_to_rotations(q0,i,j,k)
+        yaw, pitch, roll = cali.get_transformed_rotation(q0,i,j,k)
 
         trans_ori_quat =[q0,i,j,k]
         trans_ori_euler = [yaw, pitch, roll]  #TODO sobald Orientierung funzt
@@ -928,5 +975,8 @@ class UltraVisModel:
         a = string.replace("[","").replace("]","").replace("'","").split(" ")
         result = []
         for item in a:
-            result.append(dtype(item))
+            if item == "":
+                result.append(None)
+            else:
+                result.append(dtype(item))
         return result

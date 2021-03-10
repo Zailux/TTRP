@@ -348,7 +348,11 @@ class Aurora:
         Its faster than tx due to shorter response length.
         """
         if(option == None):
-            self.ser.write(b'BX \r')
+            try:
+                self.ser.write(b'BX \r')
+            except:
+                print("writing bx failed")
+                return [], []
         else:
             print("No Options implemented for BX!")
 
@@ -359,7 +363,11 @@ class Aurora:
         return header_bytes, rest
 
     def readSerialByteCode(self, length):
-        out = self.ser.read(length)
+        try:
+            out = self.ser.read(length)
+        except:
+            logging.error("Reading SerialByteCode failed.")
+            return []
         return out
 
     def tx(self, option=None):
@@ -595,6 +603,9 @@ class HandleManager:
         for i in range(n_handles):
             #handle_bytes = bx_data[i*42:(i*42)+42]
             handle_bytes = bx_data[index:index+2]
+            if len(handle_bytes) == 0:
+                logging.error("len(handly_bytes==0")
+                return False
             h_id_int = handle_bytes[0]
             h_id = ''
             if (h_id_int == 10):
