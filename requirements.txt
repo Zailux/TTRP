@@ -24,7 +24,7 @@ opencv-contrib-python==4.2.0.34
 packaging==20.4
 pandas==1.0.3
 pandastable==0.12.2.post1
-Pillow==7.1.2
+Pillow==9.0.0
 pycodestyle==2.6.0
 Pygments==2.6.1
 pylint==2.5.2
